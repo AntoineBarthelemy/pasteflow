@@ -1,0 +1,46 @@
+{
+  "$schema": "https://alirezanet.github.io/Husky.Net/schema.json",
+  "tasks": [
+    {
+      "name": "format-check",
+      "group": "pre-commit",
+      "command": "dotnet",
+      "args": ["format", "--verify-no-changes", "--include", "${staged}"],
+      "include": ["**/*.cs"]
+    },
+    {
+      "name": "forbidden-patterns",
+      "group": "pre-commit",
+      "command": "dotnet",
+      "args": ["husky", "exec", ".husky/csx/forbidden-patterns.csx", "--args", "${staged}"],
+      "include": ["src/**/*.cs", "tests/**/*.cs"]
+    },
+    {
+      "name": "build",
+      "group": "pre-commit",
+      "command": "dotnet",
+      "args": ["build", "--nologo"],
+      "include": ["**/*.cs", "**/*.csproj", "**/*.props", "**/*.targets", ".editorconfig", "stylecop.json"],
+      "filteringRule": "staged"
+    },
+    {
+      "name": "test",
+      "group": "pre-commit",
+      "command": "dotnet",
+      "args": ["test", "--no-build", "--nologo"],
+      "include": ["**/*.cs", "**/*.csproj", "**/*.props", "**/*.targets"],
+      "filteringRule": "staged"
+    },
+    {
+      "name": "commit-message-linter",
+      "group": "commit-msg",
+      "command": "dotnet",
+      "args": ["husky", "exec", ".husky/csx/commit-lint.csx", "--args", "${args}"]
+    },
+    {
+      "name": "format-fix",
+      "command": "dotnet",
+      "args": ["format"]
+    }
+  ]
+}

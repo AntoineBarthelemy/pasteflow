@@ -1,0 +1,22 @@
+<Project>
+  <!--
+    Installs the Git hooks (Husky.Net) automatically on the first restore of a developer machine.
+    Disabled in continuous integration (CI=true) or with the HUSKY=0 environment variable.
+  -->
+  <PropertyGroup>
+    <HuskyRoot>$(MSBuildThisFileDirectory)</HuskyRoot>
+  </PropertyGroup>
+
+  <Target Name="Husky"
+          AfterTargets="Restore"
+          Condition="'$(HUSKY)' != '0' and '$(CI)' != 'true'"
+          Inputs="$(HuskyRoot).config/dotnet-tools.json"
+          Outputs="$(HuskyRoot).husky/_/install.stamp">
+    <Exec Command="dotnet tool restore" StandardOutputImportance="Low" StandardErrorImportance="High" WorkingDirectory="$(HuskyRoot)" />
+    <Exec Command="dotnet husky install" StandardOutputImportance="Low" StandardErrorImportance="High" WorkingDirectory="$(HuskyRoot)" />
+    <Touch Files="$(HuskyRoot).husky/_/install.stamp" AlwaysCreate="true" Condition="Exists('$(HuskyRoot).husky/_')" />
+    <ItemGroup>
+      <FileWrites Include="$(HuskyRoot).husky/_/install.stamp" />
+    </ItemGroup>
+  </Target>
+</Project>
