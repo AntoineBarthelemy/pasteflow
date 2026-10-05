@@ -29,7 +29,9 @@ public sealed class ScreenCandidateSource : ICandidateSource
             .OrderBy(window => window.Rank)
             .SelectMany(window => TextSegmenter.Segment(window.Text).Select(piece => new Candidate
             {
-                Value = piece,
+                Value = piece.Value,
+                Kind = piece.Kind,
+                Label = piece.Label,
                 SourceName = window.Title,
                 SourceRank = window.Rank,
             }))

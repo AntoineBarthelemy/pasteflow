@@ -1,3 +1,4 @@
+using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
 
 namespace PasteFlow.Core.Tests.Forms;
@@ -65,6 +66,35 @@ public sealed class FillReportTests
         Assert.Contains($"{new string('a', FillReport.MaxSourceNameLength - 1)}… (1)", message, StringComparison.Ordinal);
         Assert.Contains("Fenêtre 3 (1).", message, StringComparison.Ordinal);
         Assert.DoesNotContain("Fenêtre 4", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Describe_ListsRecognizedValuesByKind()
+    {
+        var report = Report(filled: 1, alreadyFilled: 0, failed: 0, new[] { Source("Gmail", 10) }) with
+        {
+            RecognizedCounts = new Dictionary<CandidateKind, int>
+            {
+                [CandidateKind.Reference] = 3,
+                [CandidateKind.Email] = 1,
+                [CandidateKind.Phone] = 2,
+                [CandidateKind.Text] = 40,
+                [CandidateKind.Date] = 0,
+            },
+        };
+
+        Assert.EndsWith(
+            "\nLu à l'écran : Gmail (10).\nReconnu : 1 e-mail, 2 téléphones, 3 références.",
+            report.Describe(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Describe_WithoutRecognizedValue_HasNoRecognizedLine()
+    {
+        var report = Report(filled: 1, alreadyFilled: 0, failed: 0, new[] { Source("Gmail", 10) });
+
+        Assert.DoesNotContain("Reconnu", report.Describe(), StringComparison.Ordinal);
     }
 
     private static SourceSummary Source(string name, int candidateCount)

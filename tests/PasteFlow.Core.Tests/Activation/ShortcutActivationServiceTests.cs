@@ -236,6 +236,25 @@ public sealed class ShortcutActivationServiceTests : IDisposable
     }
 
     [Fact]
+    public void HotkeyPressed_CountsEachRecognizedValueOnce()
+    {
+        _candidateSource.Candidates = new[]
+        {
+            CandidateFrom("Gmail", rank: 0, "CMD-48213") with { Kind = CandidateKind.Reference },
+            CandidateFrom("Bloc-notes", rank: 1, "CMD-48213") with { Kind = CandidateKind.Reference },
+            CandidateFrom("Gmail", rank: 0, "antoine@example.com") with { Kind = CandidateKind.Email },
+            CandidateFrom("Gmail", rank: 0, "Bonjour"),
+        };
+        using var service = CreateService();
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        var message = Assert.Single(_notifier.Messages);
+        Assert.EndsWith("Reconnu : 1 e-mail, 1 référence.", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void HotkeyPressed_BeforeStart_DoesNothing()
     {
         using var service = CreateService();

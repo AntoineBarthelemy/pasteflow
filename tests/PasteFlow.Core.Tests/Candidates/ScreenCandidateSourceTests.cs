@@ -7,7 +7,7 @@ namespace PasteFlow.Core.Tests.Candidates;
 public sealed class ScreenCandidateSourceTests
 {
     [Fact]
-    public async Task GetCandidatesAsync_OffersEachLineWithItsWindow()
+    public async Task GetCandidatesAsync_OffersEachPieceWithItsKindLabelAndWindow()
     {
         var reader = new FakeWindowTextReader
         {
@@ -20,6 +20,16 @@ public sealed class ScreenCandidateSourceTests
         Assert.Collection(
             candidates,
             candidate => Assert.Equal(new Candidate { Value = "Bonjour", SourceName = "Gmail", SourceRank = 0 }, candidate),
+            candidate => Assert.Equal(
+                new Candidate
+                {
+                    Value = "CMD-48213",
+                    Kind = CandidateKind.Reference,
+                    Label = "Commande n°",
+                    SourceName = "Gmail",
+                    SourceRank = 0,
+                },
+                candidate),
             candidate => Assert.Equal("Commande n° CMD-48213", candidate.Value));
     }
 

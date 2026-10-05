@@ -1,33 +1,232 @@
+using System.Text.RegularExpressions;
+
 namespace PasteFlow.Core.Candidates;
 
 /// <summary>
-/// Cuts a text into pieces that could be pasted.
+/// Cuts a text into units of meaning that could be pasted: recognized values (emails, phone numbers, dates,
+/// amounts, references...) with the label that introduces them, "label: value" pairs and plain lines.
 /// </summary>
 /// <remarks>
-/// For now a piece is a line. Finer units of meaning (emails, numbers, dates, "label: value") come next.
+/// The rules run line by line. A line made only of a label ending with ":" labels the value of the next line.
 /// </remarks>
-public static class TextSegmenter
+public static partial class TextSegmenter
 {
     /// <summary>
-    /// The maximum length of a piece; longer lines are paragraphs, not values to paste.
+    /// The maximum length of a plain line kept as a piece; longer lines are paragraphs, not values to paste.
     /// </summary>
     public const int MaxPieceLength = 200;
 
+    /// <summary>
+    /// The maximum length of a label.
+    /// </summary>
+    public const int MaxLabelLength = 40;
+
+    private const int RegexTimeoutMilliseconds = 100;
+    private const int MinReferenceLength = 4;
+
     private static readonly char[] LineBreaks = { '\r', '\n' };
+    private static readonly char[] LabelTrimmedChars = { ' ', '\t', ':', '-', '–', '—', '|', '(', '[', ',', ';' };
+    private static readonly char[] UrlTrimmedEndChars = { '.', ',', ';', ':', '!', '?', ')', ']', '\'', '"' };
 
     /// <summary>
-    /// Cuts a text into distinct, trimmed and non-empty lines, in their order of appearance.
+    /// Recognizers in priority order: a span taken by one recognizer is not seen by the next ones.
+    /// </summary>
+    private static readonly (Func<Regex> Pattern, CandidateKind Kind)[] Recognizers =
+    {
+        (EmailRegex, CandidateKind.Email),
+        (UrlRegex, CandidateKind.Url),
+        (IbanRegex, CandidateKind.Iban),
+        (PhoneRegex, CandidateKind.Phone),
+        (DateRegex, CandidateKind.Date),
+        (AmountRegex, CandidateKind.Amount),
+        (ReferenceRegex, CandidateKind.Reference),
+        (NumberRegex, CandidateKind.Number),
+    };
+
+    /// <summary>
+    /// Cuts a text into units of meaning, in their order of appearance, without duplicates.
     /// </summary>
     /// <param name="text">The text to cut.</param>
     /// <returns>The pieces of the text.</returns>
-    public static IReadOnlyList<string> Segment(string text)
+    public static IReadOnlyList<TextPiece> Segment(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
 
-        return text
-            .Split(LineBreaks, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .Where(line => line.Length <= MaxPieceLength)
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
+        var pieces = new List<TextPiece>();
+        var pendingLabel = string.Empty;
+        foreach (var line in text.Split(LineBreaks, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (IsLabelOnly(line))
+            {
+                pendingLabel = CleanLabel(line);
+                continue;
+            }
+
+            pieces.AddRange(SegmentLine(line, pendingLabel));
+            pendingLabel = string.Empty;
+        }
+
+        return RemoveDuplicates(pieces);
     }
+
+    private static bool IsLabelOnly(string line)
+    {
+        return line.Length <= MaxLabelLength + 1 && line.EndsWith(':') && char.IsLetter(line[0]);
+    }
+
+    private static List<TextPiece> SegmentLine(string line, string contextLabel)
+    {
+        var pieces = new List<TextPiece>();
+        try
+        {
+            var values = FindValues(line);
+            if (values.Count > 0)
+            {
+                var previousEnd = 0;
+                foreach (var (start, value, kind) in values)
+                {
+                    var label = CleanLabel(line[previousEnd..start]);
+                    pieces.Add(Piece(value, kind, label.Length > 0 || previousEnd > 0 ? label : contextLabel));
+                    previousEnd = start + value.Length;
+                }
+
+                // The whole line stays available, for example a postal code with its city
+                if (line.Length <= MaxPieceLength && !string.Equals(line, values[0].Value, StringComparison.Ordinal))
+                {
+                    pieces.Add(Piece(line, CandidateKind.Text, contextLabel));
+                }
+
+                return pieces;
+            }
+
+            var pair = LabelValueRegex().Match(line);
+            if (pair.Success)
+            {
+                pieces.Add(Piece(pair.Groups["value"].Value.Trim(), CandidateKind.Text, CleanLabel(pair.Groups["label"].Value)));
+                return pieces;
+            }
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            // Pathological text: the line is kept as is
+            pieces.Clear();
+        }
+
+        if (line.Length <= MaxPieceLength)
+        {
+            pieces.Add(Piece(line, CandidateKind.Text, contextLabel));
+        }
+
+        return pieces;
+    }
+
+    /// <summary>
+    /// Finds the recognized values of a line, ordered by position.
+    /// </summary>
+    /// <param name="line">The line to analyze.</param>
+    /// <returns>The start, text and kind of each value.</returns>
+    private static List<(int Start, string Value, CandidateKind Kind)> FindValues(string line)
+    {
+        var values = new List<(int Start, string Value, CandidateKind Kind)>();
+        foreach (var (pattern, kind) in Recognizers)
+        {
+            foreach (Match match in pattern().Matches(line))
+            {
+                var value = kind == CandidateKind.Url ? match.Value.TrimEnd(UrlTrimmedEndChars) : match.Value;
+                if (kind == CandidateKind.Reference && value.Length < MinReferenceLength)
+                {
+                    continue;
+                }
+
+                var end = match.Index + value.Length;
+                var isFree = values.TrueForAll(taken => end <= taken.Start || match.Index >= taken.Start + taken.Value.Length);
+                if (isFree)
+                {
+                    values.Add((match.Index, value, kind));
+                }
+            }
+        }
+
+        values.Sort((first, second) => first.Start.CompareTo(second.Start));
+        return values;
+    }
+
+    /// <summary>
+    /// Removes the punctuation around a label and keeps its last words when it is too long.
+    /// </summary>
+    /// <param name="text">The text before a value.</param>
+    /// <returns>The label, or an empty string if the text holds no letter.</returns>
+    private static string CleanLabel(string text)
+    {
+        var label = text.Trim(LabelTrimmedChars);
+        if (!label.Any(char.IsLetter))
+        {
+            return string.Empty;
+        }
+
+        if (label.Length <= MaxLabelLength)
+        {
+            return label;
+        }
+
+        var start = label.IndexOf(' ', label.Length - MaxLabelLength);
+        return start < 0 ? label[^MaxLabelLength..] : label[(start + 1)..];
+    }
+
+    private static TextPiece Piece(string value, CandidateKind kind, string label)
+    {
+        return new TextPiece { Value = value, Kind = kind, Label = label };
+    }
+
+    /// <summary>
+    /// Keeps the first occurrence of each value, completed by the first label found for it.
+    /// </summary>
+    /// <param name="pieces">The pieces in order of appearance.</param>
+    /// <returns>The pieces without duplicates.</returns>
+    private static List<TextPiece> RemoveDuplicates(List<TextPiece> pieces)
+    {
+        var unique = new List<TextPiece>(pieces.Count);
+        var positions = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var piece in pieces)
+        {
+            if (!positions.TryGetValue(piece.Value, out var position))
+            {
+                positions[piece.Value] = unique.Count;
+                unique.Add(piece);
+            }
+            else if (unique[position].Label.Length == 0 && piece.Label.Length > 0)
+            {
+                unique[position] = unique[position] with { Label = piece.Label };
+            }
+        }
+
+        return unique;
+    }
+
+    [GeneratedRegex(@"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex EmailRegex();
+
+    [GeneratedRegex(@"\b(?:https?://|www\.)[^\s<>""]+", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
+    private static partial Regex UrlRegex();
+
+    [GeneratedRegex(@"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex IbanRegex();
+
+    [GeneratedRegex(@"(?<![\d+])(?:\+\d{2,3}[ .\-]?(?:\(0\)[ .\-]?)?[1-9]|0[1-9])(?:[ .\-]?\d{2}){4}(?!\d)", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex PhoneRegex();
+
+    [GeneratedRegex(@"(?<!\d)(?:\d{4}-\d{2}-\d{2}|\d{1,2}[/.\-]\d{1,2}[/.\-](?:\d{4}|\d{2}))(?!\d)", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex DateRegex();
+
+    [GeneratedRegex(@"(?:[€$£] ?\d{1,3}(?:[   .,]\d{3})*(?:[.,]\d{1,2})?|\d{1,3}(?:[   .]\d{3})*(?:[.,]\d{1,2})? ?(?:€|EUR|\$|USD|£))", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex AmountRegex();
+
+    [GeneratedRegex(@"\b(?=[A-Z0-9\-]*\d)(?=[A-Z0-9\-]*[A-Z])[A-Z0-9]+(?:-[A-Z0-9]+)*\b", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex ReferenceRegex();
+
+    [GeneratedRegex(@"(?<![\d,.])\d{5,}(?![\d,.])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex NumberRegex();
+
+    [GeneratedRegex(@"^(?<label>\p{L}[^:]{0,39}?)\s*:\s*(?<value>\S.*)$", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex LabelValueRegex();
 }

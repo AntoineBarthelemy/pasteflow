@@ -114,6 +114,15 @@ public sealed class ShortcutActivationService : IDisposable
             .ToList();
     }
 
+    private static Dictionary<CandidateKind, int> CountRecognized(IEnumerable<Candidate> candidates)
+    {
+        return candidates
+            .Where(candidate => candidate.Kind != CandidateKind.Text)
+            .DistinctBy(candidate => (candidate.Kind, candidate.Value))
+            .GroupBy(candidate => candidate.Kind)
+            .ToDictionary(group => group.Key, group => group.Count());
+    }
+
     private async void OnHotkeyPressed(object? sender, EventArgs e)
     {
         var report = await FillActiveFormAsync(CancellationToken.None);
@@ -156,6 +165,7 @@ public sealed class ShortcutActivationService : IDisposable
             AlreadyFilledCount = fields.Count(field => field.Kind == FieldKind.Text && field.HasValue),
             FailedCount = failedCount,
             Sources = Summarize(candidates),
+            RecognizedCounts = CountRecognized(candidates),
             Elapsed = stopwatch.Elapsed,
         };
     }

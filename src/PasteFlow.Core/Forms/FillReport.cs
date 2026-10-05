@@ -1,4 +1,5 @@
 using System.Globalization;
+using PasteFlow.Core.Candidates;
 
 namespace PasteFlow.Core.Forms;
 
@@ -38,6 +39,11 @@ public sealed record FillReport
     public required IReadOnlyList<SourceSummary> Sources { get; init; }
 
     /// <summary>
+    /// Gets the number of distinct values recognized in the sources, by kind. Plain text is not counted.
+    /// </summary>
+    public IReadOnlyDictionary<CandidateKind, int> RecognizedCounts { get; init; } = new Dictionary<CandidateKind, int>();
+
+    /// <summary>
     /// Gets the time spent reading and filling the form.
     /// </summary>
     public required TimeSpan Elapsed { get; init; }
@@ -47,7 +53,8 @@ public sealed record FillReport
     /// </summary>
     /// <returns>
     /// A message such as "2 champs remplis, 1 déjà rempli laissé intact. En 120 ms." followed, on a second line,
-    /// by the sources read, such as "Lu à l'écran : Gmail (84), Bloc-notes (12).".
+    /// by the sources read, such as "Lu à l'écran : Gmail (84), Bloc-notes (12).", and on a third line by the
+    /// values recognized, such as "Reconnu : 1 e-mail, 2 téléphones.".
     /// </returns>
     public string Describe()
     {
@@ -78,7 +85,33 @@ public sealed record FillReport
         }
 
         var listed = sources.Take(MaxListedSources).Select(DescribeSource);
-        return $"{message}\nLu à l'écran : {string.Join(", ", listed)}.";
+        message = $"{message}\nLu à l'écran : {string.Join(", ", listed)}.";
+
+        var recognized = RecognizedCounts
+            .Where(entry => entry.Key != CandidateKind.Text && entry.Value > 0)
+            .OrderBy(entry => entry.Key)
+            .Select(entry => DescribeKind(entry.Key, entry.Value))
+            .ToList();
+
+        return recognized.Count > 0 ? $"{message}\nReconnu : {string.Join(", ", recognized)}." : message;
+    }
+
+    private static string DescribeKind(CandidateKind kind, int count)
+    {
+        var (singular, plural) = kind switch
+        {
+            CandidateKind.Email => ("e-mail", "e-mails"),
+            CandidateKind.Phone => ("téléphone", "téléphones"),
+            CandidateKind.Url => ("lien", "liens"),
+            CandidateKind.Date => ("date", "dates"),
+            CandidateKind.Amount => ("montant", "montants"),
+            CandidateKind.Iban => ("IBAN", "IBAN"),
+            CandidateKind.Reference => ("référence", "références"),
+            CandidateKind.Number => ("numéro", "numéros"),
+            _ => ("texte", "textes"),
+        };
+
+        return Count(count, singular, plural);
     }
 
     private static string DescribeSource(SourceSummary source)
