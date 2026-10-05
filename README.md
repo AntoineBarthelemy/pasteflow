@@ -10,13 +10,13 @@ Outil Windows de remplissage de formulaires sans souris : on se place dans un fo
 
 ## État d'avancement
 
-Étape 1 du prototype : l'application tourne en arrière-plan (icône près de l'horloge) et affiche une notification quand on appuie sur Ctrl+Alt+V, depuis n'importe quelle application.
+Étapes 1 à 3 du prototype : l'application tourne en arrière-plan (icône près de l'horloge). Ctrl+Alt+V lit les champs du formulaire de la fenêtre active et remplit les champs texte vides (pour l'instant avec le nom de chaque champ), sans jamais toucher aux champs déjà remplis ni aux mots de passe.
 
 Feuille de route :
 
 1. [x] Squelette : icône, raccourci global, notification
-2. [ ] Lire le formulaire de la fenêtre active (UI Automation)
-3. [ ] Écrire une valeur dans un champ
+2. [x] Lire le formulaire de la fenêtre active (UI Automation)
+3. [x] Écrire une valeur dans un champ
 4. [ ] Lire le texte des fenêtres visibles et des fenêtres juste derrière
 5. [ ] Découper le texte en candidats (règles)
 6. [ ] Associer champs et candidats, remplir le formulaire
