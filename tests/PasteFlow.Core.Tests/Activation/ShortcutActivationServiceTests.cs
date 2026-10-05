@@ -4,8 +4,10 @@ using PasteFlow.Core.Tests.Fakes;
 
 namespace PasteFlow.Core.Tests.Activation;
 
-public sealed class ShortcutActivationServiceTests
+public sealed class ShortcutActivationServiceTests : IDisposable
 {
+    private static readonly string[] ExpectedFilledFieldIds = { "city", "name" };
+
     private readonly FakeHotkeyListener _listener = new();
     private readonly FakeFormReader _formReader = new();
     private readonly FakeFieldWriter _fieldWriter = new();
@@ -72,7 +74,7 @@ public sealed class ShortcutActivationServiceTests
 
         _listener.SimulatePress();
 
-        Assert.Equal(new[] { "city", "name" }, _fieldWriter.WrittenValues.Keys.Order());
+        Assert.Equal(ExpectedFilledFieldIds, _fieldWriter.WrittenValues.Keys.Order());
     }
 
     [Fact]
@@ -148,6 +150,11 @@ public sealed class ShortcutActivationServiceTests
         service.Dispose();
 
         Assert.False(_listener.IsDisposed);
+    }
+
+    public void Dispose()
+    {
+        _listener.Dispose();
     }
 
     private ShortcutActivationService CreateService()

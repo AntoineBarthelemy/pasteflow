@@ -30,7 +30,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter
     {
         // The foreground window is captured right away, before anything else can take the focus
         var windowHandle = NativeMethods.GetForegroundWindow();
-        return Task.Run(() => ReadFields(windowHandle, cancellationToken), cancellationToken);
+        return Task.Run<IReadOnlyList<FormField>>(() => ReadFields(windowHandle, cancellationToken), cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -134,7 +134,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter
         }
     }
 
-    private IReadOnlyList<FormField> ReadFields(IntPtr windowHandle, CancellationToken cancellationToken)
+    private List<FormField> ReadFields(IntPtr windowHandle, CancellationToken cancellationToken)
     {
         var elements = new Dictionary<string, AutomationElement>();
         var fields = new List<FormField>();
