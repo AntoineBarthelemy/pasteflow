@@ -65,6 +65,7 @@ Pour quitter l'application : clic droit sur l'icône près de l'horloge, puis «
 | `src/PasteFlow.Core` | Logique métier, sans dépendance à Windows, entièrement testable |
 | `src/PasteFlow.App` | Application Windows : icône, raccourci global (API Win32), notifications |
 | `tests/PasteFlow.Core.Tests` | Tests unitaires (xUnit) de la logique métier |
+| `tests/PasteFlow.App.Tests` | Tests d'intégration Windows : un vrai formulaire de test est affiché, puis lu et rempli via UI Automation |
 
 Le cœur ne connaît que des interfaces (`IHotkeyListener`, `IUserNotifier`). Les implémentations Windows sont dans `PasteFlow.App`, ce qui permet de tester le cœur avec de faux objets (dossier `Fakes`).
 
@@ -85,7 +86,7 @@ Le cœur ne connaît que des interfaces (`IHotkeyListener`, `IUserNotifier`). Le
 | Analyseurs .NET (mode *recommended*) | Analyse statique : bugs, performances, sécurité | `Directory.Build.props` |
 | StyleCop.Analyzers | Règles de style, ordre des membres, documentation XML | `stylecop.json`, `.editorconfig` |
 | Compilateur | Nullabilité activée, **tout avertissement fait échouer la compilation** | `Directory.Build.props` |
-| xUnit | Tests unitaires | `tests/` |
+| xUnit | Tests unitaires et d'intégration Windows | `tests/` |
 | Husky.Net | Contrôles automatiques avant chaque commit | `.husky/` |
 
 Les versions des paquets NuGet sont centralisées dans `Directory.Packages.props`.
@@ -119,7 +120,7 @@ GitHub Actions (`.github/workflows/ci.yml`), à chaque push sur `main` et à cha
 
 - vérification de la mise en forme
 - compilation Release avec analyseurs
-- tests avec couverture de code, résultats conservés en cas d'échec
+- tests unitaires et d'intégration Windows avec couverture de code, nombre de tests affiché, résultats conservés en cas d'échec
 - vérification des messages de commit des pull requests
 
 Dependabot propose chaque semaine la mise à jour des paquets NuGet et des actions GitHub.
