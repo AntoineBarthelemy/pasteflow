@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using PasteFlow.Core.Forms;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Notifications;
 
@@ -7,11 +9,13 @@ namespace PasteFlow.Core.Activation;
 /// Connects the global shortcut to the actions of the application.
 /// </summary>
 /// <remarks>
-/// For now, pressing the shortcut only notifies the user. Reading and filling forms will be plugged in here.
+/// For now, pressing the shortcut reads the form of the active window and describes it to the user.
+/// Filling the fields will be plugged in here.
 /// </remarks>
 public sealed class ShortcutActivationService : IDisposable
 {
     private readonly IHotkeyListener _listener;
+    private readonly IFormReader _formReader;
     private readonly IUserNotifier _notifier;
     private bool _isDisposed;
 
@@ -19,13 +23,16 @@ public sealed class ShortcutActivationService : IDisposable
     /// Initializes a new instance of the <see cref="ShortcutActivationService"/> class.
     /// </summary>
     /// <param name="listener">The listener of the global shortcut, owned by the caller.</param>
+    /// <param name="formReader">The component that reads the form of the active window.</param>
     /// <param name="notifier">The component used to display messages to the user.</param>
-    public ShortcutActivationService(IHotkeyListener listener, IUserNotifier notifier)
+    public ShortcutActivationService(IHotkeyListener listener, IFormReader formReader, IUserNotifier notifier)
     {
         ArgumentNullException.ThrowIfNull(listener);
+        ArgumentNullException.ThrowIfNull(formReader);
         ArgumentNullException.ThrowIfNull(notifier);
 
         _listener = listener;
+        _formReader = formReader;
         _notifier = notifier;
     }
 
@@ -78,8 +85,17 @@ public sealed class ShortcutActivationService : IDisposable
         _isDisposed = true;
     }
 
-    private void OnHotkeyPressed(object? sender, EventArgs e)
+    private async void OnHotkeyPressed(object? sender, EventArgs e)
     {
-        _notifier.Notify($"Raccourci {ActiveHotkey} détecté.");
+        var stopwatch = Stopwatch.StartNew();
+        var fields = await _formReader.ReadActiveFormAsync(CancellationToken.None);
+        stopwatch.Stop();
+
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _notifier.Notify(FormSummary.Describe(fields, stopwatch.Elapsed));
     }
 }

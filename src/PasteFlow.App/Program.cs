@@ -1,4 +1,5 @@
 using System.Windows;
+using PasteFlow.App.Forms;
 using PasteFlow.App.Hotkeys;
 using PasteFlow.App.Notifications;
 using PasteFlow.App.Tray;
@@ -29,7 +30,7 @@ internal static class Program
 
         using var trayIcon = new TrayIcon(application.Shutdown);
         using var hotkeyListener = new Win32HotkeyListener();
-        using var activation = new ShortcutActivationService(hotkeyListener, notifier);
+        using var activation = new ShortcutActivationService(hotkeyListener, new UiAutomationFormReader(), notifier);
 
         var hotkey = Hotkey.Default;
         if (activation.Start(hotkey))

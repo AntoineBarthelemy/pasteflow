@@ -30,4 +30,12 @@ internal static partial class NativeMethods
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    /// <summary>
+    /// Gets the window the user is currently working with.
+    /// </summary>
+    /// <returns>The handle of the foreground window, or <see cref="IntPtr.Zero"/> if there is none.</returns>
+    [LibraryImport("user32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    internal static partial IntPtr GetForegroundWindow();
 }
