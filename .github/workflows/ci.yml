@@ -42,6 +42,20 @@ jobs:
       - name: Run tests
         run: dotnet test --configuration Release --no-build --logger trx --results-directory TestResults --collect "XPlat Code Coverage"
 
+      - name: Summarize test results
+        if: always()
+        shell: pwsh
+        run: |
+          $total = 0; $passed = 0; $failed = 0
+          Get-ChildItem TestResults -Filter *.trx -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+            [xml]$trx = Get-Content $_.FullName
+            $counters = $trx.TestRun.ResultSummary.Counters
+            $total += [int]$counters.total
+            $passed += [int]$counters.passed
+            $failed += [int]$counters.failed
+          }
+          Write-Output "::notice title=Tests::$passed of $total tests passed, $failed failed"
+
       - name: Keep test results on failure
         if: failure()
         uses: actions/upload-artifact@v7
