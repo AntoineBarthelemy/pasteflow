@@ -239,15 +239,13 @@ public static class LabelConcepts
     }
 
     /// <summary>
-    /// Cuts a label into lower case words without accents, "e-mail" being one word.
+    /// Cuts a label into lower case words without accents, "e-mail" and "e mail" giving the single word "email".
     /// </summary>
     /// <param name="label">The label to cut.</param>
     /// <returns>The words of the label.</returns>
     private static List<string> Words(string label)
     {
-        var normalized = RemoveAccents(label).ToLowerInvariant()
-            .Replace("e-mail", "email", StringComparison.Ordinal)
-            .Replace("e mail", "email", StringComparison.Ordinal);
+        var normalized = RemoveAccents(label).ToLowerInvariant();
 
         var words = new List<string>();
         var word = new StringBuilder();
@@ -267,6 +265,16 @@ public static class LabelConcepts
         if (word.Length > 0)
         {
             words.Add(word.ToString());
+        }
+
+        // "e-mail" and "e mail" are one word
+        for (var index = words.Count - 2; index >= 0; index--)
+        {
+            if (words[index] == "e" && words[index + 1] == "mail")
+            {
+                words[index] = "email";
+                words.RemoveAt(index + 1);
+            }
         }
 
         return words;

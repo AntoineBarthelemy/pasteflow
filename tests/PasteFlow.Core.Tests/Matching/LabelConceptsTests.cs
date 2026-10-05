@@ -10,6 +10,8 @@ public sealed class LabelConceptsTests
     [InlineData("E-mail", LabelConcepts.Email)]
     [InlineData("COURRIEL", LabelConcepts.Email)]
     [InlineData("Adresse mail", LabelConcepts.Email)]
+    [InlineData("Adresse-mail", LabelConcepts.Email)]
+    [InlineData("E mail", LabelConcepts.Email)]
     [InlineData("Adresse électronique", LabelConcepts.Email)]
     [InlineData("Votre adresse e-mail *", LabelConcepts.Email)]
     [InlineData("Tél.", LabelConcepts.Phone)]
