@@ -1,0 +1,24 @@
+# Build output
+bin/
+obj/
+artifacts/
+
+# Test results and coverage
+TestResults/
+coverage/
+*.trx
+
+# IDE settings
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.DotSettings.user
+
+# Husky.Net generated files
+.husky/_/
+
+# OS files
+Thumbs.db
+.DS_Store
