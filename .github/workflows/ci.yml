@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Code quality and tests
+    runs-on: windows-latest
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      HUSKY: 0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Check code formatting
+        run: dotnet format --verify-no-changes --no-restore
+
+      - name: Build with analyzers
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Run tests
+        run: dotnet test --configuration Release --no-build --logger trx --results-directory TestResults --collect "XPlat Code Coverage"
+
+      - name: Keep test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults
+          retention-days: 7
+
+  commit-messages:
+    name: Conventional commit messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check commit messages
+        shell: bash
+        run: |
+          pattern='^(build|ci|chore|docs|feat|fix|perf|refactor|revert|style|test)(\([^()[:space:]]+\))?!?: [^[:space:]].{2,}[^.[:space:]]$'
+          status=0
+          while IFS= read -r subject; do
+            if ! [[ "$subject" =~ $pattern ]] || [ ${#subject} -gt 100 ]; then
+              echo "::error::Invalid commit message: $subject"
+              status=1
+            fi
+          done < <(git log --format=%s "origin/${{ github.base_ref }}..HEAD" --no-merges)
+          exit $status
