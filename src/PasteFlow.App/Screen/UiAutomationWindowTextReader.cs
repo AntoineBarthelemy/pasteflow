@@ -43,7 +43,13 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
         return finished == reading ? await reading.ConfigureAwait(false) : null;
     }
 
-    private static WindowText? ReadWindow(IntPtr handle, int rank)
+    /// <summary>
+    /// Reads the text of one window.
+    /// </summary>
+    /// <param name="handle">The window to read.</param>
+    /// <param name="rank">The position of the window in the Alt+Tab order.</param>
+    /// <returns>The text of the window, or <see langword="null"/> if the window cannot be read.</returns>
+    internal static WindowText? ReadWindow(IntPtr handle, int rank)
     {
         try
         {

@@ -21,4 +21,8 @@
     <ProjectReference Include="..\PasteFlow.Core\PasteFlow.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="PasteFlow.App.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -29,8 +29,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter
     public Task<IReadOnlyList<FormField>> ReadActiveFormAsync(CancellationToken cancellationToken)
     {
         // The foreground window is captured right away, before anything else can take the focus
-        var windowHandle = NativeMethods.GetForegroundWindow();
-        return Task.Run<IReadOnlyList<FormField>>(() => ReadFields(windowHandle, cancellationToken), cancellationToken);
+        return ReadFormAsync(NativeMethods.GetForegroundWindow(), cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -53,6 +52,17 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter
 
         AutomationElement target = element;
         return Task.Run(() => TryWrite(target, value), cancellationToken);
+    }
+
+    /// <summary>
+    /// Reads the visible and enabled fields of a given window.
+    /// </summary>
+    /// <param name="windowHandle">The window to read.</param>
+    /// <param name="cancellationToken">A token to cancel the reading.</param>
+    /// <returns>The fields in reading order, or an empty list if the window cannot be read.</returns>
+    internal Task<IReadOnlyList<FormField>> ReadFormAsync(IntPtr windowHandle, CancellationToken cancellationToken)
+    {
+        return Task.Run<IReadOnlyList<FormField>>(() => ReadFields(windowHandle, cancellationToken), cancellationToken);
     }
 
     private static FormField? TryReadField(string id, AutomationElement element)

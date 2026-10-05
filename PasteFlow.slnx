@@ -12,6 +12,7 @@
     <Project Path="src/PasteFlow.Core/PasteFlow.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/PasteFlow.App.Tests/PasteFlow.App.Tests.csproj" />
     <Project Path="tests/PasteFlow.Core.Tests/PasteFlow.Core.Tests.csproj" />
   </Folder>
 </Solution>

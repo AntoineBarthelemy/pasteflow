@@ -11,9 +11,14 @@ internal sealed class FakeFormReader : IFormReader
 
     public int ReadCount { get; private set; }
 
+    /// <summary>
+    /// Gets a reading that stays pending until the test completes it, to check what happens meanwhile.
+    /// </summary>
+    public TaskCompletionSource<IReadOnlyList<FormField>>? PendingReading { get; init; }
+
     public Task<IReadOnlyList<FormField>> ReadActiveFormAsync(CancellationToken cancellationToken)
     {
         ReadCount++;
-        return Task.FromResult(Fields);
+        return PendingReading?.Task ?? Task.FromResult(Fields);
     }
 }

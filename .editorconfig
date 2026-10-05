@@ -115,6 +115,8 @@ dotnet_diagnostic.CA1707.severity = none
 dotnet_diagnostic.CA1515.severity = none
 # Expected values written inline are easier to read than static fields
 dotnet_diagnostic.CA1861.severity = none
+# Test helpers forward any exception of a UI thread to the test thread
+dotnet_diagnostic.CA1031.severity = none
 # Tests are self-describing, no XML documentation required
 dotnet_diagnostic.CS1591.severity = none
 dotnet_diagnostic.SA1600.severity = none
