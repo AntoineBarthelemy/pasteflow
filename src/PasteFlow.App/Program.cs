@@ -2,8 +2,10 @@ using System.Windows;
 using PasteFlow.App.Forms;
 using PasteFlow.App.Hotkeys;
 using PasteFlow.App.Notifications;
+using PasteFlow.App.Screen;
 using PasteFlow.App.Tray;
 using PasteFlow.Core.Activation;
+using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Hotkeys;
 
 namespace PasteFlow.App;
@@ -31,7 +33,13 @@ internal static class Program
         using var trayIcon = new TrayIcon(application.Shutdown);
         using var hotkeyListener = new Win32HotkeyListener();
         var formAccess = new UiAutomationFormAccess();
-        using var activation = new ShortcutActivationService(hotkeyListener, formAccess, formAccess, notifier);
+        var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(new UiAutomationWindowTextReader()) };
+        using var activation = new ShortcutActivationService(
+            hotkeyListener,
+            formAccess,
+            formAccess,
+            candidateSources,
+            notifier);
 
         var hotkey = Hotkey.Default;
         if (activation.Start(hotkey))

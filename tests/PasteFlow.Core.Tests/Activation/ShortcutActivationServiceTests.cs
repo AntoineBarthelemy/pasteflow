@@ -1,4 +1,5 @@
 using PasteFlow.Core.Activation;
+using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Tests.Fakes;
 
@@ -11,6 +12,7 @@ public sealed class ShortcutActivationServiceTests : IDisposable
     private readonly FakeHotkeyListener _listener = new();
     private readonly FakeFormReader _formReader = new();
     private readonly FakeFieldWriter _fieldWriter = new();
+    private readonly FakeCandidateSource _candidateSource = new();
     private readonly FakeUserNotifier _notifier = new();
 
     [Fact]
@@ -29,7 +31,7 @@ public sealed class ShortcutActivationServiceTests : IDisposable
     public void Start_WhenHotkeyIsAlreadyUsed_ReturnsFalse()
     {
         var listener = new FakeHotkeyListener { AcceptsRegistration = false };
-        using var service = new ShortcutActivationService(listener, _formReader, _fieldWriter, _notifier);
+        using var service = new ShortcutActivationService(listener, _formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
 
         var isStarted = service.Start(Hotkey.Default);
 
@@ -69,7 +71,7 @@ public sealed class ShortcutActivationServiceTests : IDisposable
                 TestFields.Text("city", "Ville"),
             },
         };
-        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, _notifier);
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
         service.Start(Hotkey.Default);
 
         _listener.SimulatePress();
@@ -84,7 +86,7 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         {
             Fields = new[] { TestFields.Text("name", "Nom"), TestFields.Text("unnamed", string.Empty) },
         };
-        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, _notifier);
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
         service.Start(Hotkey.Default);
 
         _listener.SimulatePress();
@@ -106,7 +108,7 @@ public sealed class ShortcutActivationServiceTests : IDisposable
             },
         };
         _fieldWriter.FailingFieldIds.Add("broken");
-        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, _notifier);
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
         service.Start(Hotkey.Default);
 
         _listener.SimulatePress();
@@ -116,6 +118,25 @@ public sealed class ShortcutActivationServiceTests : IDisposable
             "1 champ rempli, 1 déjà rempli laissé intact, 1 champ impossible à remplir.",
             message,
             StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HotkeyPressed_ReportsCandidatesBySourceClosestFirst()
+    {
+        _candidateSource.Candidates = new[]
+        {
+            CandidateFrom("Bloc-notes", rank: 1, "CMD-48213"),
+            CandidateFrom("Gmail", rank: 0, "Bonjour"),
+            CandidateFrom("Gmail", rank: 0, "Commande n° CMD-48213"),
+        };
+        using var service = CreateService();
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Equal(1, _candidateSource.ReadCount);
+        var message = Assert.Single(_notifier.Messages);
+        Assert.EndsWith("Lu à l'écran : Gmail (2), Bloc-notes (1).", message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -157,8 +178,13 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         _listener.Dispose();
     }
 
+    private static Candidate CandidateFrom(string sourceName, int rank, string value)
+    {
+        return new Candidate { Value = value, SourceName = sourceName, SourceRank = rank };
+    }
+
     private ShortcutActivationService CreateService()
     {
-        return new ShortcutActivationService(_listener, _formReader, _fieldWriter, _notifier);
+        return new ShortcutActivationService(_listener, _formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
     }
 }

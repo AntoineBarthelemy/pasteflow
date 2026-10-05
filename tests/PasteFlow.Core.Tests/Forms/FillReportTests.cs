@@ -11,7 +11,7 @@ public sealed class FillReportTests
     {
         var report = Report(filled: 0, alreadyFilled: 0, failed: 0);
 
-        Assert.Equal("Aucun champ à remplir dans cette fenêtre. En 120 ms.", report.Describe());
+        Assert.Equal("Aucun champ à remplir dans cette fenêtre. En 120 ms.\nRien lu à l'écran.", report.Describe());
     }
 
     [Fact]
@@ -20,7 +20,7 @@ public sealed class FillReportTests
         var report = Report(filled: 1, alreadyFilled: 1, failed: 1);
 
         Assert.Equal(
-            "1 champ rempli, 1 déjà rempli laissé intact, 1 champ impossible à remplir. En 120 ms.",
+            "1 champ rempli, 1 déjà rempli laissé intact, 1 champ impossible à remplir. En 120 ms.\nRien lu à l'écran.",
             report.Describe());
     }
 
@@ -30,7 +30,7 @@ public sealed class FillReportTests
         var report = Report(filled: 3, alreadyFilled: 2, failed: 2);
 
         Assert.Equal(
-            "3 champs remplis, 2 déjà remplis laissés intacts, 2 champs impossibles à remplir. En 120 ms.",
+            "3 champs remplis, 2 déjà remplis laissés intacts, 2 champs impossibles à remplir. En 120 ms.\nRien lu à l'écran.",
             report.Describe());
     }
 
@@ -39,16 +39,47 @@ public sealed class FillReportTests
     {
         var report = Report(filled: 2, alreadyFilled: 0, failed: 0);
 
-        Assert.Equal("2 champs remplis. En 120 ms.", report.Describe());
+        Assert.Equal("2 champs remplis. En 120 ms.\nRien lu à l'écran.", report.Describe());
     }
 
-    private static FillReport Report(int filled, int alreadyFilled, int failed)
+    [Fact]
+    public void Describe_ListsSourcesWithTheirCandidateCount()
+    {
+        var sources = new[] { Source("Gmail", 84), Source("Vide", 0), Source(string.Empty, 3) };
+        var report = Report(filled: 1, alreadyFilled: 0, failed: 0, sources);
+
+        Assert.EndsWith("\nLu à l'écran : Gmail (84), sans titre (3).", report.Describe(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Describe_ShortensLongSourceNamesAndListsFewSources()
+    {
+        var longName = new string('a', FillReport.MaxSourceNameLength + 10);
+        var sources = Enumerable.Range(0, FillReport.MaxListedSources + 1)
+            .Select(index => Source(index == 0 ? longName : $"Fenêtre {index}", 1))
+            .ToArray();
+        var report = Report(filled: 1, alreadyFilled: 0, failed: 0, sources);
+
+        var message = report.Describe();
+
+        Assert.Contains($"{new string('a', FillReport.MaxSourceNameLength - 1)}… (1)", message, StringComparison.Ordinal);
+        Assert.Contains("Fenêtre 3 (1).", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("Fenêtre 4", message, StringComparison.Ordinal);
+    }
+
+    private static SourceSummary Source(string name, int candidateCount)
+    {
+        return new SourceSummary { Name = name, CandidateCount = candidateCount };
+    }
+
+    private static FillReport Report(int filled, int alreadyFilled, int failed, IReadOnlyList<SourceSummary>? sources = null)
     {
         return new FillReport
         {
             FilledCount = filled,
             AlreadyFilledCount = alreadyFilled,
             FailedCount = failed,
+            Sources = sources ?? Array.Empty<SourceSummary>(),
             Elapsed = Elapsed,
         };
     }
