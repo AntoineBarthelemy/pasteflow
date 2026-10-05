@@ -25,6 +25,17 @@ Feuille de route :
 9. [ ] Apprentissage des habitudes et historique (SQLite)
 10. [ ] Finitions : OCR de secours, adaptation des formats, paramètres
 
+Les informations à coller viennent de **sources** interchangeables (interface commune posée à l'étape 4). Sources prévues :
+
+| Source | Quand |
+|---|---|
+| Texte affiché à l'écran | Étape 4 |
+| Profil de l'utilisateur (identité, adresse, liens, études) | Après l'étape 6 |
+| Historique des remplissages | Étape 9 |
+| Gestionnaire de mots de passe (Bitwarden, via son CLI) | Après la V1, avec le volet confidentialité |
+
+L'auto-remplissage de Chrome n'est pas une source envisagée : ses données sont chiffrées pour qu'aucun logiciel extérieur ne puisse les lire.
+
 ## Installation / Configuration
 
 ### Prérequis
