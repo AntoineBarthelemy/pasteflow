@@ -10,15 +10,15 @@ Outil Windows de remplissage de formulaires sans souris : on se place dans un fo
 
 ## État d'avancement
 
-Étapes 1 à 3 du prototype : l'application tourne en arrière-plan (icône près de l'horloge). Ctrl+Alt+V lit les champs du formulaire de la fenêtre active et remplit les champs texte vides (pour l'instant avec le nom de chaque champ), sans jamais toucher aux champs déjà remplis ni aux mots de passe.
+Étapes 1 à 5 du prototype : l'application tourne en arrière-plan (icône près de l'horloge). Ctrl+Alt+V lit les champs du formulaire de la fenêtre active, lit le texte des fenêtres visibles (active et 3 juste derrière) en y reconnaissant les valeurs utiles, puis remplit les champs texte vides (pour l'instant avec le nom de chaque champ), sans jamais toucher aux champs déjà remplis ni aux mots de passe.
 
 Feuille de route :
 
 1. [x] Squelette : icône, raccourci global, notification
 2. [x] Lire le formulaire de la fenêtre active (UI Automation)
 3. [x] Écrire une valeur dans un champ
-4. [ ] Lire le texte des fenêtres visibles et des fenêtres juste derrière
-5. [ ] Découper le texte en candidats (règles)
+4. [x] Lire le texte des fenêtres visibles et des fenêtres juste derrière
+5. [x] Découper le texte en unités de sens : e-mails, téléphones, dates, montants, IBAN, références, avec leur libellé (règles)
 6. [ ] Associer champs et candidats, remplir le formulaire
 7. [ ] Interface : surlignage, récapitulatif, mini fenêtre, annulation globale
 8. [ ] Petits modèles d'IA locaux (ONNX Runtime)
