@@ -1,16 +1,17 @@
 using System.Drawing;
 using System.Windows.Forms;
-using PasteFlow.Core.Notifications;
 
 namespace PasteFlow.App.Tray;
 
 /// <summary>
-/// Icon of the application in the notification area of the taskbar, also used to display notifications.
+/// Icon of the application in the notification area of the taskbar.
 /// </summary>
-internal sealed class TrayIcon : IUserNotifier, IDisposable
+internal sealed class TrayIcon : IDisposable
 {
     private const string ProductName = "PasteFlow";
-    private const int NotificationTimeoutMilliseconds = 2000;
+
+    // Windows truncates notification area tooltips beyond this length
+    private const int MaxTooltipLength = 127;
 
     private readonly ContextMenuStrip _menu;
     private readonly NotifyIcon _notifyIcon;
@@ -35,10 +36,16 @@ internal sealed class TrayIcon : IUserNotifier, IDisposable
         };
     }
 
-    /// <inheritdoc/>
-    public void Notify(string message)
+    /// <summary>
+    /// Shows the state of the application in the tooltip of the icon.
+    /// </summary>
+    /// <param name="status">A short status, for example "Ctrl+Alt+V actif".</param>
+    public void ShowStatus(string status)
     {
-        _notifyIcon.ShowBalloonTip(NotificationTimeoutMilliseconds, ProductName, message, ToolTipIcon.Info);
+        ArgumentNullException.ThrowIfNull(status);
+
+        var text = $"{ProductName} : {status}";
+        _notifyIcon.Text = text.Length <= MaxTooltipLength ? text : text[..MaxTooltipLength];
     }
 
     /// <inheritdoc/>

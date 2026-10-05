@@ -1,5 +1,6 @@
 using System.Windows;
 using PasteFlow.App.Hotkeys;
+using PasteFlow.App.Notifications;
 using PasteFlow.App.Tray;
 using PasteFlow.Core.Activation;
 using PasteFlow.Core.Hotkeys;
@@ -24,15 +25,22 @@ internal static class Program
         }
 
         var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        var notifier = new PopupNotifier();
 
         using var trayIcon = new TrayIcon(application.Shutdown);
         using var hotkeyListener = new Win32HotkeyListener();
-        using var activation = new ShortcutActivationService(hotkeyListener, trayIcon);
+        using var activation = new ShortcutActivationService(hotkeyListener, notifier);
 
         var hotkey = Hotkey.Default;
-        if (!activation.Start(hotkey))
+        if (activation.Start(hotkey))
         {
-            trayIcon.Notify($"Le raccourci {hotkey} est déjà utilisé par une autre application.");
+            trayIcon.ShowStatus($"{hotkey} actif");
+            notifier.Notify($"PasteFlow est lancé. Appuie sur {hotkey} pour le tester.");
+        }
+        else
+        {
+            trayIcon.ShowStatus("raccourci indisponible");
+            notifier.Notify($"Le raccourci {hotkey} est déjà utilisé par une autre application.");
         }
 
         return application.Run();
