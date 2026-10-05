@@ -34,15 +34,6 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
         return results.OfType<WindowText>().ToList();
     }
 
-    private static async Task<WindowText?> ReadWithTimeoutAsync(IntPtr window, int rank, CancellationToken cancellationToken)
-    {
-        var reading = Task.Run(() => ReadWindow(window, rank), cancellationToken);
-        var finished = await Task.WhenAny(reading, Task.Delay(WindowTimeout, cancellationToken)).ConfigureAwait(false);
-
-        // A late window is ignored: UI Automation calls cannot be interrupted, the reading ends in the background
-        return finished == reading ? await reading.ConfigureAwait(false) : null;
-    }
-
     /// <summary>
     /// Reads the text of one window.
     /// </summary>
@@ -67,6 +58,15 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
             // The application does not answer accessibility requests
             return null;
         }
+    }
+
+    private static async Task<WindowText?> ReadWithTimeoutAsync(IntPtr window, int rank, CancellationToken cancellationToken)
+    {
+        var reading = Task.Run(() => ReadWindow(window, rank), cancellationToken);
+        var finished = await Task.WhenAny(reading, Task.Delay(WindowTimeout, cancellationToken)).ConfigureAwait(false);
+
+        // A late window is ignored: UI Automation calls cannot be interrupted, the reading ends in the background
+        return finished == reading ? await reading.ConfigureAwait(false) : null;
     }
 
     /// <summary>
