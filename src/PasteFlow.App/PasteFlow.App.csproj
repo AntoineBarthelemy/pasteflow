@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Windows application: notification area icon and global shortcut -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Only used for the notification area icon (NotifyIcon) -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- Required by the LibraryImport source generator -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!-- Avoid ambiguities between WPF and Windows Forms types (Application, MessageBox, ...) -->
+  <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PasteFlow.Core\PasteFlow.Core.csproj" />
+  </ItemGroup>
+
+</Project>
