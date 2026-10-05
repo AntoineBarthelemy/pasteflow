@@ -30,7 +30,8 @@ internal static class Program
 
         using var trayIcon = new TrayIcon(application.Shutdown);
         using var hotkeyListener = new Win32HotkeyListener();
-        using var activation = new ShortcutActivationService(hotkeyListener, new UiAutomationFormReader(), notifier);
+        var formAccess = new UiAutomationFormAccess();
+        using var activation = new ShortcutActivationService(hotkeyListener, formAccess, formAccess, notifier);
 
         var hotkey = Hotkey.Default;
         if (activation.Start(hotkey))

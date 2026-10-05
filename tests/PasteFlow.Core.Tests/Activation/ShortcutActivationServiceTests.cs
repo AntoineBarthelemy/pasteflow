@@ -1,5 +1,4 @@
 using PasteFlow.Core.Activation;
-using PasteFlow.Core.Forms;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Tests.Fakes;
 
@@ -7,16 +6,20 @@ namespace PasteFlow.Core.Tests.Activation;
 
 public sealed class ShortcutActivationServiceTests
 {
+    private readonly FakeHotkeyListener _listener = new();
+    private readonly FakeFormReader _formReader = new();
+    private readonly FakeFieldWriter _fieldWriter = new();
+    private readonly FakeUserNotifier _notifier = new();
+
     [Fact]
     public void Start_WhenRegistrationSucceeds_ListensToHotkey()
     {
-        var listener = new FakeHotkeyListener();
-        using var service = CreateService(listener);
+        using var service = CreateService();
 
         var isStarted = service.Start(Hotkey.Default);
 
         Assert.True(isStarted);
-        Assert.Equal(Hotkey.Default, listener.RegisteredHotkey);
+        Assert.Equal(Hotkey.Default, _listener.RegisteredHotkey);
         Assert.Equal(Hotkey.Default, service.ActiveHotkey);
     }
 
@@ -24,7 +27,7 @@ public sealed class ShortcutActivationServiceTests
     public void Start_WhenHotkeyIsAlreadyUsed_ReturnsFalse()
     {
         var listener = new FakeHotkeyListener { AcceptsRegistration = false };
-        using var service = CreateService(listener);
+        using var service = new ShortcutActivationService(listener, _formReader, _fieldWriter, _notifier);
 
         var isStarted = service.Start(Hotkey.Default);
 
@@ -35,7 +38,7 @@ public sealed class ShortcutActivationServiceTests
     [Fact]
     public void Start_WhenAlreadyStarted_ThrowsInvalidOperationException()
     {
-        using var service = CreateService(new FakeHotkeyListener());
+        using var service = CreateService();
         service.Start(Hotkey.Default);
 
         Assert.Throws<InvalidOperationException>(() => service.Start(Hotkey.Default));
@@ -44,78 +47,111 @@ public sealed class ShortcutActivationServiceTests
     [Fact]
     public void Start_AfterDispose_ThrowsObjectDisposedException()
     {
-        var service = CreateService(new FakeHotkeyListener());
+        var service = CreateService();
         service.Dispose();
 
         Assert.Throws<ObjectDisposedException>(() => service.Start(Hotkey.Default));
     }
 
     [Fact]
-    public void HotkeyPressed_AfterStart_ReadsActiveFormAndNotifiesSummary()
+    public void HotkeyPressed_FillsOnlyEmptyTextFields()
     {
-        var listener = new FakeHotkeyListener();
         var formReader = new FakeFormReader
         {
             Fields = new[]
             {
-                new FormField { Label = "Nom", Kind = FieldKind.Text, HasValue = false },
-                new FormField { Label = "Email", Kind = FieldKind.Text, HasValue = true },
+                TestFields.Text("name", "Nom"),
+                TestFields.Text("email", "Email", hasValue: true),
+                TestFields.Password("password", "Mot de passe"),
+                TestFields.Choice("country", "Pays"),
+                TestFields.Text("city", "Ville"),
             },
         };
-        var notifier = new FakeUserNotifier();
-        using var service = new ShortcutActivationService(listener, formReader, notifier);
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, _notifier);
         service.Start(Hotkey.Default);
 
-        listener.SimulatePress();
+        _listener.SimulatePress();
 
-        Assert.Equal(1, formReader.ReadCount);
-        var message = Assert.Single(notifier.Messages);
-        Assert.StartsWith("2 champs trouvés : Nom (vide), Email (rempli).", message, StringComparison.Ordinal);
+        Assert.Equal(new[] { "city", "name" }, _fieldWriter.WrittenValues.Keys.Order());
+    }
+
+    [Fact]
+    public void HotkeyPressed_WritesLabelAsDemoValue()
+    {
+        var formReader = new FakeFormReader
+        {
+            Fields = new[] { TestFields.Text("name", "Nom"), TestFields.Text("unnamed", string.Empty) },
+        };
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, _notifier);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Equal("Nom", _fieldWriter.WrittenValues["name"]);
+        Assert.Equal("PasteFlow", _fieldWriter.WrittenValues["unnamed"]);
+    }
+
+    [Fact]
+    public void HotkeyPressed_NotifiesReportWithFailures()
+    {
+        var formReader = new FakeFormReader
+        {
+            Fields = new[]
+            {
+                TestFields.Text("name", "Nom"),
+                TestFields.Text("email", "Email", hasValue: true),
+                TestFields.Text("broken", "Ville"),
+            },
+        };
+        _fieldWriter.FailingFieldIds.Add("broken");
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, _notifier);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        var message = Assert.Single(_notifier.Messages);
+        Assert.StartsWith(
+            "1 champ rempli, 1 déjà rempli laissé intact, 1 champ impossible à remplir.",
+            message,
+            StringComparison.Ordinal);
     }
 
     [Fact]
     public void HotkeyPressed_BeforeStart_DoesNothing()
     {
-        var listener = new FakeHotkeyListener();
-        var formReader = new FakeFormReader();
-        var notifier = new FakeUserNotifier();
-        using var service = new ShortcutActivationService(listener, formReader, notifier);
+        using var service = CreateService();
 
-        listener.SimulatePress();
+        _listener.SimulatePress();
 
-        Assert.Equal(0, formReader.ReadCount);
-        Assert.Empty(notifier.Messages);
+        Assert.Equal(0, _formReader.ReadCount);
+        Assert.Empty(_notifier.Messages);
     }
 
     [Fact]
     public void HotkeyPressed_AfterDispose_DoesNothing()
     {
-        var listener = new FakeHotkeyListener();
-        var formReader = new FakeFormReader();
-        var notifier = new FakeUserNotifier();
-        var service = new ShortcutActivationService(listener, formReader, notifier);
+        var service = CreateService();
         service.Start(Hotkey.Default);
         service.Dispose();
 
-        listener.SimulatePress();
+        _listener.SimulatePress();
 
-        Assert.Equal(0, formReader.ReadCount);
-        Assert.Empty(notifier.Messages);
+        Assert.Equal(0, _formReader.ReadCount);
+        Assert.Empty(_notifier.Messages);
     }
 
     [Fact]
     public void Dispose_DoesNotDisposeListenerOwnedByCaller()
     {
-        var listener = new FakeHotkeyListener();
-        var service = CreateService(listener);
+        var service = CreateService();
 
         service.Dispose();
 
-        Assert.False(listener.IsDisposed);
+        Assert.False(_listener.IsDisposed);
     }
 
-    private static ShortcutActivationService CreateService(FakeHotkeyListener listener)
+    private ShortcutActivationService CreateService()
     {
-        return new ShortcutActivationService(listener, new FakeFormReader(), new FakeUserNotifier());
+        return new ShortcutActivationService(_listener, _formReader, _fieldWriter, _notifier);
     }
 }

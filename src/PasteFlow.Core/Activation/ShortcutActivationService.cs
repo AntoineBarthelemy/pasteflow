@@ -9,13 +9,14 @@ namespace PasteFlow.Core.Activation;
 /// Connects the global shortcut to the actions of the application.
 /// </summary>
 /// <remarks>
-/// For now, pressing the shortcut reads the form of the active window and describes it to the user.
-/// Filling the fields will be plugged in here.
+/// Pressing the shortcut reads the form of the active window and fills the fields allowed by <see cref="FillRules"/>.
+/// For now each field receives its own label, until the values are matched with the screen content.
 /// </remarks>
 public sealed class ShortcutActivationService : IDisposable
 {
     private readonly IHotkeyListener _listener;
     private readonly IFormReader _formReader;
+    private readonly IFieldWriter _fieldWriter;
     private readonly IUserNotifier _notifier;
     private bool _isDisposed;
 
@@ -24,15 +25,22 @@ public sealed class ShortcutActivationService : IDisposable
     /// </summary>
     /// <param name="listener">The listener of the global shortcut, owned by the caller.</param>
     /// <param name="formReader">The component that reads the form of the active window.</param>
+    /// <param name="fieldWriter">The component that writes values into the fields read.</param>
     /// <param name="notifier">The component used to display messages to the user.</param>
-    public ShortcutActivationService(IHotkeyListener listener, IFormReader formReader, IUserNotifier notifier)
+    public ShortcutActivationService(
+        IHotkeyListener listener,
+        IFormReader formReader,
+        IFieldWriter fieldWriter,
+        IUserNotifier notifier)
     {
         ArgumentNullException.ThrowIfNull(listener);
         ArgumentNullException.ThrowIfNull(formReader);
+        ArgumentNullException.ThrowIfNull(fieldWriter);
         ArgumentNullException.ThrowIfNull(notifier);
 
         _listener = listener;
         _formReader = formReader;
+        _fieldWriter = fieldWriter;
         _notifier = notifier;
     }
 
@@ -85,17 +93,48 @@ public sealed class ShortcutActivationService : IDisposable
         _isDisposed = true;
     }
 
+    private static string DemoValueFor(FormField field)
+    {
+        return string.IsNullOrWhiteSpace(field.Label) ? "PasteFlow" : field.Label;
+    }
+
     private async void OnHotkeyPressed(object? sender, EventArgs e)
     {
-        var stopwatch = Stopwatch.StartNew();
-        var fields = await _formReader.ReadActiveFormAsync(CancellationToken.None);
-        stopwatch.Stop();
-
+        var report = await FillActiveFormAsync(CancellationToken.None);
         if (_isDisposed)
         {
             return;
         }
 
-        _notifier.Notify(FormSummary.Describe(fields, stopwatch.Elapsed));
+        _notifier.Notify(report.Describe());
+    }
+
+    private async Task<FillReport> FillActiveFormAsync(CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var fields = await _formReader.ReadActiveFormAsync(cancellationToken);
+
+        var filledCount = 0;
+        var failedCount = 0;
+        foreach (var field in fields.Where(FillRules.CanFill))
+        {
+            if (await _fieldWriter.TryWriteAsync(field, DemoValueFor(field), cancellationToken))
+            {
+                filledCount++;
+            }
+            else
+            {
+                failedCount++;
+            }
+        }
+
+        stopwatch.Stop();
+        return new FillReport
+        {
+            FilledCount = filledCount,
+            AlreadyFilledCount = fields.Count(field => field.Kind == FieldKind.Text && field.HasValue),
+            FailedCount = failedCount,
+            Elapsed = stopwatch.Elapsed,
+        };
     }
 }
