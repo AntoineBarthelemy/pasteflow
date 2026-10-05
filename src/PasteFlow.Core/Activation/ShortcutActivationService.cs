@@ -2,6 +2,7 @@ using System.Diagnostics;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
 using PasteFlow.Core.Hotkeys;
+using PasteFlow.Core.Matching;
 using PasteFlow.Core.Notifications;
 
 namespace PasteFlow.Core.Activation;
@@ -10,9 +11,9 @@ namespace PasteFlow.Core.Activation;
 /// Connects the global shortcut to the actions of the application.
 /// </summary>
 /// <remarks>
-/// Pressing the shortcut reads the form of the active window and fills the fields allowed by <see cref="FillRules"/>.
-/// The candidate sources are read at the same time. For now each field receives its own label, until the values
-/// are matched with the candidates.
+/// Pressing the shortcut reads the form of the active window and, at the same time, the candidate sources.
+/// Each field allowed by <see cref="FillRules"/> then receives the value chosen by <see cref="FieldMatcher"/>,
+/// only when the matcher is sure enough; the other fields are left to the user.
 /// </remarks>
 public sealed class ShortcutActivationService : IDisposable
 {
@@ -100,11 +101,6 @@ public sealed class ShortcutActivationService : IDisposable
         _isDisposed = true;
     }
 
-    private static string DemoValueFor(FormField field)
-    {
-        return string.IsNullOrWhiteSpace(field.Label) ? "PasteFlow" : field.Label;
-    }
-
     private static List<SourceSummary> Summarize(IEnumerable<Candidate> candidates)
     {
         return candidates
@@ -138,17 +134,29 @@ public sealed class ShortcutActivationService : IDisposable
     {
         var stopwatch = Stopwatch.StartNew();
 
-        // Sources are read while the form is being filled
+        // Sources are read while the form is being read
         var candidatesTask = GetAllCandidatesAsync(cancellationToken);
         var fields = await _formReader.ReadActiveFormAsync(cancellationToken);
+        var candidates = await candidatesTask;
 
-        var filledCount = 0;
+        var filledValues = new List<FilledValue>();
+        var uncertainCount = 0;
         var failedCount = 0;
         foreach (var field in fields.Where(FillRules.CanFill))
         {
-            if (await _fieldWriter.TryWriteAsync(field, DemoValueFor(field), cancellationToken))
+            var match = FieldMatcher.Match(field, candidates);
+            if (!match.IsConfident || match.Candidate is null)
             {
-                filledCount++;
+                uncertainCount++;
+            }
+            else if (await _fieldWriter.TryWriteAsync(field, match.Candidate.Value, cancellationToken))
+            {
+                filledValues.Add(new FilledValue
+                {
+                    FieldLabel = field.Label,
+                    Value = match.Candidate.Value,
+                    SourceName = match.Candidate.SourceName,
+                });
             }
             else
             {
@@ -156,14 +164,15 @@ public sealed class ShortcutActivationService : IDisposable
             }
         }
 
-        var candidates = await candidatesTask;
         stopwatch.Stop();
 
         return new FillReport
         {
-            FilledCount = filledCount,
+            FilledCount = filledValues.Count,
+            UncertainCount = uncertainCount,
             AlreadyFilledCount = fields.Count(field => field.Kind == FieldKind.Text && field.HasValue),
             FailedCount = failedCount,
+            FilledValues = filledValues,
             Sources = Summarize(candidates),
             RecognizedCounts = CountRecognized(candidates),
             Elapsed = stopwatch.Elapsed,

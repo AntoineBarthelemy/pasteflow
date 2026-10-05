@@ -72,6 +72,14 @@ public sealed class ShortcutActivationServiceTests : IDisposable
                 TestFields.Text("city", "Ville"),
             },
         };
+        _candidateSource.Candidates = new[]
+        {
+            Labelled("Antoine", CandidateKind.Text, "Nom"),
+            Labelled("antoine@example.com", CandidateKind.Email, "Email"),
+            Labelled("secret", CandidateKind.Text, "Mot de passe"),
+            Labelled("France", CandidateKind.Text, "Pays"),
+            Labelled("Reims", CandidateKind.Text, "Ville"),
+        };
         using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
         service.Start(Hotkey.Default);
 
@@ -81,19 +89,57 @@ public sealed class ShortcutActivationServiceTests : IDisposable
     }
 
     [Fact]
-    public void HotkeyPressed_WritesLabelAsDemoValue()
+    public void HotkeyPressed_FillsFieldsWithMatchingValues()
     {
         var formReader = new FakeFormReader
         {
-            Fields = new[] { TestFields.Text("name", "Nom"), TestFields.Text("unnamed", string.Empty) },
+            Fields = new[]
+            {
+                TestFields.Text("reference", "Référence"),
+                TestFields.Text("email", "E-mail"),
+                TestFields.Text("phone", "Téléphone"),
+            },
+        };
+        _candidateSource.Candidates = new[]
+        {
+            Labelled("CMD-48213", CandidateKind.Reference, "Commande n°"),
+            Labelled("antoine@example.com", CandidateKind.Email, "Courriel"),
+            Labelled("06 12 34 56 78", CandidateKind.Phone, "Tél."),
+            Labelled("Bonjour Antoine,", CandidateKind.Text, string.Empty),
         };
         using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
         service.Start(Hotkey.Default);
 
         _listener.SimulatePress();
 
-        Assert.Equal("Nom", _fieldWriter.WrittenValues["name"]);
-        Assert.Equal("PasteFlow", _fieldWriter.WrittenValues["unnamed"]);
+        Assert.Equal("CMD-48213", _fieldWriter.WrittenValues["reference"]);
+        Assert.Equal("antoine@example.com", _fieldWriter.WrittenValues["email"]);
+        Assert.Equal("06 12 34 56 78", _fieldWriter.WrittenValues["phone"]);
+        var message = Assert.Single(_notifier.Messages);
+        Assert.Contains("\nRéférence : CMD-48213 (Gmail)", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HotkeyPressed_LeavesFieldsWithoutSureValueEmpty()
+    {
+        var formReader = new FakeFormReader
+        {
+            Fields = new[] { TestFields.Text("email", "Email"), TestFields.Text("misc", "Commentaire") },
+        };
+        _candidateSource.Candidates = new[]
+        {
+            Labelled("antoine@example.com", CandidateKind.Email, string.Empty),
+            Labelled("contact@example.com", CandidateKind.Email, string.Empty),
+            Labelled("Bonjour Antoine,", CandidateKind.Text, string.Empty),
+        };
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Empty(_fieldWriter.WrittenValues);
+        var message = Assert.Single(_notifier.Messages);
+        Assert.StartsWith("2 à vérifier.", message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -107,6 +153,11 @@ public sealed class ShortcutActivationServiceTests : IDisposable
                 TestFields.Text("email", "Email", hasValue: true),
                 TestFields.Text("broken", "Ville"),
             },
+        };
+        _candidateSource.Candidates = new[]
+        {
+            Labelled("Antoine", CandidateKind.Text, "Nom"),
+            Labelled("Reims", CandidateKind.Text, "Ville"),
         };
         _fieldWriter.FailingFieldIds.Add("broken");
         using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
@@ -215,6 +266,7 @@ public sealed class ShortcutActivationServiceTests : IDisposable
     {
         var pendingReading = new TaskCompletionSource<IReadOnlyList<FormField>>();
         var formReader = new FakeFormReader { PendingReading = pendingReading };
+        _candidateSource.Candidates = new[] { Labelled("Antoine", CandidateKind.Text, "Nom") };
         using var service = new ShortcutActivationService(
             _listener,
             formReader,
@@ -232,7 +284,7 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         var message = await _notifier.FirstMessage.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.StartsWith("1 champ rempli.", message, StringComparison.Ordinal);
-        Assert.Equal("Nom", _fieldWriter.WrittenValues["name"]);
+        Assert.Equal("Antoine", _fieldWriter.WrittenValues["name"]);
     }
 
     [Fact]
@@ -291,6 +343,11 @@ public sealed class ShortcutActivationServiceTests : IDisposable
     public void Dispose()
     {
         _listener.Dispose();
+    }
+
+    private static Candidate Labelled(string value, CandidateKind kind, string label)
+    {
+        return new Candidate { Value = value, Kind = kind, Label = label, SourceName = "Gmail", SourceRank = 1 };
     }
 
     private static Candidate CandidateFrom(string sourceName, int rank, string value)

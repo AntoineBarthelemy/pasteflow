@@ -44,6 +44,48 @@ public sealed class FillReportTests
     }
 
     [Fact]
+    public void Describe_CountsFieldsToCheck()
+    {
+        var report = Report(filled: 2, alreadyFilled: 1, failed: 0) with { UncertainCount = 3 };
+
+        Assert.StartsWith("2 champs remplis, 3 à vérifier, 1 déjà rempli laissé intact.", report.Describe(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Describe_DetailsFilledValuesWithTheirSource()
+    {
+        var report = Report(filled: 2, alreadyFilled: 0, failed: 0) with
+        {
+            FilledValues = new[]
+            {
+                new FilledValue { FieldLabel = "Email", Value = "antoine@example.com", SourceName = "Gmail" },
+                new FilledValue { FieldLabel = string.Empty, Value = new string('x', 60), SourceName = "Bloc-notes" },
+            },
+        };
+
+        var lines = report.Describe().Split('\n');
+
+        Assert.Equal("Email : antoine@example.com (Gmail)", lines[1]);
+        Assert.Equal($"Champ sans nom : {new string('x', FillReport.MaxValueLength - 1)}… (Bloc-notes)", lines[2]);
+    }
+
+    [Fact]
+    public void Describe_DetailsOnlyTheFirstFilledValues()
+    {
+        var report = Report(filled: 6, alreadyFilled: 0, failed: 0) with
+        {
+            FilledValues = Enumerable.Range(1, 6)
+                .Select(index => new FilledValue { FieldLabel = $"Champ {index}", Value = "v", SourceName = "Gmail" })
+                .ToArray(),
+        };
+
+        var message = report.Describe();
+
+        Assert.Contains($"Champ {FillReport.MaxListedValues} : v", message, StringComparison.Ordinal);
+        Assert.DoesNotContain($"Champ {FillReport.MaxListedValues + 1} : v", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Describe_ListsSourcesWithTheirCandidateCount()
     {
         var sources = new[] { Source("Gmail", 84), Source("Vide", 0), Source(string.Empty, 3) };
@@ -107,6 +149,7 @@ public sealed class FillReportTests
         return new FillReport
         {
             FilledCount = filled,
+            UncertainCount = 0,
             AlreadyFilledCount = alreadyFilled,
             FailedCount = failed,
             Sources = sources ?? Array.Empty<SourceSummary>(),

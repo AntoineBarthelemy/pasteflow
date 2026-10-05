@@ -19,9 +19,24 @@ public sealed record FillReport
     public const int MaxSourceNameLength = 40;
 
     /// <summary>
+    /// The maximum number of filled values detailed in the message.
+    /// </summary>
+    public const int MaxListedValues = 4;
+
+    /// <summary>
+    /// The maximum length of a value in the message.
+    /// </summary>
+    public const int MaxValueLength = 40;
+
+    /// <summary>
     /// Gets the number of fields that were filled.
     /// </summary>
     public required int FilledCount { get; init; }
+
+    /// <summary>
+    /// Gets the number of fields left empty because no value was sure enough.
+    /// </summary>
+    public required int UncertainCount { get; init; }
 
     /// <summary>
     /// Gets the number of fields left untouched because the user had already filled them.
@@ -32,6 +47,11 @@ public sealed record FillReport
     /// Gets the number of fields that could not be written.
     /// </summary>
     public required int FailedCount { get; init; }
+
+    /// <summary>
+    /// Gets the values written, in the order of the fields.
+    /// </summary>
+    public IReadOnlyList<FilledValue> FilledValues { get; init; } = Array.Empty<FilledValue>();
 
     /// <summary>
     /// Gets the sources read during the fill, closest first.
@@ -52,16 +72,21 @@ public sealed record FillReport
     /// Describes the result in a short French message.
     /// </summary>
     /// <returns>
-    /// A message such as "2 champs remplis, 1 déjà rempli laissé intact. En 120 ms." followed, on a second line,
-    /// by the sources read, such as "Lu à l'écran : Gmail (84), Bloc-notes (12).", and on a third line by the
-    /// values recognized, such as "Reconnu : 1 e-mail, 2 téléphones.".
+    /// A message such as "2 champs remplis, 1 à vérifier. En 120 ms.", followed by one line per value written,
+    /// such as "Email : antoine@example.com (Gmail)", then by the sources read, such as
+    /// "Lu à l'écran : Gmail (84), Bloc-notes (12).", and by the values recognized, such as "Reconnu : 1 e-mail.".
     /// </returns>
     public string Describe()
     {
-        var parts = new List<string>(capacity: 3);
+        var parts = new List<string>(capacity: 4);
         if (FilledCount > 0)
         {
             parts.Add(Count(FilledCount, "champ rempli", "champs remplis"));
+        }
+
+        if (UncertainCount > 0)
+        {
+            parts.Add(Count(UncertainCount, "à vérifier", "à vérifier"));
         }
 
         if (AlreadyFilledCount > 0)
@@ -77,6 +102,10 @@ public sealed record FillReport
         var result = parts.Count > 0 ? string.Join(", ", parts) : "Aucun champ à remplir dans cette fenêtre";
         var duration = string.Create(CultureInfo.InvariantCulture, $"En {Math.Round(Elapsed.TotalMilliseconds)} ms.");
         var message = $"{result}. {duration}";
+        foreach (var filled in FilledValues.Take(MaxListedValues))
+        {
+            message += $"\n{DescribeFilledValue(filled)}";
+        }
 
         var sources = Sources.Where(source => source.CandidateCount > 0).ToList();
         if (sources.Count == 0)
@@ -94,6 +123,18 @@ public sealed record FillReport
             .ToList();
 
         return recognized.Count > 0 ? $"{message}\nReconnu : {string.Join(", ", recognized)}." : message;
+    }
+
+    private static string DescribeFilledValue(FilledValue filled)
+    {
+        var label = string.IsNullOrWhiteSpace(filled.FieldLabel) ? "Champ sans nom" : filled.FieldLabel.Trim();
+        return $"{label} : {Shorten(filled.Value, MaxValueLength)} ({Shorten(filled.SourceName, MaxSourceNameLength)})";
+    }
+
+    private static string Shorten(string text, int maxLength)
+    {
+        var trimmed = text.Trim();
+        return trimmed.Length <= maxLength ? trimmed : $"{trimmed[..(maxLength - 1)]}…";
     }
 
     private static string DescribeKind(CandidateKind kind, int count)
@@ -116,12 +157,7 @@ public sealed record FillReport
 
     private static string DescribeSource(SourceSummary source)
     {
-        var name = string.IsNullOrWhiteSpace(source.Name) ? "sans titre" : source.Name.Trim();
-        if (name.Length > MaxSourceNameLength)
-        {
-            name = $"{name[..(MaxSourceNameLength - 1)]}…";
-        }
-
+        var name = string.IsNullOrWhiteSpace(source.Name) ? "sans titre" : Shorten(source.Name, MaxSourceNameLength);
         return string.Create(CultureInfo.InvariantCulture, $"{name} ({source.CandidateCount})");
     }
 

@@ -16,7 +16,10 @@ internal sealed class NotificationPopup : Window
     private const double ScreenMargin = 16;
     private const double MaxTextWidth = 360;
 
-    private static readonly TimeSpan DisplayDuration = TimeSpan.FromSeconds(2.5);
+    // Display time grows with the length of the message, to leave time to read it
+    private const int MinDisplayMilliseconds = 2500;
+    private const int MaxDisplayMilliseconds = 8000;
+    private const int DisplayMillisecondsPerCharacter = 40;
 
     private readonly DispatcherTimer _closeTimer;
 
@@ -53,7 +56,11 @@ internal sealed class NotificationPopup : Window
             },
         };
 
-        _closeTimer = new DispatcherTimer { Interval = DisplayDuration };
+        var displayMilliseconds = Math.Clamp(
+            MinDisplayMilliseconds + (DisplayMillisecondsPerCharacter * message.Length),
+            MinDisplayMilliseconds,
+            MaxDisplayMilliseconds);
+        _closeTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(displayMilliseconds) };
         _closeTimer.Tick += OnCloseTimerTick;
         Loaded += OnLoaded;
     }
