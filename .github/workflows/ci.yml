@@ -53,6 +53,11 @@ jobs:
             $total += [int]$counters.total
             $passed += [int]$counters.passed
             $failed += [int]$counters.failed
+            foreach ($result in $trx.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq 'Failed' }) {
+              $reason = ($result.Output.ErrorInfo.Message -replace '\s+', ' ')
+              if ($reason.Length -gt 400) { $reason = $reason.Substring(0, 400) }
+              Write-Output "::error title=Test failed::$($result.testName) : $reason"
+            }
           }
           Write-Output "::notice title=Tests::$passed of $total tests passed, $failed failed"
 
