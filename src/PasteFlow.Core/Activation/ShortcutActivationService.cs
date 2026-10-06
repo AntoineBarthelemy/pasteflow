@@ -154,6 +154,7 @@ public sealed class ShortcutActivationService : IDisposable
         var filledValues = new List<FilledValue>();
         var uncertainCount = 0;
         var failedCount = 0;
+
         // Safety net: the values are chosen for the whole form at once, so one value never fills two fields
         var fillableFields = fields.Where(FillRules.CanFill).ToList();
         foreach (var match in FormMatcher.MatchAll(fillableFields, candidates))
