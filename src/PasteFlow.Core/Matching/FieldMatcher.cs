@@ -49,12 +49,15 @@ public static class FieldMatcher
         ArgumentNullException.ThrowIfNull(candidates);
 
         var clues = FieldClues.Of(field);
-        var distinctValuesByKind = candidates
+
+        // Only the values the field can accept compete, so "the only value of its kind" means the only acceptable one
+        var eligible = candidates.Where(candidate => IsEligible(candidate, clues)).ToList();
+        var distinctValuesByKind = eligible
             .GroupBy(candidate => candidate.Kind)
             .ToDictionary(group => group.Key, group => group.Select(candidate => candidate.Value).Distinct(StringComparer.Ordinal).Count());
 
         // A value found several times keeps its best score: it is one choice, not several
-        var ranked = candidates
+        var ranked = eligible
             .Select(candidate => (Candidate: candidate, Score: Score(candidate, clues, distinctValuesByKind)))
             .Where(scored => scored.Score > 0)
             .GroupBy(scored => scored.Candidate.Value, StringComparer.Ordinal)
@@ -79,31 +82,35 @@ public static class FieldMatcher
         };
     }
 
+    /// <summary>
+    /// Determines whether a field can accept a candidate at all, whatever its score.
+    /// </summary>
+    /// <param name="candidate">The candidate to check.</param>
+    /// <param name="clues">The clues of the field.</param>
+    /// <returns><see langword="true"/> if the candidate may compete for the field; otherwise <see langword="false"/>.</returns>
+    private static bool IsEligible(Candidate candidate, FieldClues clues)
+    {
+        var expectedKinds = clues.ExpectedKinds;
+        if (expectedKinds.Count > 0 && !expectedKinds.Contains(candidate.Kind))
+        {
+            return false;
+        }
+
+        // Safety net: a postal code field only takes a real French postal code
+        return candidate.Kind != CandidateKind.Number
+            || !clues.Mentions(LabelConcepts.PostalCode)
+            || ValueValidator.IsFrenchPostalCode(candidate.Value);
+    }
+
     private static double Score(
         Candidate candidate,
         FieldClues clues,
         Dictionary<CandidateKind, int> distinctValuesByKind)
     {
-        var expectedKinds = clues.ExpectedKinds;
         double score;
-        if (expectedKinds.Count == 0)
+        if (clues.ExpectedKinds.Count == 0 || candidate.Kind == CandidateKind.Text)
         {
-            // No clue about the expected value: only the labels can tell
-            score = TextKindScore;
-        }
-        else if (!expectedKinds.Contains(candidate.Kind))
-        {
-            return 0;
-        }
-        else if (candidate.Kind == CandidateKind.Number
-            && clues.Mentions(LabelConcepts.PostalCode)
-            && !ValueValidator.IsFrenchPostalCode(candidate.Value))
-        {
-            // Safety net: a postal code field only takes a real French postal code
-            return 0;
-        }
-        else if (candidate.Kind == CandidateKind.Text)
-        {
+            // No clue about the expected value, or plain text: only the labels can tell
             score = TextKindScore;
         }
         else
