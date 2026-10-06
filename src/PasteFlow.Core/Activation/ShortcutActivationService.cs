@@ -15,7 +15,7 @@ namespace PasteFlow.Core.Activation;
 /// Pressing the shortcut reads the form of the active window and, at the same time, the candidate sources.
 /// Example values and placeholders are set aside (<see cref="SampleValues"/>), then each field allowed by
 /// <see cref="FillRules"/> receives the value chosen by <see cref="FormMatcher"/>, only when the matcher is sure
-/// enough and the value is not already given to another field; the other fields are left to the user.
+/// enough and the value is not already given to another field; the other fields are left to the user and highlighted.
 /// </remarks>
 public sealed class ShortcutActivationService : IDisposable
 {
@@ -25,6 +25,7 @@ public sealed class ShortcutActivationService : IDisposable
     private readonly ICandidateSource[] _candidateSources;
     private readonly IUserNotifier _notifier;
     private readonly FillMemory _fillMemory;
+    private readonly IFieldHighlighter _highlighter;
     private bool _isDisposed;
 
     /// <summary>
@@ -41,13 +42,13 @@ public sealed class ShortcutActivationService : IDisposable
         IFieldWriter fieldWriter,
         IEnumerable<ICandidateSource> candidateSources,
         IUserNotifier notifier)
-        : this(listener, formReader, fieldWriter, candidateSources, notifier, new FillMemory())
+        : this(listener, formReader, fieldWriter, candidateSources, notifier, new FillMemory(), new NoHighlighter())
     {
     }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ShortcutActivationService"/> class that remembers its fills
-    /// so that they can be undone.
+    /// so that they can be undone, and highlights the fields left to the user.
     /// </summary>
     /// <param name="listener">The listener of the global shortcut, owned by the caller.</param>
     /// <param name="formReader">The component that reads the form of the active window.</param>
@@ -55,13 +56,15 @@ public sealed class ShortcutActivationService : IDisposable
     /// <param name="candidateSources">The places where values to paste are searched.</param>
     /// <param name="notifier">The component used to display messages to the user.</param>
     /// <param name="fillMemory">The memory of the last fill, shared with the undo service.</param>
+    /// <param name="highlighter">The component that shows the fields the user should check.</param>
     public ShortcutActivationService(
         IHotkeyListener listener,
         IFormReader formReader,
         IFieldWriter fieldWriter,
         IEnumerable<ICandidateSource> candidateSources,
         IUserNotifier notifier,
-        FillMemory fillMemory)
+        FillMemory fillMemory,
+        IFieldHighlighter highlighter)
     {
         ArgumentNullException.ThrowIfNull(listener);
         ArgumentNullException.ThrowIfNull(formReader);
@@ -69,6 +72,7 @@ public sealed class ShortcutActivationService : IDisposable
         ArgumentNullException.ThrowIfNull(candidateSources);
         ArgumentNullException.ThrowIfNull(notifier);
         ArgumentNullException.ThrowIfNull(fillMemory);
+        ArgumentNullException.ThrowIfNull(highlighter);
 
         _listener = listener;
         _formReader = formReader;
@@ -76,6 +80,7 @@ public sealed class ShortcutActivationService : IDisposable
         _candidateSources = candidateSources.ToArray();
         _notifier = notifier;
         _fillMemory = fillMemory;
+        _highlighter = highlighter;
     }
 
     /// <summary>
@@ -159,6 +164,8 @@ public sealed class ShortcutActivationService : IDisposable
             return;
         }
 
+        // An empty list also removes the frames of a previous fill
+        _highlighter.Highlight(report.FieldsToCheck);
         _notifier.Notify(report.Describe());
     }
 
@@ -186,6 +193,7 @@ public sealed class ShortcutActivationService : IDisposable
         var writtenFields = new List<WrittenField>();
         var uncertainCount = 0;
         var failedCount = 0;
+        var fieldsToCheck = new List<FormField>();
 
         // Safety net: the values are chosen for the whole form at once, so one value never fills two fields
         var fillableFields = fields.Where(FillRules.CanFill).ToList();
@@ -195,6 +203,7 @@ public sealed class ShortcutActivationService : IDisposable
             if (!match.IsConfident || match.Candidate is null)
             {
                 uncertainCount++;
+                fieldsToCheck.Add(field);
             }
             else if (await _fieldWriter.TryWriteAsync(field, match.Candidate.Value, cancellationToken))
             {
@@ -209,6 +218,7 @@ public sealed class ShortcutActivationService : IDisposable
             else
             {
                 failedCount++;
+                fieldsToCheck.Add(field);
             }
         }
 
@@ -226,6 +236,7 @@ public sealed class ShortcutActivationService : IDisposable
             RecognizedCounts = CountRecognized(candidates),
             IgnoredSampleCount = ignoredSampleCount,
             Elapsed = stopwatch.Elapsed,
+            FieldsToCheck = fieldsToCheck,
             UndoHotkey = UndoHotkey,
         };
     }
@@ -234,5 +245,16 @@ public sealed class ShortcutActivationService : IDisposable
     {
         var results = await Task.WhenAll(_candidateSources.Select(source => source.GetCandidatesAsync(cancellationToken)));
         return results.SelectMany(candidates => candidates).ToList();
+    }
+
+    /// <summary>
+    /// Highlighter used when the caller does not show the fields to check.
+    /// </summary>
+    private sealed class NoHighlighter : IFieldHighlighter
+    {
+        public void Highlight(IReadOnlyList<FormField> fields)
+        {
+            // Nothing to show
+        }
     }
 }

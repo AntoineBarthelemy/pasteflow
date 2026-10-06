@@ -75,6 +75,11 @@ public sealed record FillReport
     public required TimeSpan Elapsed { get; init; }
 
     /// <summary>
+    /// Gets the fields the user should check: those without a sure value and those that could not be written.
+    /// </summary>
+    public IReadOnlyList<FormField> FieldsToCheck { get; init; } = Array.Empty<FormField>();
+
+    /// <summary>
     /// Gets the shortcut that undoes the fill, or <see langword="null"/> if undoing is not available.
     /// </summary>
     public Hotkey? UndoHotkey { get; init; }

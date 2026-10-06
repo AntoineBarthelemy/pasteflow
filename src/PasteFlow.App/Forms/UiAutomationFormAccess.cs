@@ -30,7 +30,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
         new PropertyCondition(AutomationElement.IsOffscreenProperty, false));
 
     private readonly object _gate = new();
-    private readonly Dictionary<string, AutomationElement> _rememberedElements = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, RememberedField> _rememberedFields = new(StringComparer.Ordinal);
     private readonly Queue<string[]> _readingIds = new();
     private int _readingCount;
 
@@ -71,6 +71,61 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
 
         AutomationElement target = element;
         return Task.Run(() => TryReadValue(target), cancellationToken);
+    }
+
+    /// <summary>
+    /// Gets the window a field was read in.
+    /// </summary>
+    /// <param name="field">The field, as returned by a recent reading of the form.</param>
+    /// <returns>The window of the field, or <see cref="IntPtr.Zero"/> if the field is not from a recent reading.</returns>
+    internal IntPtr GetWindow(FormField field)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+
+        lock (_gate)
+        {
+            return _rememberedFields.TryGetValue(field.Id, out var remembered) ? remembered.Window : IntPtr.Zero;
+        }
+    }
+
+    /// <summary>
+    /// Reads where fields are on the screen and whether they hold a value.
+    /// </summary>
+    /// <param name="fields">The fields, as returned by a recent reading of the form.</param>
+    /// <param name="cancellationToken">A token to cancel the reading.</param>
+    /// <returns>The state of each field that can still be read, by field identifier.</returns>
+    internal Task<IReadOnlyDictionary<string, FieldState>> ReadStatesAsync(
+        IReadOnlyList<FormField> fields,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(fields);
+
+        var elements = new List<(string Id, AutomationElement Element)>(fields.Count);
+        foreach (var field in fields)
+        {
+            var element = FindElement(field);
+            if (element is not null)
+            {
+                elements.Add((field.Id, element));
+            }
+        }
+
+        return Task.Run<IReadOnlyDictionary<string, FieldState>>(
+            () =>
+            {
+                var states = new Dictionary<string, FieldState>(StringComparer.Ordinal);
+                foreach (var (id, element) in elements)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (TryReadState(element) is { } state)
+                    {
+                        states[id] = state;
+                    }
+                }
+
+                return states;
+            },
+            cancellationToken);
     }
 
     /// <summary>
@@ -134,6 +189,26 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             && !string.IsNullOrWhiteSpace(valuePattern.Current.Value);
     }
 
+    private static FieldState? TryReadState(AutomationElement element)
+    {
+        try
+        {
+            var current = element.Current;
+            var bounds = current.IsOffscreen ? System.Windows.Rect.Empty : current.BoundingRectangle;
+            return new FieldState(bounds, !current.IsPassword && HasValue(element));
+        }
+        catch (ElementNotAvailableException)
+        {
+            // The field or its window disappeared
+            return null;
+        }
+        catch (COMException)
+        {
+            // The application does not answer accessibility requests
+            return null;
+        }
+    }
+
     private static string? TryReadValue(AutomationElement element)
     {
         try
@@ -195,7 +270,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
     {
         lock (_gate)
         {
-            return _rememberedElements.GetValueOrDefault(field.Id);
+            return _rememberedFields.TryGetValue(field.Id, out var remembered) ? remembered.Element : null;
         }
     }
 
@@ -238,17 +313,17 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             }
         }
 
-        Remember(elements);
+        Remember(elements, windowHandle);
         return fields;
     }
 
-    private void Remember(Dictionary<string, AutomationElement> elements)
+    private void Remember(Dictionary<string, AutomationElement> elements, IntPtr windowHandle)
     {
         lock (_gate)
         {
             foreach (var (id, element) in elements)
             {
-                _rememberedElements[id] = element;
+                _rememberedFields[id] = new RememberedField(element, windowHandle);
             }
 
             _readingIds.Enqueue(elements.Keys.ToArray());
@@ -256,9 +331,16 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             {
                 foreach (var id in _readingIds.Dequeue())
                 {
-                    _ = _rememberedElements.Remove(id);
+                    _ = _rememberedFields.Remove(id);
                 }
             }
         }
     }
+
+    /// <summary>
+    /// A field of a recent reading, with the window it was read in.
+    /// </summary>
+    /// <param name="Element">The accessibility element of the field.</param>
+    /// <param name="Window">The window the field was read in.</param>
+    private sealed record RememberedField(AutomationElement Element, IntPtr Window);
 }

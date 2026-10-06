@@ -188,7 +188,7 @@ public sealed class UndoShortcutServiceTests : IDisposable
                 new Candidate { Value = "antoine.b@orange.fr", Kind = CandidateKind.Email, Label = "Courriel", SourceName = "Gmail", SourceRank = 1 },
             },
         };
-        using var fill = new ShortcutActivationService(fillListener, formReader, _fields, new[] { source }, _notifier, _fillMemory);
+        using var fill = new ShortcutActivationService(fillListener, formReader, _fields, new[] { source }, _notifier, _fillMemory, new FakeFieldHighlighter());
         fill.Start(Hotkey.Default);
         using var undo = StartService();
         fillListener.SimulatePress();

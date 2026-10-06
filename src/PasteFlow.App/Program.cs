@@ -1,5 +1,6 @@
 using System.Windows;
 using PasteFlow.App.Forms;
+using PasteFlow.App.Highlights;
 using PasteFlow.App.Hotkeys;
 using PasteFlow.App.Notifications;
 using PasteFlow.App.Screen;
@@ -36,6 +37,7 @@ internal static class Program
         using var undoHotkeyListener = new Win32HotkeyListener();
         var formAccess = new UiAutomationFormAccess();
         var fillMemory = new FillMemory();
+        using var highlighter = new UiAutomationFieldHighlighter(formAccess);
         var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(new UiAutomationWindowTextReader()) };
         using var activation = new ShortcutActivationService(
             hotkeyListener,
@@ -43,7 +45,8 @@ internal static class Program
             formAccess,
             candidateSources,
             notifier,
-            fillMemory);
+            fillMemory,
+            highlighter);
         using var undo = new UndoShortcutService(undoHotkeyListener, fillMemory, formAccess, formAccess, notifier);
 
         // Without its own shortcut, undoing is simply not announced: filling still works

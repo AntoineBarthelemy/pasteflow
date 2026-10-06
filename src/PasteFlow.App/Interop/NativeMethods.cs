@@ -109,4 +109,31 @@ internal static partial class NativeMethods
     [LibraryImport("dwmapi.dll")]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     internal static partial int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
+
+    /// <summary>
+    /// Changes information about a window, for example its extended style with GWL_EXSTYLE (-20).
+    /// </summary>
+    /// <param name="hWnd">The window.</param>
+    /// <param name="nIndex">The information to change.</param>
+    /// <param name="dwNewLong">The new value.</param>
+    /// <returns>The previous value, or 0 on failure.</returns>
+    [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    internal static partial nint SetWindowLongPtr(IntPtr hWnd, int nIndex, nint dwNewLong);
+
+    /// <summary>
+    /// Changes the position, size and stacking order of a window, in physical pixels.
+    /// </summary>
+    /// <param name="hWnd">The window.</param>
+    /// <param name="hWndInsertAfter">The window to place it after, for example HWND_TOPMOST (-1).</param>
+    /// <param name="x">The new left side.</param>
+    /// <param name="y">The new top side.</param>
+    /// <param name="cx">The new width.</param>
+    /// <param name="cy">The new height.</param>
+    /// <param name="uFlags">Options, for example SWP_NOACTIVATE (0x10).</param>
+    /// <returns><see langword="true"/> on success; otherwise <see langword="false"/>.</returns>
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
 }

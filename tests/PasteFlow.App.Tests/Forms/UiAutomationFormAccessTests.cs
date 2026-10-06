@@ -205,6 +205,48 @@ public sealed class UiAutomationFormAccessTests : IDisposable
         Assert.Null(await _formAccess.TryReadValueAsync(unknownField, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task ReadStatesAsync_GivesBoundsInsideTheWindowAndWhetherFieldsHoldAValue()
+    {
+        var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+
+        var states = await _formAccess.ReadStatesAsync(fields, CancellationToken.None);
+
+        Assert.False(states[Field(fields, "Nom").Id].HasValue);
+        Assert.True(states[Field(fields, "Email").Id].HasValue);
+        Assert.All(states.Values, state => Assert.True(state.Bounds.Width > 0 && state.Bounds.Height > 0));
+    }
+
+    [Fact]
+    public async Task ReadStatesAsync_NeverReportsAPasswordAsHoldingAValue()
+    {
+        var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+
+        var states = await _formAccess.ReadStatesAsync(fields, CancellationToken.None);
+
+        Assert.False(states[Field(fields, "Mot de passe").Id].HasValue);
+    }
+
+    [Fact]
+    public async Task ReadStatesAsync_SkipsFieldsNotFromRecentReading()
+    {
+        _ = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+        var unknownField = new FormField { Id = "unknown", Label = "Nom", Kind = FieldKind.Text, HasValue = false };
+
+        var states = await _formAccess.ReadStatesAsync(new[] { unknownField }, CancellationToken.None);
+
+        Assert.Empty(states);
+    }
+
+    [Fact]
+    public async Task GetWindow_GivesTheWindowTheFieldWasReadIn()
+    {
+        var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+
+        Assert.Equal(_host.Handle, _formAccess.GetWindow(Field(fields, "Nom")));
+        Assert.Equal(IntPtr.Zero, _formAccess.GetWindow(new FormField { Id = "unknown", Label = "Nom", Kind = FieldKind.Text, HasValue = false }));
+    }
+
     public void Dispose()
     {
         _host.Dispose();

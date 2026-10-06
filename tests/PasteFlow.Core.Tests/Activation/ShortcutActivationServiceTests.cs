@@ -193,7 +193,7 @@ public sealed class ShortcutActivationServiceTests : IDisposable
             Fields = new[] { TestFields.Text("email", "Email"), TestFields.Text("misc", "Commentaire") },
         };
         _candidateSource.Candidates = new[] { Labelled("antoine.b@orange.fr", CandidateKind.Email, "Courriel") };
-        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier, memory);
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier, memory, new FakeFieldHighlighter());
         service.Start(Hotkey.Default);
 
         _listener.SimulatePress();
@@ -210,12 +210,81 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         var formReader = new FakeFormReader { Fields = new[] { TestFields.Text("email", "Email") } };
         _candidateSource.Candidates = new[] { Labelled("antoine.b@orange.fr", CandidateKind.Email, "Courriel") };
         _fieldWriter.FailingFieldIds.Add("email");
-        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier, memory);
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier, memory, new FakeFieldHighlighter());
         service.Start(Hotkey.Default);
 
         _listener.SimulatePress();
 
         Assert.Empty(memory.TakeLastFill());
+    }
+
+    [Fact]
+    public void HotkeyPressed_HighlightsFieldsWithoutSureValueAndFieldsThatFailed()
+    {
+        var highlighter = new FakeFieldHighlighter();
+        var formReader = new FakeFormReader
+        {
+            Fields = new[]
+            {
+                TestFields.Text("email", "Email"),
+                TestFields.Text("phone", "Téléphone"),
+                TestFields.Text("misc", "Commentaire"),
+                TestFields.Text("name", "Nom", hasValue: true),
+                TestFields.Password("password", "Mot de passe"),
+                TestFields.Choice("country", "Pays"),
+            },
+        };
+        _candidateSource.Candidates = new[]
+        {
+            Labelled("antoine.b@orange.fr", CandidateKind.Email, "Courriel"),
+            Labelled("06 47 21 85 39", CandidateKind.Phone, "Tél."),
+        };
+        _fieldWriter.FailingFieldIds.Add("phone");
+        using var service = CreateHighlightingService(formReader, highlighter);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Equal(new[] { "phone", "misc" }, highlighter.HighlightedFields.Select(field => field.Id));
+    }
+
+    [Fact]
+    public void HotkeyPressed_WhenEveryFieldIsFilled_RemovesPreviousHighlights()
+    {
+        var highlighter = new FakeFieldHighlighter();
+        var formReader = new FakeFormReader { Fields = new[] { TestFields.Text("email", "Email") } };
+        _candidateSource.Candidates = new[] { Labelled("antoine.b@orange.fr", CandidateKind.Email, "Courriel") };
+        using var service = CreateHighlightingService(formReader, highlighter);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Equal(1, highlighter.CallCount);
+        Assert.Empty(highlighter.HighlightedFields);
+    }
+
+    [Fact]
+    public void HotkeyPressed_WhenWindowHasNoField_RemovesPreviousHighlights()
+    {
+        var highlighter = new FakeFieldHighlighter();
+        using var service = CreateHighlightingService(new FakeFormReader(), highlighter);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Equal(1, highlighter.CallCount);
+        Assert.Empty(highlighter.HighlightedFields);
+    }
+
+    [Fact]
+    public void HotkeyPressed_BeforeStart_HighlightsNothing()
+    {
+        var highlighter = new FakeFieldHighlighter();
+        using var service = CreateHighlightingService(new FakeFormReader { Fields = new[] { TestFields.Text("misc", "Commentaire") } }, highlighter);
+
+        _listener.SimulatePress();
+
+        Assert.Equal(0, highlighter.CallCount);
     }
 
     [Fact]
@@ -472,6 +541,18 @@ public sealed class ShortcutActivationServiceTests : IDisposable
     private static Candidate CandidateFrom(string sourceName, int rank, string value)
     {
         return new Candidate { Value = value, SourceName = sourceName, SourceRank = rank };
+    }
+
+    private ShortcutActivationService CreateHighlightingService(FakeFormReader formReader, FakeFieldHighlighter highlighter)
+    {
+        return new ShortcutActivationService(
+            _listener,
+            formReader,
+            _fieldWriter,
+            new[] { _candidateSource },
+            _notifier,
+            new FillMemory(),
+            highlighter);
     }
 
     private ShortcutActivationService CreateService()
