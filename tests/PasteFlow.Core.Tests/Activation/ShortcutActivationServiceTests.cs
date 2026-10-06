@@ -3,6 +3,7 @@ using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Tests.Fakes;
+using PasteFlow.Core.Undo;
 
 namespace PasteFlow.Core.Tests.Activation;
 
@@ -165,6 +166,56 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         Assert.All(_fieldWriter.WrittenValues.Values, value => Assert.Equal("antoine.b@orange.fr", value));
         var message = Assert.Single(_notifier.Messages);
         Assert.StartsWith("2 champs remplis, 1 à vérifier.", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HotkeyPressed_AnnouncesUndoShortcutWhenAvailable()
+    {
+        var formReader = new FakeFormReader { Fields = new[] { TestFields.Text("email", "Email") } };
+        _candidateSource.Candidates = new[] { Labelled("antoine.b@orange.fr", CandidateKind.Email, "Courriel") };
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier)
+        {
+            UndoHotkey = Hotkey.DefaultUndo,
+        };
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Contains("\nCtrl+Alt+Z pour tout annuler.", Assert.Single(_notifier.Messages), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HotkeyPressed_RemembersWrittenValuesForUndo()
+    {
+        var memory = new FillMemory();
+        var formReader = new FakeFormReader
+        {
+            Fields = new[] { TestFields.Text("email", "Email"), TestFields.Text("misc", "Commentaire") },
+        };
+        _candidateSource.Candidates = new[] { Labelled("antoine.b@orange.fr", CandidateKind.Email, "Courriel") };
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier, memory);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        var written = Assert.Single(memory.TakeLastFill());
+        Assert.Equal("email", written.Field.Id);
+        Assert.Equal("antoine.b@orange.fr", written.Value);
+    }
+
+    [Fact]
+    public void HotkeyPressed_DoesNotRememberFieldsThatFailedToBeWritten()
+    {
+        var memory = new FillMemory();
+        var formReader = new FakeFormReader { Fields = new[] { TestFields.Text("email", "Email") } };
+        _candidateSource.Candidates = new[] { Labelled("antoine.b@orange.fr", CandidateKind.Email, "Courriel") };
+        _fieldWriter.FailingFieldIds.Add("email");
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier, memory);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Empty(memory.TakeLastFill());
     }
 
     [Fact]

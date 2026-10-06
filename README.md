@@ -20,7 +20,7 @@ Feuille de route :
 4. [x] Lire le texte des fenêtres visibles et des fenêtres juste derrière
 5. [x] Découper le texte en unités de sens : e-mails, téléphones, dates, montants, IBAN, références, avec leur libellé (règles)
 6. [ ] Associer champs et candidats, remplir le formulaire
-7. [ ] Interface : surlignage, récapitulatif, mini fenêtre, annulation globale
+7. [ ] Interface : annulation globale (fait), surlignage, récapitulatif, mini fenêtre
 8. [ ] Petits modèles d'IA locaux (ONNX Runtime)
 9. [ ] Apprentissage des habitudes et historique (SQLite)
 10. [ ] Finitions : OCR de secours, adaptation des formats, paramètres
@@ -55,6 +55,13 @@ dotnet run --project src/PasteFlow.App
 ```
 
 Le premier `dotnet build` restaure les outils .NET locaux et installe automatiquement les hooks Git (Husky.Net). Rien d'autre à configurer.
+
+Raccourcis :
+
+| Raccourci | Action |
+|---|---|
+| Ctrl+Alt+V | Remplit le formulaire de la fenêtre active |
+| Ctrl+Alt+Z | Annule le dernier remplissage : vide les champs remplis par l'outil, sauf ceux modifiés depuis |
 
 Pour quitter l'application : clic droit sur l'icône près de l'horloge, puis « Quitter ».
 

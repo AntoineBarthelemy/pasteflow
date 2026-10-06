@@ -12,9 +12,16 @@ namespace PasteFlow.App.Forms;
 /// <remarks>
 /// Calls run on background threads, as recommended for UI Automation clients.
 /// Values are never read from password fields.
+/// Each reading gives its fields new identifiers, and the fields of the last few readings stay reachable,
+/// so that a fill can be undone even after the shortcut was pressed in another window.
 /// </remarks>
-internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter
+internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IFieldValueReader
 {
+    /// <summary>
+    /// The number of readings whose fields stay reachable.
+    /// </summary>
+    internal const int RememberedReadingCount = 3;
+
     private static readonly Condition FieldCondition = new AndCondition(
         new OrCondition(
             new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
@@ -23,7 +30,9 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter
         new PropertyCondition(AutomationElement.IsOffscreenProperty, false));
 
     private readonly object _gate = new();
-    private Dictionary<string, AutomationElement> _lastReadElements = new();
+    private readonly Dictionary<string, AutomationElement> _rememberedElements = new(StringComparer.Ordinal);
+    private readonly Queue<string[]> _readingIds = new();
+    private int _readingCount;
 
     /// <inheritdoc/>
     public Task<IReadOnlyList<FormField>> ReadActiveFormAsync(CancellationToken cancellationToken)
@@ -38,20 +47,30 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter
         ArgumentNullException.ThrowIfNull(field);
         ArgumentNullException.ThrowIfNull(value);
 
-        AutomationElement? element;
-        lock (_gate)
-        {
-            _ = _lastReadElements.TryGetValue(field.Id, out element);
-        }
-
+        var element = FindElement(field);
         if (element is null)
         {
-            // The field does not belong to the last reading of the form
+            // The field does not belong to a recent reading of the form
             return Task.FromResult(false);
         }
 
         AutomationElement target = element;
         return Task.Run(() => TryWrite(target, value), cancellationToken);
+    }
+
+    /// <inheritdoc/>
+    public Task<string?> TryReadValueAsync(FormField field, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+
+        var element = FindElement(field);
+        if (element is null || field.Kind == FieldKind.Password)
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+        AutomationElement target = element;
+        return Task.Run(() => TryReadValue(target), cancellationToken);
     }
 
     /// <summary>
@@ -115,6 +134,32 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter
             && !string.IsNullOrWhiteSpace(valuePattern.Current.Value);
     }
 
+    private static string? TryReadValue(AutomationElement element)
+    {
+        try
+        {
+            // Checked again on the element itself: a password is never read
+            if (element.Current.IsPassword
+                || !element.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern)
+                || pattern is not ValuePattern valuePattern)
+            {
+                return null;
+            }
+
+            return valuePattern.Current.Value ?? string.Empty;
+        }
+        catch (ElementNotAvailableException)
+        {
+            // The field or its window disappeared
+            return null;
+        }
+        catch (COMException)
+        {
+            // The application does not answer accessibility requests
+            return null;
+        }
+    }
+
     private static bool TryWrite(AutomationElement element, string value)
     {
         try
@@ -146,10 +191,19 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter
         }
     }
 
+    private AutomationElement? FindElement(FormField field)
+    {
+        lock (_gate)
+        {
+            return _rememberedElements.GetValueOrDefault(field.Id);
+        }
+    }
+
     private List<FormField> ReadFields(IntPtr windowHandle, CancellationToken cancellationToken)
     {
-        var elements = new Dictionary<string, AutomationElement>();
+        var elements = new Dictionary<string, AutomationElement>(StringComparer.Ordinal);
         var fields = new List<FormField>();
+        var reading = Interlocked.Increment(ref _readingCount);
 
         if (windowHandle != IntPtr.Zero)
         {
@@ -160,7 +214,8 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    var id = elements.Count.ToString(CultureInfo.InvariantCulture);
+                    // Unique across readings: a field of an old reading never targets an element of a new one
+                    var id = string.Create(CultureInfo.InvariantCulture, $"{reading}-{elements.Count}");
                     var field = TryReadField(id, element);
                     if (field is not null)
                     {
@@ -183,11 +238,27 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter
             }
         }
 
+        Remember(elements);
+        return fields;
+    }
+
+    private void Remember(Dictionary<string, AutomationElement> elements)
+    {
         lock (_gate)
         {
-            _lastReadElements = elements;
-        }
+            foreach (var (id, element) in elements)
+            {
+                _rememberedElements[id] = element;
+            }
 
-        return fields;
+            _readingIds.Enqueue(elements.Keys.ToArray());
+            while (_readingIds.Count > RememberedReadingCount)
+            {
+                foreach (var id in _readingIds.Dequeue())
+                {
+                    _ = _rememberedElements.Remove(id);
+                }
+            }
+        }
     }
 }

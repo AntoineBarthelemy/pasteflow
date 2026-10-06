@@ -41,6 +41,14 @@ public sealed record Hotkey
     public static Hotkey Default { get; } = new(KeyModifiers.Control | KeyModifiers.Alt, 'V');
 
     /// <summary>
+    /// Gets the default shortcut to undo the last fill: Ctrl+Alt+Z.
+    /// </summary>
+    /// <remarks>
+    /// Ctrl+Z alone is left to the applications, which use it for their own undo.
+    /// </remarks>
+    public static Hotkey DefaultUndo { get; } = new(KeyModifiers.Control | KeyModifiers.Alt, 'Z');
+
+    /// <summary>
     /// Gets the modifier keys that must be held down.
     /// </summary>
     public KeyModifiers Modifiers { get; }

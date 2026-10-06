@@ -12,6 +12,13 @@ public sealed class HotkeyTests
     }
 
     [Fact]
+    public void DefaultUndo_IsControlAltZ()
+    {
+        Assert.Equal("Ctrl+Alt+Z", Hotkey.DefaultUndo.ToString());
+        Assert.NotEqual(Hotkey.Default, Hotkey.DefaultUndo);
+    }
+
+    [Fact]
     public void Constructor_WithLowerCaseKey_NormalizesKeyToUpperCase()
     {
         var hotkey = new Hotkey(KeyModifiers.Control, 'k');

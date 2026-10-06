@@ -7,6 +7,7 @@ using PasteFlow.App.Tray;
 using PasteFlow.Core.Activation;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Hotkeys;
+using PasteFlow.Core.Undo;
 
 namespace PasteFlow.App;
 
@@ -32,19 +33,30 @@ internal static class Program
 
         using var trayIcon = new TrayIcon(application.Shutdown);
         using var hotkeyListener = new Win32HotkeyListener();
+        using var undoHotkeyListener = new Win32HotkeyListener();
         var formAccess = new UiAutomationFormAccess();
+        var fillMemory = new FillMemory();
         var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(new UiAutomationWindowTextReader()) };
         using var activation = new ShortcutActivationService(
             hotkeyListener,
             formAccess,
             formAccess,
             candidateSources,
-            notifier);
+            notifier,
+            fillMemory);
+        using var undo = new UndoShortcutService(undoHotkeyListener, fillMemory, formAccess, formAccess, notifier);
+
+        // Without its own shortcut, undoing is simply not announced: filling still works
+        var undoHotkey = Hotkey.DefaultUndo;
+        if (undo.Start(undoHotkey))
+        {
+            activation.UndoHotkey = undoHotkey;
+        }
 
         var hotkey = Hotkey.Default;
         if (activation.Start(hotkey))
         {
-            trayIcon.ShowStatus($"{hotkey} actif");
+            trayIcon.ShowStatus(activation.UndoHotkey is null ? $"{hotkey} actif" : $"{hotkey} actif, {undoHotkey} pour annuler");
             notifier.Notify($"PasteFlow est lancé. Appuie sur {hotkey} pour le tester.");
         }
         else

@@ -4,6 +4,7 @@ using PasteFlow.Core.Forms;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Matching;
 using PasteFlow.Core.Notifications;
+using PasteFlow.Core.Undo;
 
 namespace PasteFlow.Core.Activation;
 
@@ -23,6 +24,7 @@ public sealed class ShortcutActivationService : IDisposable
     private readonly IFieldWriter _fieldWriter;
     private readonly ICandidateSource[] _candidateSources;
     private readonly IUserNotifier _notifier;
+    private readonly FillMemory _fillMemory;
     private bool _isDisposed;
 
     /// <summary>
@@ -39,24 +41,53 @@ public sealed class ShortcutActivationService : IDisposable
         IFieldWriter fieldWriter,
         IEnumerable<ICandidateSource> candidateSources,
         IUserNotifier notifier)
+        : this(listener, formReader, fieldWriter, candidateSources, notifier, new FillMemory())
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ShortcutActivationService"/> class that remembers its fills
+    /// so that they can be undone.
+    /// </summary>
+    /// <param name="listener">The listener of the global shortcut, owned by the caller.</param>
+    /// <param name="formReader">The component that reads the form of the active window.</param>
+    /// <param name="fieldWriter">The component that writes values into the fields read.</param>
+    /// <param name="candidateSources">The places where values to paste are searched.</param>
+    /// <param name="notifier">The component used to display messages to the user.</param>
+    /// <param name="fillMemory">The memory of the last fill, shared with the undo service.</param>
+    public ShortcutActivationService(
+        IHotkeyListener listener,
+        IFormReader formReader,
+        IFieldWriter fieldWriter,
+        IEnumerable<ICandidateSource> candidateSources,
+        IUserNotifier notifier,
+        FillMemory fillMemory)
     {
         ArgumentNullException.ThrowIfNull(listener);
         ArgumentNullException.ThrowIfNull(formReader);
         ArgumentNullException.ThrowIfNull(fieldWriter);
         ArgumentNullException.ThrowIfNull(candidateSources);
         ArgumentNullException.ThrowIfNull(notifier);
+        ArgumentNullException.ThrowIfNull(fillMemory);
 
         _listener = listener;
         _formReader = formReader;
         _fieldWriter = fieldWriter;
         _candidateSources = candidateSources.ToArray();
         _notifier = notifier;
+        _fillMemory = fillMemory;
     }
 
     /// <summary>
     /// Gets the shortcut currently listened to, or <see langword="null"/> if the service is not started.
     /// </summary>
     public Hotkey? ActiveHotkey { get; private set; }
+
+    /// <summary>
+    /// Gets or sets the shortcut that undoes a fill, announced to the user after each fill;
+    /// <see langword="null"/> when undoing is not available.
+    /// </summary>
+    public Hotkey? UndoHotkey { get; set; }
 
     /// <summary>
     /// Starts listening to the given shortcut.
@@ -152,6 +183,7 @@ public sealed class ShortcutActivationService : IDisposable
             .Count();
 
         var filledValues = new List<FilledValue>();
+        var writtenFields = new List<WrittenField>();
         var uncertainCount = 0;
         var failedCount = 0;
 
@@ -172,6 +204,7 @@ public sealed class ShortcutActivationService : IDisposable
                     Value = match.Candidate.Value,
                     SourceName = match.Candidate.SourceName,
                 });
+                writtenFields.Add(new WrittenField { Field = field, Value = match.Candidate.Value });
             }
             else
             {
@@ -180,6 +213,7 @@ public sealed class ShortcutActivationService : IDisposable
         }
 
         stopwatch.Stop();
+        _fillMemory.Remember(writtenFields);
 
         return new FillReport
         {
@@ -192,6 +226,7 @@ public sealed class ShortcutActivationService : IDisposable
             RecognizedCounts = CountRecognized(candidates),
             IgnoredSampleCount = ignoredSampleCount,
             Elapsed = stopwatch.Elapsed,
+            UndoHotkey = UndoHotkey,
         };
     }
 

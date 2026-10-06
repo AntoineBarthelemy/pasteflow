@@ -1,5 +1,6 @@
 using System.Globalization;
 using PasteFlow.Core.Candidates;
+using PasteFlow.Core.Hotkeys;
 
 namespace PasteFlow.Core.Forms;
 
@@ -74,11 +75,16 @@ public sealed record FillReport
     public required TimeSpan Elapsed { get; init; }
 
     /// <summary>
+    /// Gets the shortcut that undoes the fill, or <see langword="null"/> if undoing is not available.
+    /// </summary>
+    public Hotkey? UndoHotkey { get; init; }
+
+    /// <summary>
     /// Describes the result in a short French message.
     /// </summary>
     /// <returns>
     /// A message such as "2 champs remplis, 1 à vérifier. En 120 ms.", followed by one line per value written,
-    /// such as "Email : antoine@example.com (Gmail)", then by the sources read, such as
+    /// such as "Email : antoine@example.com (Gmail)", by the undo shortcut, then by the sources read, such as
     /// "Lu à l'écran : Gmail (84), Bloc-notes (12).", by the values recognized, such as "Reconnu : 1 e-mail.",
     /// and by the example values ignored, such as "Ignoré : 2 exemples.".
     /// </returns>
@@ -111,6 +117,11 @@ public sealed record FillReport
         foreach (var filled in FilledValues.Take(MaxListedValues))
         {
             message += $"\n{DescribeFilledValue(filled)}";
+        }
+
+        if (FilledCount > 0 && UndoHotkey is not null)
+        {
+            message += $"\n{UndoHotkey} pour tout annuler.";
         }
 
         var sources = Sources.Where(source => source.CandidateCount > 0).ToList();

@@ -1,5 +1,6 @@
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
+using PasteFlow.Core.Hotkeys;
 
 namespace PasteFlow.Core.Tests.Forms;
 
@@ -161,6 +162,28 @@ public sealed class FillReportTests
     private static SourceSummary Source(string name, int candidateCount)
     {
         return new SourceSummary { Name = name, CandidateCount = candidateCount };
+    }
+
+    [Fact]
+    public void Describe_AfterFilling_GivesTheUndoShortcut()
+    {
+        var report = Report(filled: 1, alreadyFilled: 0, failed: 0) with
+        {
+            FilledValues = new[] { new FilledValue { FieldLabel = "Ville", Value = "Reims", SourceName = "Gmail" } },
+            UndoHotkey = Hotkey.DefaultUndo,
+        };
+
+        Assert.Equal(
+            "1 champ rempli. En 120 ms.\nVille : Reims (Gmail)\nCtrl+Alt+Z pour tout annuler.\nRien lu à l'écran.",
+            report.Describe());
+    }
+
+    [Fact]
+    public void Describe_WithoutFilledField_DoesNotOfferToUndo()
+    {
+        var report = Report(filled: 0, alreadyFilled: 1, failed: 0) with { UndoHotkey = Hotkey.DefaultUndo };
+
+        Assert.DoesNotContain("annuler", report.Describe(), StringComparison.Ordinal);
     }
 
     private static FillReport Report(int filled, int alreadyFilled, int failed, IReadOnlyList<SourceSummary>? sources = null)

@@ -129,15 +129,80 @@ public sealed class UiAutomationFormAccessTests : IDisposable
     }
 
     [Fact]
-    public async Task TryWriteAsync_AfterReadingAnotherWindow_DoesNotWriteIntoOldFields()
+    public async Task ReadFormAsync_GivesNewIdsAtEachReading()
+    {
+        var first = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+        var second = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+
+        Assert.Empty(first.Select(field => field.Id).Intersect(second.Select(field => field.Id)));
+    }
+
+    [Fact]
+    public async Task TryWriteAsync_FieldOfRecentReading_StillTargetsItsOwnField()
     {
         var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
         _ = await _formAccess.ReadFormAsync(IntPtr.Zero, CancellationToken.None);
 
         var isWritten = await _formAccess.TryWriteAsync(Field(fields, "Nom"), "Antoine", CancellationToken.None);
 
+        Assert.True(isWritten);
+        Assert.Equal("Antoine", _host.Invoke(window => window.NameBox.Text));
+    }
+
+    [Fact]
+    public async Task TryWriteAsync_FieldOfForgottenReading_ReturnsFalse()
+    {
+        var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+        for (var reading = 0; reading < UiAutomationFormAccess.RememberedReadingCount; reading++)
+        {
+            _ = await _formAccess.ReadFormAsync(IntPtr.Zero, CancellationToken.None);
+        }
+
+        var isWritten = await _formAccess.TryWriteAsync(Field(fields, "Nom"), "Antoine", CancellationToken.None);
+
         Assert.False(isWritten);
         Assert.Equal(string.Empty, _host.Invoke(window => window.NameBox.Text));
+    }
+
+    [Fact]
+    public async Task TryWriteAsync_WithEmptyValue_EmptiesTheField()
+    {
+        var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+
+        var isWritten = await _formAccess.TryWriteAsync(Field(fields, "Email"), string.Empty, CancellationToken.None);
+
+        Assert.True(isWritten);
+        Assert.Equal(string.Empty, _host.Invoke(window => window.EmailBox.Text));
+    }
+
+    [Fact]
+    public async Task TryReadValueAsync_ReadsTheCurrentValue()
+    {
+        var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+        _ = _host.Invoke(window => window.NameBox.Text = "Antoine");
+
+        var value = await _formAccess.TryReadValueAsync(Field(fields, "Nom"), CancellationToken.None);
+
+        Assert.Equal("Antoine", value);
+    }
+
+    [Fact]
+    public async Task TryReadValueAsync_NeverReadsPasswords()
+    {
+        var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+        var passwordField = Field(fields, "Mot de passe");
+
+        Assert.Null(await _formAccess.TryReadValueAsync(passwordField, CancellationToken.None));
+        Assert.Null(await _formAccess.TryReadValueAsync(passwordField with { Kind = FieldKind.Text }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task TryReadValueAsync_WithFieldNotFromRecentReading_ReturnsNull()
+    {
+        _ = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+        var unknownField = new FormField { Id = "unknown", Label = "Nom", Kind = FieldKind.Text, HasValue = false };
+
+        Assert.Null(await _formAccess.TryReadValueAsync(unknownField, CancellationToken.None));
     }
 
     public void Dispose()
