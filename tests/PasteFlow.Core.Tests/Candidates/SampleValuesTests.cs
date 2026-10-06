@@ -44,6 +44,8 @@ public sealed class SampleValuesTests
     [InlineData("12/03/2005", CandidateKind.Date, "Date de naissance")]
     [InlineData("51500", CandidateKind.Number, "")]
     [InlineData("Index des commandes", CandidateKind.Text, "")]
+    [InlineData("A", CandidateKind.Text, "")]
+    [InlineData("00", CandidateKind.Text, "")]
     public void IsSample_KeepsRealValue(string value, CandidateKind kind, string label)
     {
         Assert.False(SampleValues.IsSample(Candidate(value, kind, label)));

@@ -125,6 +125,6 @@ public static partial class SampleValues
     [GeneratedRegex(@"\b(?:ex|exemples?|examples?|e\.?\s?g|format|sample|modele|placeholder)\b", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex SampleLabelRegex();
 
-    [GeneratedRegex(@"^(?:x+|0+|a+|9+)$", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    [GeneratedRegex(@"^(?:x{3,}|0{3,}|a{3,}|9{3,})$", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex RepeatedCharacterRegex();
 }
