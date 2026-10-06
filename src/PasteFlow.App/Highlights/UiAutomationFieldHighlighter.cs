@@ -7,7 +7,8 @@ using PasteFlow.Core.Forms;
 namespace PasteFlow.App.Highlights;
 
 /// <summary>
-/// Draws a <see cref="FieldFrame"/> around each field to check, and keeps the frames up to date.
+/// Draws a <see cref="FieldFrame"/> around each field to check, keeps the frames up to date, and shows the values
+/// proposed for the field the user is in.
 /// </summary>
 /// <remarks>
 /// <para>The frames follow their fields when the window moves or scrolls. A frame disappears as soon as its field
@@ -29,9 +30,10 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
 
     private readonly UiAutomationFormAccess _formAccess;
     private readonly Func<IntPtr> _foregroundWindow;
+    private readonly ISuggestionDisplay _suggestionDisplay;
     private readonly Dispatcher _dispatcher;
     private readonly DispatcherTimer _refreshTimer;
-    private readonly Dictionary<string, (FormField Field, FieldFrame Frame)> _frames = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, (FieldToCheck ToCheck, FieldFrame Frame)> _frames = new(StringComparer.Ordinal);
     private IntPtr _formWindow;
     private long _shownAt;
     private int _generation;
@@ -42,8 +44,9 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
     /// Initializes a new instance of the <see cref="UiAutomationFieldHighlighter"/> class.
     /// </summary>
     /// <param name="formAccess">The access to the fields read.</param>
-    public UiAutomationFieldHighlighter(UiAutomationFormAccess formAccess)
-        : this(formAccess, NativeMethods.GetForegroundWindow)
+    /// <param name="suggestionDisplay">The component that shows the values proposed for the field the user is in.</param>
+    public UiAutomationFieldHighlighter(UiAutomationFormAccess formAccess, ISuggestionDisplay suggestionDisplay)
+        : this(formAccess, suggestionDisplay, NativeMethods.GetForegroundWindow)
     {
     }
 
@@ -51,13 +54,20 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
     /// Initializes a new instance of the <see cref="UiAutomationFieldHighlighter"/> class.
     /// </summary>
     /// <param name="formAccess">The access to the fields read.</param>
+    /// <param name="suggestionDisplay">The component that shows the values proposed for the field the user is in.</param>
     /// <param name="foregroundWindow">Gives the window currently in the foreground.</param>
-    internal UiAutomationFieldHighlighter(UiAutomationFormAccess formAccess, Func<IntPtr> foregroundWindow)
+    internal UiAutomationFieldHighlighter(
+        UiAutomationFormAccess formAccess,
+        ISuggestionDisplay suggestionDisplay,
+        Func<IntPtr> foregroundWindow)
     {
         ArgumentNullException.ThrowIfNull(formAccess);
+        ArgumentNullException.ThrowIfNull(suggestionDisplay);
         ArgumentNullException.ThrowIfNull(foregroundWindow);
 
         _formAccess = formAccess;
+        _suggestionDisplay = suggestionDisplay;
+        _suggestionDisplay.ValuePicked += OnValuePicked;
         _foregroundWindow = foregroundWindow;
         _dispatcher = Dispatcher.CurrentDispatcher;
         _refreshTimer = new DispatcherTimer(DispatcherPriority.Background, _dispatcher) { Interval = RefreshInterval };
@@ -76,8 +86,13 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
     internal IReadOnlyList<IntPtr> FrameHandles => _dispatcher.Invoke(
         () => _frames.Values.Select(entry => entry.Frame.Handle).ToList());
 
+    /// <summary>
+    /// Gets the identifiers of the fields framed.
+    /// </summary>
+    internal IReadOnlyList<string> FramedFieldIds => _dispatcher.Invoke(() => _frames.Keys.ToList());
+
     /// <inheritdoc/>
-    public void Highlight(IReadOnlyList<FormField> fields)
+    public void Highlight(IReadOnlyList<FieldToCheck> fields)
     {
         ArgumentNullException.ThrowIfNull(fields);
 
@@ -98,6 +113,7 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
         _dispatcher.Invoke(() =>
         {
             RemoveFrames();
+            _suggestionDisplay.ValuePicked -= OnValuePicked;
             _isDisposed = true;
         });
     }
@@ -107,7 +123,7 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
     /// </summary>
     /// <param name="fields">The fields to highlight.</param>
     /// <returns>A task completed when the frames are shown.</returns>
-    internal Task HighlightAsync(IReadOnlyList<FormField> fields)
+    internal Task HighlightAsync(IReadOnlyList<FieldToCheck> fields)
     {
         ArgumentNullException.ThrowIfNull(fields);
 
@@ -123,7 +139,7 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
         return _dispatcher.InvokeAsync(RefreshFramesAsync).Task.Unwrap();
     }
 
-    private async Task ShowFramesAsync(IReadOnlyList<FormField> fields)
+    private async Task ShowFramesAsync(IReadOnlyList<FieldToCheck> fields)
     {
         RemoveFrames();
         if (_isDisposed || fields.Count == 0)
@@ -132,29 +148,32 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
         }
 
         var generation = _generation;
-        var states = await _formAccess.ReadStatesAsync(fields, CancellationToken.None);
+        var states = await _formAccess.ReadStatesAsync(fields.Select(toCheck => toCheck.Field).ToList(), CancellationToken.None);
         if (_isDisposed || generation != _generation)
         {
             // Another fill came in the meantime
             return;
         }
 
-        foreach (var field in fields)
+        foreach (var toCheck in fields)
         {
-            if (states.TryGetValue(field.Id, out var state) && !state.HasValue)
+            if (states.TryGetValue(toCheck.Field.Id, out var state) && !state.HasValue)
             {
                 var frame = new FieldFrame();
-                _frames[field.Id] = (field, frame);
+                _frames[toCheck.Field.Id] = (toCheck, frame);
                 frame.Surround(state.Bounds);
             }
         }
 
         if (_frames.Count > 0)
         {
-            _formWindow = _formAccess.GetWindow(_frames.Values.First().Field);
+            _formWindow = _formAccess.GetWindow(_frames.Values.First().ToCheck.Field);
             _shownAt = Environment.TickCount64;
             _refreshTimer.Start();
         }
+
+        // The user is often still in a field to check when the fill ends
+        ShowSuggestionsOfFocusedField(states);
     }
 
     private async Task RefreshFramesAsync()
@@ -176,7 +195,7 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
         try
         {
             var generation = _generation;
-            var fields = _frames.Values.Select(entry => entry.Field).ToList();
+            var fields = _frames.Values.Select(entry => entry.ToCheck.Field).ToList();
             var states = await _formAccess.ReadStatesAsync(fields, CancellationToken.None);
             if (generation != _generation)
             {
@@ -201,6 +220,10 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
             {
                 RemoveFrames();
             }
+            else
+            {
+                ShowSuggestionsOfFocusedField(states);
+            }
         }
         finally
         {
@@ -208,9 +231,24 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
         }
     }
 
+    private void ShowSuggestionsOfFocusedField(IReadOnlyDictionary<string, FieldState> states)
+    {
+        foreach (var (id, (toCheck, _)) in _frames)
+        {
+            if (states.TryGetValue(id, out var state) && state.HasFocus && !state.HasValue && !state.Bounds.IsEmpty)
+            {
+                _suggestionDisplay.Show(toCheck, state.Bounds);
+                return;
+            }
+        }
+
+        _suggestionDisplay.Hide();
+    }
+
     private void RemoveFrames()
     {
         _generation++;
+        _suggestionDisplay.Hide();
         _refreshTimer.Stop();
         foreach (var (_, frame) in _frames.Values)
         {
@@ -224,5 +262,11 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
     private async void OnRefreshTimerTick(object? sender, EventArgs e)
     {
         await RefreshFramesAsync();
+    }
+
+    private async void OnValuePicked(object? sender, EventArgs e)
+    {
+        // The frame of the field just filled disappears without waiting for the timer
+        await RefreshAsync();
     }
 }

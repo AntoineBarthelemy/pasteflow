@@ -9,9 +9,9 @@ internal sealed class FakeFieldHighlighter : IFieldHighlighter
 {
     public int CallCount { get; private set; }
 
-    public IReadOnlyList<FormField> HighlightedFields { get; private set; } = Array.Empty<FormField>();
+    public IReadOnlyList<FieldToCheck> HighlightedFields { get; private set; } = Array.Empty<FieldToCheck>();
 
-    public void Highlight(IReadOnlyList<FormField> fields)
+    public void Highlight(IReadOnlyList<FieldToCheck> fields)
     {
         CallCount++;
         HighlightedFields = fields;

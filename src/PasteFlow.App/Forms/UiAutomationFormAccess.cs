@@ -195,7 +195,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
         {
             var current = element.Current;
             var bounds = current.IsOffscreen ? System.Windows.Rect.Empty : current.BoundingRectangle;
-            return new FieldState(bounds, !current.IsPassword && HasValue(element));
+            return new FieldState(bounds, !current.IsPassword && HasValue(element), current.HasKeyboardFocus);
         }
         catch (ElementNotAvailableException)
         {

@@ -27,4 +27,10 @@ public sealed record FieldMatch
     /// Gets a value indicating whether the application is sure enough to fill the field without asking.
     /// </summary>
     public bool IsConfident { get; init; }
+
+    /// <summary>
+    /// Gets the values likely enough to be proposed to the user, the best first, at most
+    /// <see cref="FieldMatcher.MaxSuggestions"/>.
+    /// </summary>
+    public IReadOnlyList<Candidate> Suggestions { get; init; } = Array.Empty<Candidate>();
 }

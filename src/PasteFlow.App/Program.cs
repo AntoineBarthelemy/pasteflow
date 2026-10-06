@@ -7,6 +7,7 @@ using PasteFlow.App.Screen;
 using PasteFlow.App.Tray;
 using PasteFlow.Core.Activation;
 using PasteFlow.Core.Candidates;
+using PasteFlow.Core.Forms;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Undo;
 
@@ -37,7 +38,13 @@ internal static class Program
         using var undoHotkeyListener = new Win32HotkeyListener();
         var formAccess = new UiAutomationFormAccess();
         var fillMemory = new FillMemory();
-        using var highlighter = new UiAutomationFieldHighlighter(formAccess);
+        using var choiceListener1 = new Win32HotkeyListener();
+        using var choiceListener2 = new Win32HotkeyListener();
+        using var choiceListener3 = new Win32HotkeyListener();
+        using var suggestions = new SuggestionBubbleController(
+            new SuggestionPicker(formAccess, fillMemory),
+            new IHotkeyListener[] { choiceListener1, choiceListener2, choiceListener3 });
+        using var highlighter = new UiAutomationFieldHighlighter(formAccess, suggestions);
         var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(new UiAutomationWindowTextReader()) };
         using var activation = new ShortcutActivationService(
             hotkeyListener,

@@ -267,6 +267,60 @@ public sealed class FieldMatcherTests
     }
 
     [Fact]
+    public void Match_ProposesValuesOfExpectedKindEvenWhenNotSure()
+    {
+        var match = Match(
+            "Email",
+            Candidate("antoine.b@orange.fr", CandidateKind.Email, string.Empty),
+            Candidate("contact@reims-auto.fr", CandidateKind.Email, string.Empty),
+            Candidate("06 47 21 85 39", CandidateKind.Phone, string.Empty));
+
+        Assert.False(match.IsConfident);
+        Assert.Equal(new[] { "antoine.b@orange.fr", "contact@reims-auto.fr" }, match.Suggestions.Select(candidate => candidate.Value));
+    }
+
+    [Fact]
+    public void Match_ProposesTheBestValuesFirstAndAtMostSome()
+    {
+        var match = Match(
+            "Email",
+            Candidate("a.martin@free.fr", CandidateKind.Email, string.Empty),
+            Candidate("b.durand@free.fr", CandidateKind.Email, string.Empty),
+            Candidate("antoine.b@orange.fr", CandidateKind.Email, "Courriel"),
+            Candidate("c.petit@free.fr", CandidateKind.Email, string.Empty),
+            Candidate("d.roux@free.fr", CandidateKind.Email, string.Empty));
+
+        Assert.Equal(FieldMatcher.MaxSuggestions, match.Suggestions.Count);
+        Assert.Equal("antoine.b@orange.fr", match.Suggestions[0].Value);
+    }
+
+    [Fact]
+    public void Match_DoesNotProposeValuesThatOnlyHappenToBeOnScreen()
+    {
+        var match = Match(
+            "Commentaire",
+            Candidate("antoine.b@orange.fr", CandidateKind.Email, string.Empty),
+            Candidate("Bonjour Antoine,", CandidateKind.Text, string.Empty));
+
+        Assert.Empty(match.Suggestions);
+    }
+
+    [Fact]
+    public void Match_NeverProposesTakenValues()
+    {
+        var match = FieldMatcher.Match(
+            TestFields.Text("field", "Email"),
+            new[]
+            {
+                Candidate("antoine.b@orange.fr", CandidateKind.Email, string.Empty),
+                Candidate("contact@reims-auto.fr", CandidateKind.Email, string.Empty),
+            },
+            new HashSet<string> { "antoine.b@orange.fr" });
+
+        Assert.Equal(new[] { "contact@reims-auto.fr" }, match.Suggestions.Select(candidate => candidate.Value));
+    }
+
+    [Fact]
     public void Match_WithoutCandidates_ReturnsNoCandidate()
     {
         var match = Match("Email");

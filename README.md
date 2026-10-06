@@ -20,7 +20,7 @@ Feuille de route :
 4. [x] Lire le texte des fenêtres visibles et des fenêtres juste derrière
 5. [x] Découper le texte en unités de sens : e-mails, téléphones, dates, montants, IBAN, références, avec leur libellé (règles)
 6. [ ] Associer champs et candidats, remplir le formulaire
-7. [ ] Interface : annulation globale (fait), surlignage des champs à vérifier (fait), récapitulatif (fait), mini fenêtre
+7. [x] Interface : annulation globale, surlignage des champs à vérifier, récapitulatif, propositions au focus d'un champ à vérifier
 8. [ ] Petits modèles d'IA locaux (ONNX Runtime)
 9. [ ] Apprentissage des habitudes et historique (SQLite)
 10. [ ] Finitions : OCR de secours, adaptation des formats, paramètres
@@ -62,6 +62,7 @@ Raccourcis :
 |---|---|
 | Ctrl+Alt+V | Remplit le formulaire de la fenêtre active |
 | Ctrl+Alt+Z | Annule le dernier remplissage : vide les champs remplis par l'outil, sauf ceux modifiés depuis |
+| Ctrl+Maj+1, 2, 3 | Dans un champ encadré en orange, choisit une des valeurs proposées (actif seulement quand la bulle est affichée) |
 
 Pour quitter l'application : clic droit sur l'icône près de l'horloge, puis « Quitter ».
 

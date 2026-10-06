@@ -245,7 +245,7 @@ public sealed class ShortcutActivationServiceTests : IDisposable
 
         _listener.SimulatePress();
 
-        Assert.Equal(new[] { "phone", "misc" }, highlighter.HighlightedFields.Select(field => field.Id));
+        Assert.Equal(new[] { "phone", "misc" }, highlighter.HighlightedFields.Select(toCheck => toCheck.Field.Id));
     }
 
     [Fact]
@@ -270,8 +270,51 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         var report = Assert.Single(notifier.Reports);
         Assert.Empty(notifier.Messages);
         Assert.Equal(new[] { "phone" }, report.FailedFields.Select(field => field.Id));
-        Assert.Equal(new[] { "phone", "misc" }, report.FieldsToCheck.Select(field => field.Id));
+        Assert.Equal(new[] { "phone", "misc" }, report.FieldsToCheck.Select(toCheck => toCheck.Field.Id));
         Assert.Equal("antoine.b@orange.fr", Assert.Single(report.FilledValues).Value);
+    }
+
+    [Fact]
+    public void HotkeyPressed_ProposesTheLikelyValuesOfFieldsLeftEmpty()
+    {
+        var highlighter = new FakeFieldHighlighter();
+        var formReader = new FakeFormReader
+        {
+            Fields = new[] { TestFields.Text("email", "Email"), TestFields.Text("misc", "Commentaire") },
+        };
+        _candidateSource.Candidates = new[]
+        {
+            Labelled("antoine.b@orange.fr", CandidateKind.Email, string.Empty),
+            Labelled("contact@reims-auto.fr", CandidateKind.Email, string.Empty),
+            Labelled("Bonjour Antoine,", CandidateKind.Text, string.Empty),
+        };
+        using var service = CreateHighlightingService(formReader, highlighter);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Empty(_fieldWriter.WrittenValues);
+        var email = Assert.Single(highlighter.HighlightedFields, toCheck => toCheck.Field.Id == "email");
+        Assert.Equal(
+            new[] { "antoine.b@orange.fr", "contact@reims-auto.fr" },
+            email.Suggestions.Select(suggestion => suggestion.Value));
+        Assert.All(email.Suggestions, suggestion => Assert.Equal("Gmail", suggestion.SourceName));
+        Assert.Empty(Assert.Single(highlighter.HighlightedFields, toCheck => toCheck.Field.Id == "misc").Suggestions);
+    }
+
+    [Fact]
+    public void HotkeyPressed_DoesNotProposeAgainAValueTheFieldRefused()
+    {
+        var highlighter = new FakeFieldHighlighter();
+        var formReader = new FakeFormReader { Fields = new[] { TestFields.Text("email", "Email") } };
+        _candidateSource.Candidates = new[] { Labelled("antoine.b@orange.fr", CandidateKind.Email, "Courriel") };
+        _fieldWriter.FailingFieldIds.Add("email");
+        using var service = CreateHighlightingService(formReader, highlighter);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Empty(Assert.Single(highlighter.HighlightedFields).Suggestions);
     }
 
     [Fact]

@@ -7,4 +7,5 @@ namespace PasteFlow.App.Forms;
 /// </summary>
 /// <param name="Bounds">The position of the field in screen pixels; <see cref="Rect.Empty"/> when it is not visible.</param>
 /// <param name="HasValue">A value indicating whether the field holds a value.</param>
-internal readonly record struct FieldState(Rect Bounds, bool HasValue);
+/// <param name="HasFocus">A value indicating whether the field has the keyboard focus.</param>
+internal readonly record struct FieldState(Rect Bounds, bool HasValue, bool HasFocus);

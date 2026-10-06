@@ -17,7 +17,7 @@ public sealed class FillRecapTests
             UncertainCount = 1,
             FailedCount = 1,
             FilledValues = new[] { Filled("Email", "antoine.b@orange.fr", "Gmail") },
-            FieldsToCheck = new[] { phone, misc },
+            FieldsToCheck = new[] { new FieldToCheck { Field = phone }, new FieldToCheck { Field = misc } },
             FailedFields = new[] { phone },
         };
 
@@ -31,6 +31,23 @@ public sealed class FillRecapTests
                 new RecapLine { Kind = RecapLineKind.Filled, Label = "Email", Value = "antoine.b@orange.fr", SourceName = "Gmail" },
             },
             recap.Lines);
+    }
+
+    [Theory]
+    [InlineData(1, "à vérifier, 1 proposition")]
+    [InlineData(3, "à vérifier, 3 propositions")]
+    public void From_CountsTheSuggestionsOfFieldsToCheck(int suggestionCount, string expected)
+    {
+        var suggestions = Enumerable.Range(0, suggestionCount)
+            .Select(index => new SuggestedValue { Value = $"valeur {index}", SourceName = "Gmail" })
+            .ToList();
+        var report = Report() with
+        {
+            UncertainCount = 1,
+            FieldsToCheck = new[] { new FieldToCheck { Field = TestFields.Text("email", "Email"), Suggestions = suggestions } },
+        };
+
+        Assert.Equal(expected, Assert.Single(FillRecap.From(report).Lines).Value);
     }
 
     [Fact]

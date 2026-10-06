@@ -68,7 +68,8 @@ internal sealed class Win32HotkeyListener : IHotkeyListener
         _isDisposed = true;
     }
 
-    private void Unregister()
+    /// <inheritdoc/>
+    public void Unregister()
     {
         if (!_isRegistered)
         {

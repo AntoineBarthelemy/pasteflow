@@ -2,6 +2,7 @@ using System.Windows;
 using PasteFlow.App.Forms;
 using PasteFlow.App.Highlights;
 using PasteFlow.App.Interop;
+using PasteFlow.App.Tests.Fakes;
 using PasteFlow.App.Tests.TestWindows;
 using PasteFlow.Core.Forms;
 
@@ -15,6 +16,7 @@ public sealed class UiAutomationFieldHighlighterTests : IDisposable
 
     private readonly WindowHost<ContactFormWindow> _host = new(() => new ContactFormWindow());
     private readonly UiAutomationFormAccess _formAccess = new();
+    private readonly FakeSuggestionDisplay _suggestionDisplay = new();
     private readonly UiAutomationFieldHighlighter _highlighter;
     private IntPtr _foregroundWindow;
 
@@ -23,7 +25,7 @@ public sealed class UiAutomationFieldHighlighterTests : IDisposable
         _foregroundWindow = _host.Handle;
 
         // Frames are windows: the highlighter lives on the user interface thread of the test window
-        _highlighter = _host.Invoke(_ => new UiAutomationFieldHighlighter(_formAccess, () => _foregroundWindow));
+        _highlighter = _host.Invoke(_ => new UiAutomationFieldHighlighter(_formAccess, _suggestionDisplay, () => _foregroundWindow));
     }
 
     [Fact]
@@ -33,7 +35,7 @@ public sealed class UiAutomationFieldHighlighterTests : IDisposable
 
         await _highlighter.HighlightAsync(fields);
 
-        var states = await _formAccess.ReadStatesAsync(fields, CancellationToken.None);
+        var states = await _formAccess.ReadStatesAsync(fields.Select(toCheck => toCheck.Field).ToList(), CancellationToken.None);
         var expected = states.Values.Select(state => Inflate(state.Bounds)).OrderBy(bounds => bounds.Y);
         Assert.Equal(expected, _highlighter.VisibleFrameBounds.OrderBy(bounds => bounds.Y));
     }
@@ -53,7 +55,7 @@ public sealed class UiAutomationFieldHighlighterTests : IDisposable
     {
         await _highlighter.HighlightAsync(await ReadFieldsAsync("Nom", "Ville"));
 
-        await _highlighter.HighlightAsync(Array.Empty<FormField>());
+        await _highlighter.HighlightAsync(Array.Empty<FieldToCheck>());
 
         Assert.Empty(_highlighter.FrameHandles);
     }
@@ -114,7 +116,7 @@ public sealed class UiAutomationFieldHighlighterTests : IDisposable
 
         await _highlighter.RefreshAsync();
 
-        var states = await _formAccess.ReadStatesAsync(fields, CancellationToken.None);
+        var states = await _formAccess.ReadStatesAsync(fields.Select(toCheck => toCheck.Field).ToList(), CancellationToken.None);
         var after = Assert.Single(_highlighter.VisibleFrameBounds);
         Assert.NotEqual(before, after);
         Assert.Equal(Inflate(Assert.Single(states.Values).Bounds), after);
@@ -129,6 +131,42 @@ public sealed class UiAutomationFieldHighlighterTests : IDisposable
         await _highlighter.RefreshAsync();
 
         Assert.Empty(_highlighter.FrameHandles);
+    }
+
+    [Fact]
+    public async Task HighlightAsync_WithoutFocusedFieldToCheck_HidesSuggestions()
+    {
+        await _highlighter.HighlightAsync(await ReadFieldsAsync("Nom", "Ville"));
+
+        Assert.Null(_suggestionDisplay.ShownField);
+        Assert.True(_suggestionDisplay.HideCount > 0);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_WhenAnotherWindowComesToTheForeground_HidesSuggestions()
+    {
+        await _highlighter.HighlightAsync(await ReadFieldsAsync("Nom"));
+        var hideCount = _suggestionDisplay.HideCount;
+        _foregroundWindow = IntPtr.Zero;
+
+        await _highlighter.RefreshAsync();
+
+        Assert.True(_suggestionDisplay.HideCount > hideCount);
+    }
+
+    [Fact]
+    public async Task ValuePicked_RemovesTheFrameOfTheFieldFilledWithoutWaiting()
+    {
+        await _highlighter.HighlightAsync(await ReadFieldsAsync("Nom", "Ville"));
+        _ = _host.Invoke(window => window.NameBox.Text = "Antoine");
+
+        _ = _host.Invoke(_ =>
+        {
+            _suggestionDisplay.SimulatePick();
+            return 0;
+        });
+
+        await WaitUntilAsync(() => _highlighter.FramedFieldIds.Count == 1);
     }
 
     [Fact]
@@ -147,15 +185,27 @@ public sealed class UiAutomationFieldHighlighterTests : IDisposable
         _host.Dispose();
     }
 
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "The condition was not met in time.");
+            await Task.Delay(20);
+        }
+    }
+
     private static Rect Inflate(Rect bounds)
     {
         bounds.Inflate(FieldFrame.FrameMargin, FieldFrame.FrameMargin);
         return bounds;
     }
 
-    private async Task<IReadOnlyList<FormField>> ReadFieldsAsync(params string[] labels)
+    private async Task<IReadOnlyList<FieldToCheck>> ReadFieldsAsync(params string[] labels)
     {
         var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
-        return labels.Select(label => Assert.Single(fields, field => field.Label == label)).ToList();
+        return labels
+            .Select(label => new FieldToCheck { Field = Assert.Single(fields, field => field.Label == label) })
+            .ToList();
     }
 }

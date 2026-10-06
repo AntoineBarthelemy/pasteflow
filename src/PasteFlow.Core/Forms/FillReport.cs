@@ -77,7 +77,7 @@ public sealed record FillReport
     /// <summary>
     /// Gets the fields the user should check: those without a sure value and those that could not be written.
     /// </summary>
-    public IReadOnlyList<FormField> FieldsToCheck { get; init; } = Array.Empty<FormField>();
+    public IReadOnlyList<FieldToCheck> FieldsToCheck { get; init; } = Array.Empty<FieldToCheck>();
 
     /// <summary>
     /// Gets the fields whose value could not be written; they are also part of <see cref="FieldsToCheck"/>.

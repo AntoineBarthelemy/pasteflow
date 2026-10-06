@@ -193,7 +193,7 @@ public sealed class ShortcutActivationService : IDisposable
         var writtenFields = new List<WrittenField>();
         var uncertainCount = 0;
         var failedCount = 0;
-        var fieldsToCheck = new List<FormField>();
+        var fieldsToCheck = new List<FieldToCheck>();
         var failedFields = new List<FormField>();
 
         // Safety net: the values are chosen for the whole form at once, so one value never fills two fields
@@ -204,7 +204,13 @@ public sealed class ShortcutActivationService : IDisposable
             if (!match.IsConfident || match.Candidate is null)
             {
                 uncertainCount++;
-                fieldsToCheck.Add(field);
+                fieldsToCheck.Add(new FieldToCheck
+                {
+                    Field = field,
+                    Suggestions = match.Suggestions
+                        .Select(candidate => new SuggestedValue { Value = candidate.Value, SourceName = candidate.SourceName })
+                        .ToList(),
+                });
             }
             else if (await _fieldWriter.TryWriteAsync(field, match.Candidate.Value, cancellationToken))
             {
@@ -219,7 +225,9 @@ public sealed class ShortcutActivationService : IDisposable
             else
             {
                 failedCount++;
-                fieldsToCheck.Add(field);
+
+                // The value was refused: proposing it again would not help
+                fieldsToCheck.Add(new FieldToCheck { Field = field });
                 failedFields.Add(field);
             }
         }
@@ -255,7 +263,7 @@ public sealed class ShortcutActivationService : IDisposable
     /// </summary>
     private sealed class NoHighlighter : IFieldHighlighter
     {
-        public void Highlight(IReadOnlyList<FormField> fields)
+        public void Highlight(IReadOnlyList<FieldToCheck> fields)
         {
             // Nothing to show
         }

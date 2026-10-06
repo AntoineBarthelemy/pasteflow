@@ -31,6 +31,17 @@ public static class FieldMatcher
     /// </summary>
     public const double MinimumLead = 0.15;
 
+    /// <summary>
+    /// The minimum score to propose a value to the user when the field is not filled; a value of the expected kind
+    /// reaches it even without label, a value of no particular kind does not.
+    /// </summary>
+    public const double SuggestionThreshold = 0.4;
+
+    /// <summary>
+    /// The maximum number of values proposed for a field.
+    /// </summary>
+    public const int MaxSuggestions = 3;
+
     private const double ExpectedKindScore = 0.5;
     private const double TextKindScore = 0.2;
     private const double LabelWeight = 0.5;
@@ -95,6 +106,11 @@ public static class FieldMatcher
             Candidate = best.Candidate,
             Score = best.Score,
             IsConfident = best.Score >= ConfidenceThreshold && lead >= MinimumLead,
+            Suggestions = ranked
+                .Where(scored => scored.Score >= SuggestionThreshold)
+                .Take(MaxSuggestions)
+                .Select(scored => scored.Candidate)
+                .ToList(),
         };
     }
 

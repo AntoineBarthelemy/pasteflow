@@ -65,9 +65,9 @@ public sealed record FillRecap
 
         var failedIds = report.FailedFields.Select(field => field.Id).ToHashSet(StringComparer.Ordinal);
         var lines = report.FieldsToCheck
-            .Select(field => failedIds.Contains(field.Id)
-                ? Line(RecapLineKind.Failed, field.Label, "non écrit")
-                : Line(RecapLineKind.ToCheck, field.Label, "à vérifier"))
+            .Select(toCheck => failedIds.Contains(toCheck.Field.Id)
+                ? Line(RecapLineKind.Failed, toCheck.Field.Label, "non écrit")
+                : Line(RecapLineKind.ToCheck, toCheck.Field.Label, DescribeToCheck(toCheck)))
             .Concat(report.FilledValues.Select(filled => Line(RecapLineKind.Filled, filled.FieldLabel, filled.Value) with
             {
                 SourceName = FillReport.Shorten(filled.SourceName, MaxTextLength),
@@ -90,6 +90,16 @@ public sealed record FillRecap
                 ? $"{report.UndoHotkey} pour tout annuler"
                 : null,
             Details = details,
+        };
+    }
+
+    private static string DescribeToCheck(FieldToCheck toCheck)
+    {
+        return toCheck.Suggestions.Count switch
+        {
+            0 => "à vérifier",
+            1 => "à vérifier, 1 proposition",
+            var count => string.Create(CultureInfo.InvariantCulture, $"à vérifier, {count} propositions"),
         };
     }
 

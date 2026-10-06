@@ -18,4 +18,9 @@ public interface IHotkeyListener : IDisposable
     /// <see langword="true"/> if the shortcut is registered; <see langword="false"/> if it is already used by another application.
     /// </returns>
     bool TryRegister(Hotkey hotkey);
+
+    /// <summary>
+    /// Stops listening to the current shortcut, leaving it free for other applications; does nothing if none.
+    /// </summary>
+    void Unregister();
 }

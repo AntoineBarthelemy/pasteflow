@@ -2,7 +2,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
-using PasteFlow.App.Interop;
 
 namespace PasteFlow.App.Highlights;
 
@@ -16,14 +15,8 @@ internal sealed class FieldFrame : Window
     /// </summary>
     internal const int FrameMargin = 3;
 
-    private const int GwlExStyle = -20;
-    private const nint WsExTransparent = 0x20;
-    private const nint WsExToolWindow = 0x80;
-    private const nint WsExNoActivate = 0x08000000;
-    private const uint SwpNoActivate = 0x10;
     private const double HiddenPosition = -32000;
 
-    private static readonly IntPtr HwndTopmost = new(-1);
     private static readonly Brush FrameBrush = CreateFrameBrush();
 
     /// <summary>
@@ -94,14 +87,7 @@ internal sealed class FieldFrame : Window
         }
 
         // Pixels, as given by UI Automation: no conversion to WPF units is needed
-        _ = NativeMethods.SetWindowPos(
-            Handle,
-            HwndTopmost,
-            (int)Math.Round(bounds.X),
-            (int)Math.Round(bounds.Y),
-            (int)Math.Round(bounds.Width),
-            (int)Math.Round(bounds.Height),
-            SwpNoActivate);
+        OverlayWindows.Place(Handle, bounds);
         PixelBounds = bounds;
     }
 
@@ -115,8 +101,6 @@ internal sealed class FieldFrame : Window
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         // Clicks go through the frame to the field, and the frame never takes the focus nor appears in Alt+Tab
-        var handle = Handle;
-        var style = NativeMethods.GetWindowLongPtr(handle, GwlExStyle);
-        _ = NativeMethods.SetWindowLongPtr(handle, GwlExStyle, style | WsExTransparent | WsExToolWindow | WsExNoActivate);
+        OverlayWindows.MakeOverlay(Handle, letClicksThrough: true);
     }
 }

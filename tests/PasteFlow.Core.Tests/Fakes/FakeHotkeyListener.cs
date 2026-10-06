@@ -26,6 +26,11 @@ internal sealed class FakeHotkeyListener : IHotkeyListener
         return true;
     }
 
+    public void Unregister()
+    {
+        RegisteredHotkey = null;
+    }
+
     public void SimulatePress()
     {
         HotkeyPressed?.Invoke(this, EventArgs.Empty);

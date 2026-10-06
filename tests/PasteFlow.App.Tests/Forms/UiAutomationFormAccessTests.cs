@@ -218,6 +218,16 @@ public sealed class UiAutomationFormAccessTests : IDisposable
     }
 
     [Fact]
+    public async Task ReadStatesAsync_TellsThatAFieldWithoutFocusHasNoFocus()
+    {
+        var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+
+        var states = await _formAccess.ReadStatesAsync(fields, CancellationToken.None);
+
+        Assert.False(states[Field(fields, "Ville").Id].HasFocus);
+    }
+
+    [Fact]
     public async Task ReadStatesAsync_NeverReportsAPasswordAsHoldingAValue()
     {
         var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);

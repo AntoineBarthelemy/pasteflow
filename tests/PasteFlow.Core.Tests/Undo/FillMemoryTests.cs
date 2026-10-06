@@ -62,6 +62,27 @@ public sealed class FillMemoryTests
     }
 
     [Fact]
+    public void Append_AddsAValueToTheLastFill()
+    {
+        var memory = new FillMemory();
+        memory.Remember(new[] { Written("email", "antoine.b@orange.fr") });
+
+        memory.Append(Written("city", "Reims"));
+
+        Assert.Equal(new[] { Written("email", "antoine.b@orange.fr"), Written("city", "Reims") }, memory.TakeLastFill());
+    }
+
+    [Fact]
+    public void Append_WithoutFill_StartsOne()
+    {
+        var memory = new FillMemory();
+
+        memory.Append(Written("city", "Reims"));
+
+        Assert.Equal(new[] { Written("city", "Reims") }, memory.TakeLastFill());
+    }
+
+    [Fact]
     public void TakeLastFill_WithoutFill_ReturnsNothing()
     {
         Assert.Empty(new FillMemory().TakeLastFill());

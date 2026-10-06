@@ -32,6 +32,20 @@ public sealed class FillMemory
     }
 
     /// <summary>
+    /// Adds a value written after the fill, such as a suggestion picked by the user, to the last fill.
+    /// </summary>
+    /// <param name="writtenField">The value written.</param>
+    public void Append(WrittenField writtenField)
+    {
+        ArgumentNullException.ThrowIfNull(writtenField);
+
+        lock (_gate)
+        {
+            _lastFill = _lastFill.Append(writtenField).ToArray();
+        }
+    }
+
+    /// <summary>
     /// Gives the values of the last fill and forgets them, so that a fill is undone only once.
     /// </summary>
     /// <returns>The values written by the last fill, or an empty list if there is nothing to undo.</returns>
