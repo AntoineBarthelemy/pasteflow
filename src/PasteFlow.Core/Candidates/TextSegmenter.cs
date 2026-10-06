@@ -138,6 +138,13 @@ public static partial class TextSegmenter
                     continue;
                 }
 
+                // Safety net: a value with the right shape but an impossible content (wrong IBAN key, 31/02...)
+                // is not taken for that kind, its text stays available to the next recognizers
+                if (!ValueValidator.IsValid(kind, value))
+                {
+                    continue;
+                }
+
                 var end = match.Index + value.Length;
                 var isFree = values.TrueForAll(taken => end <= taken.Start || match.Index >= taken.Start + taken.Value.Length);
                 if (isFree)

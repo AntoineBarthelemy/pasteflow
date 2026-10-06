@@ -128,6 +128,25 @@ public sealed class FieldMatcherTests
     }
 
     [Fact]
+    public void Match_PostalCodeFieldRejectsNumberThatIsNotAPostalCode()
+    {
+        var match = Match("Code postal", Candidate("00123", CandidateKind.Number, string.Empty));
+
+        Assert.Null(match.Candidate);
+    }
+
+    [Fact]
+    public void Match_PostalCodeFieldPrefersRealPostalCode()
+    {
+        var match = Match(
+            "Code postal",
+            Candidate("4521873", CandidateKind.Number, string.Empty),
+            Candidate("51500", CandidateKind.Number, string.Empty));
+
+        AssertFills(match, "51500");
+    }
+
+    [Fact]
     public void Match_DateOfBirth()
     {
         var match = Match(

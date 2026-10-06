@@ -95,6 +95,13 @@ public static class FieldMatcher
         {
             return 0;
         }
+        else if (candidate.Kind == CandidateKind.Number
+            && clues.Mentions(LabelConcepts.PostalCode)
+            && !ValueValidator.IsFrenchPostalCode(candidate.Value))
+        {
+            // Safety net: a postal code field only takes a real French postal code
+            return 0;
+        }
         else if (candidate.Kind == CandidateKind.Text)
         {
             score = TextKindScore;

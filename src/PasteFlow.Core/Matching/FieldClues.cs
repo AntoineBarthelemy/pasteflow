@@ -68,6 +68,18 @@ public sealed partial class FieldClues
     }
 
     /// <summary>
+    /// Determines whether one of the clues of the field talks about a concept.
+    /// </summary>
+    /// <param name="concept">The concept, one of the constants of <see cref="LabelConcepts"/>.</param>
+    /// <returns><see langword="true"/> if a clue talks about the concept; otherwise <see langword="false"/>.</returns>
+    public bool Mentions(string concept)
+    {
+        ArgumentNullException.ThrowIfNull(concept);
+
+        return _conceptSets.Any(concepts => concepts.Contains(concept));
+    }
+
+    /// <summary>
     /// Measures how much a label talks about the same thing as the field, through its best matching clue.
     /// </summary>
     /// <param name="labelConcepts">The concepts of the label to compare.</param>

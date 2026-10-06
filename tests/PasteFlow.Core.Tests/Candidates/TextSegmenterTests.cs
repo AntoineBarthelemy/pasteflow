@@ -136,6 +136,30 @@ public sealed class TextSegmenterTests
     }
 
     [Fact]
+    public void Segment_DoesNotTakeIbanWithWrongKeyForAnIban()
+    {
+        var pieces = TextSegmenter.Segment("IBAN : FR76 3000 6000 0112 3456 7890 188");
+
+        Assert.DoesNotContain(pieces, piece => piece.Kind == CandidateKind.Iban);
+    }
+
+    [Fact]
+    public void Segment_DoesNotTakeImpossibleDateForADate()
+    {
+        var pieces = TextSegmenter.Segment("Livraison le 31/02/2026");
+
+        Assert.DoesNotContain(pieces, piece => piece.Kind == CandidateKind.Date);
+    }
+
+    [Fact]
+    public void Segment_DoesNotTakeMalformedEmailForAnEmail()
+    {
+        var pieces = TextSegmenter.Segment("Contact : antoine..b@orange.fr");
+
+        Assert.DoesNotContain(pieces, piece => piece.Kind == CandidateKind.Email);
+    }
+
+    [Fact]
     public void Segment_WithEmptyText_ReturnsNothing()
     {
         Assert.Empty(TextSegmenter.Segment(string.Empty));
