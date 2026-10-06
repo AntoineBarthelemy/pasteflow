@@ -80,6 +80,11 @@ public sealed record FillReport
     public IReadOnlyList<FormField> FieldsToCheck { get; init; } = Array.Empty<FormField>();
 
     /// <summary>
+    /// Gets the fields whose value could not be written; they are also part of <see cref="FieldsToCheck"/>.
+    /// </summary>
+    public IReadOnlyList<FormField> FailedFields { get; init; } = Array.Empty<FormField>();
+
+    /// <summary>
     /// Gets the shortcut that undoes the fill, or <see langword="null"/> if undoing is not available.
     /// </summary>
     public Hotkey? UndoHotkey { get; init; }
@@ -94,6 +99,47 @@ public sealed record FillReport
     /// and by the example values ignored, such as "Ignoré : 2 exemples.".
     /// </returns>
     public string Describe()
+    {
+        var duration = string.Create(CultureInfo.InvariantCulture, $"En {Math.Round(Elapsed.TotalMilliseconds)} ms.");
+        var message = $"{Summary()}. {duration}";
+        foreach (var filled in FilledValues.Take(MaxListedValues))
+        {
+            message += $"\n{DescribeFilledValue(filled)}";
+        }
+
+        if (FilledCount > 0 && UndoHotkey is not null)
+        {
+            message += $"\n{UndoHotkey} pour tout annuler.";
+        }
+
+        message = $"{message}\n{DescribeSources()}";
+        if (!Sources.Any(source => source.CandidateCount > 0))
+        {
+            return message;
+        }
+
+        var recognized = RecognizedCounts
+            .Where(entry => entry.Key != CandidateKind.Text && entry.Value > 0)
+            .OrderBy(entry => entry.Key)
+            .Select(entry => DescribeKind(entry.Key, entry.Value))
+            .ToList();
+
+        if (recognized.Count > 0)
+        {
+            message = $"{message}\nReconnu : {string.Join(", ", recognized)}.";
+        }
+
+        var ignored = DescribeIgnoredSamples();
+        return ignored is null ? message : $"{message}\n{ignored}";
+    }
+
+    /// <summary>
+    /// Sums the result up in a few words.
+    /// </summary>
+    /// <returns>
+    /// A summary such as "2 champs remplis, 1 à vérifier", or "Aucun champ à remplir dans cette fenêtre".
+    /// </returns>
+    public string Summary()
     {
         var parts = new List<string>(capacity: 4);
         if (FilledCount > 0)
@@ -116,54 +162,50 @@ public sealed record FillReport
             parts.Add(Count(FailedCount, "champ impossible à remplir", "champs impossibles à remplir"));
         }
 
-        var result = parts.Count > 0 ? string.Join(", ", parts) : "Aucun champ à remplir dans cette fenêtre";
-        var duration = string.Create(CultureInfo.InvariantCulture, $"En {Math.Round(Elapsed.TotalMilliseconds)} ms.");
-        var message = $"{result}. {duration}";
-        foreach (var filled in FilledValues.Take(MaxListedValues))
-        {
-            message += $"\n{DescribeFilledValue(filled)}";
-        }
+        return parts.Count > 0 ? string.Join(", ", parts) : "Aucun champ à remplir dans cette fenêtre";
+    }
 
-        if (FilledCount > 0 && UndoHotkey is not null)
-        {
-            message += $"\n{UndoHotkey} pour tout annuler.";
-        }
-
+    /// <summary>
+    /// Describes the windows read.
+    /// </summary>
+    /// <returns>A line such as "Lu à l'écran : Gmail (84), Bloc-notes (12).", or "Rien lu à l'écran.".</returns>
+    public string DescribeSources()
+    {
         var sources = Sources.Where(source => source.CandidateCount > 0).ToList();
         if (sources.Count == 0)
         {
-            return $"{message}\nRien lu à l'écran.";
+            return "Rien lu à l'écran.";
         }
 
         var listed = sources.Take(MaxListedSources).Select(DescribeSource);
-        message = $"{message}\nLu à l'écran : {string.Join(", ", listed)}.";
+        return $"Lu à l'écran : {string.Join(", ", listed)}.";
+    }
 
-        var recognized = RecognizedCounts
-            .Where(entry => entry.Key != CandidateKind.Text && entry.Value > 0)
-            .OrderBy(entry => entry.Key)
-            .Select(entry => DescribeKind(entry.Key, entry.Value))
-            .ToList();
+    /// <summary>
+    /// Describes the example values set aside.
+    /// </summary>
+    /// <returns>A line such as "Ignoré : 2 exemples.", or <see langword="null"/> when none was ignored.</returns>
+    public string? DescribeIgnoredSamples()
+    {
+        return IgnoredSampleCount > 0 ? $"Ignoré : {Count(IgnoredSampleCount, "exemple", "exemples")}." : null;
+    }
 
-        if (recognized.Count > 0)
-        {
-            message = $"{message}\nReconnu : {string.Join(", ", recognized)}.";
-        }
-
-        return IgnoredSampleCount > 0
-            ? $"{message}\nIgnoré : {Count(IgnoredSampleCount, "exemple", "exemples")}."
-            : message;
+    /// <summary>
+    /// Shortens a text to a maximum length, ending it with an ellipsis when cut.
+    /// </summary>
+    /// <param name="text">The text to shorten.</param>
+    /// <param name="maxLength">The maximum length, ellipsis included.</param>
+    /// <returns>The text, trimmed and shortened if needed.</returns>
+    internal static string Shorten(string text, int maxLength)
+    {
+        var trimmed = text.Trim();
+        return trimmed.Length <= maxLength ? trimmed : $"{trimmed[..(maxLength - 1)]}…";
     }
 
     private static string DescribeFilledValue(FilledValue filled)
     {
         var label = string.IsNullOrWhiteSpace(filled.FieldLabel) ? "Champ sans nom" : filled.FieldLabel.Trim();
         return $"{label} : {Shorten(filled.Value, MaxValueLength)} ({Shorten(filled.SourceName, MaxSourceNameLength)})";
-    }
-
-    private static string Shorten(string text, int maxLength)
-    {
-        var trimmed = text.Trim();
-        return trimmed.Length <= maxLength ? trimmed : $"{trimmed[..(maxLength - 1)]}…";
     }
 
     private static string DescribeKind(CandidateKind kind, int count)

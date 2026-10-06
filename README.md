@@ -20,7 +20,7 @@ Feuille de route :
 4. [x] Lire le texte des fenêtres visibles et des fenêtres juste derrière
 5. [x] Découper le texte en unités de sens : e-mails, téléphones, dates, montants, IBAN, références, avec leur libellé (règles)
 6. [ ] Associer champs et candidats, remplir le formulaire
-7. [ ] Interface : annulation globale (fait), surlignage des champs à vérifier (fait), récapitulatif, mini fenêtre
+7. [ ] Interface : annulation globale (fait), surlignage des champs à vérifier (fait), récapitulatif (fait), mini fenêtre
 8. [ ] Petits modèles d'IA locaux (ONNX Runtime)
 9. [ ] Apprentissage des habitudes et historique (SQLite)
 10. [ ] Finitions : OCR de secours, adaptation des formats, paramètres

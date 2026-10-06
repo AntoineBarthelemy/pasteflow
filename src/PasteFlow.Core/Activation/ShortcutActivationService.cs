@@ -166,7 +166,7 @@ public sealed class ShortcutActivationService : IDisposable
 
         // An empty list also removes the frames of a previous fill
         _highlighter.Highlight(report.FieldsToCheck);
-        _notifier.Notify(report.Describe());
+        _notifier.NotifyFill(report);
     }
 
     private async Task<FillReport> FillActiveFormAsync(CancellationToken cancellationToken)
@@ -194,6 +194,7 @@ public sealed class ShortcutActivationService : IDisposable
         var uncertainCount = 0;
         var failedCount = 0;
         var fieldsToCheck = new List<FormField>();
+        var failedFields = new List<FormField>();
 
         // Safety net: the values are chosen for the whole form at once, so one value never fills two fields
         var fillableFields = fields.Where(FillRules.CanFill).ToList();
@@ -219,6 +220,7 @@ public sealed class ShortcutActivationService : IDisposable
             {
                 failedCount++;
                 fieldsToCheck.Add(field);
+                failedFields.Add(field);
             }
         }
 
@@ -237,6 +239,7 @@ public sealed class ShortcutActivationService : IDisposable
             IgnoredSampleCount = ignoredSampleCount,
             Elapsed = stopwatch.Elapsed,
             FieldsToCheck = fieldsToCheck,
+            FailedFields = failedFields,
             UndoHotkey = UndoHotkey,
         };
     }

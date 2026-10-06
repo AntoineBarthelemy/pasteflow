@@ -249,6 +249,32 @@ public sealed class ShortcutActivationServiceTests : IDisposable
     }
 
     [Fact]
+    public void HotkeyPressed_GivesTheWholeReportToTheNotifier()
+    {
+        var notifier = new RecordingNotifier();
+        var formReader = new FakeFormReader
+        {
+            Fields = new[] { TestFields.Text("email", "Email"), TestFields.Text("phone", "Téléphone"), TestFields.Text("misc", "Commentaire") },
+        };
+        _candidateSource.Candidates = new[]
+        {
+            Labelled("antoine.b@orange.fr", CandidateKind.Email, "Courriel"),
+            Labelled("06 47 21 85 39", CandidateKind.Phone, "Tél."),
+        };
+        _fieldWriter.FailingFieldIds.Add("phone");
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, notifier);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        var report = Assert.Single(notifier.Reports);
+        Assert.Empty(notifier.Messages);
+        Assert.Equal(new[] { "phone" }, report.FailedFields.Select(field => field.Id));
+        Assert.Equal(new[] { "phone", "misc" }, report.FieldsToCheck.Select(field => field.Id));
+        Assert.Equal("antoine.b@orange.fr", Assert.Single(report.FilledValues).Value);
+    }
+
+    [Fact]
     public void HotkeyPressed_WhenEveryFieldIsFilled_RemovesPreviousHighlights()
     {
         var highlighter = new FakeFieldHighlighter();
