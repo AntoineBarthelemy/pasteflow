@@ -139,6 +139,19 @@ public static class LabelConcepts
         [PostalCode] = new[] { CandidateKind.Number },
     };
 
+    private static readonly Dictionary<(string First, string Second), string> CompoundWords = new()
+    {
+        [("e", "mail")] = "email",
+        [("first", "name")] = "firstname",
+        [("given", "name")] = "firstname",
+        [("last", "name")] = "lastname",
+        [("family", "name")] = "lastname",
+        [("sur", "name")] = "lastname",
+        [("zip", "code")] = "zipcode",
+        [("post", "code")] = "postcode",
+        [("postal", "code")] = "postcode",
+    };
+
     private static readonly HashSet<string> AddressWords = new(StringComparer.Ordinal) { "adresse", "address" };
 
     private static readonly HashSet<string> TextConcepts = new(StringComparer.Ordinal)
@@ -239,7 +252,8 @@ public static class LabelConcepts
     }
 
     /// <summary>
-    /// Cuts a label into lower case words without accents, "e-mail" and "e mail" giving the single word "email".
+    /// Cuts a label into lower case words without accents, compound words such as "e-mail" or "first name"
+    /// giving a single word.
     /// </summary>
     /// <param name="label">The label to cut.</param>
     /// <returns>The words of the label.</returns>
@@ -267,12 +281,12 @@ public static class LabelConcepts
             words.Add(word.ToString());
         }
 
-        // "e-mail" and "e mail" are one word
+        // Compound words such as "e mail" or "first name" are one word
         for (var index = words.Count - 2; index >= 0; index--)
         {
-            if (words[index] == "e" && words[index + 1] == "mail")
+            if (CompoundWords.TryGetValue((words[index], words[index + 1]), out var compound))
             {
-                words[index] = "email";
+                words[index] = compound;
                 words.RemoveAt(index + 1);
             }
         }
