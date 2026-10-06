@@ -56,6 +56,38 @@ public sealed class LabelConceptsTests
         Assert.DoesNotContain(LabelConcepts.PostalCode, LabelConcepts.From("Adresse postale"));
     }
 
+    [Theory]
+    [InlineData("Confirmez votre email")]
+    [InlineData("Confirmation de l'e-mail")]
+    [InlineData("Répétez votre adresse mail")]
+    [InlineData("Retype email")]
+    public void From_IgnoresConfirmationWords(string label)
+    {
+        Assert.Equal(new[] { LabelConcepts.Email }, LabelConcepts.From(label));
+    }
+
+    [Fact]
+    public void From_KeepsConfirmationWhenItIsTheValueItself()
+    {
+        Assert.Contains("confirmation", LabelConcepts.From("Numéro de confirmation"));
+    }
+
+    [Theory]
+    [InlineData("Confirmez votre email", true)]
+    [InlineData("Confirmation de l'e-mail", true)]
+    [InlineData("Répéter le mot de passe", true)]
+    [InlineData("Email (again)", true)]
+    [InlineData("email Confirm", true)]
+    [InlineData("Email", false)]
+    [InlineData("Code de vérification", false)]
+    [InlineData("Numéro de confirmation", false)]
+    [InlineData("Code de confirmation", false)]
+    [InlineData("", false)]
+    public void IsConfirmation_FindsConfirmationWords(string text, bool expected)
+    {
+        Assert.Equal(expected, LabelConcepts.IsConfirmation(text));
+    }
+
     [Fact]
     public void From_WithEmptyLabel_ReturnsNothing()
     {

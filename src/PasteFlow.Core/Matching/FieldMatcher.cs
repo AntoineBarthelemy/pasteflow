@@ -45,8 +45,24 @@ public static class FieldMatcher
     /// <returns>The best candidate and whether it is confident enough.</returns>
     public static FieldMatch Match(FormField field, IReadOnlyList<Candidate> candidates)
     {
+        return Match(field, candidates, new HashSet<string>(StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// Finds the best value for a field, among the values not already taken by other fields.
+    /// </summary>
+    /// <param name="field">The field to fill.</param>
+    /// <param name="candidates">The values found in the sources.</param>
+    /// <param name="takenValues">
+    /// The values already given to other fields: they are never chosen, but they still count when telling whether
+    /// a value is the only one of its kind, so that a field is never filled by elimination.
+    /// </param>
+    /// <returns>The best candidate and whether it is confident enough.</returns>
+    public static FieldMatch Match(FormField field, IReadOnlyList<Candidate> candidates, IReadOnlySet<string> takenValues)
+    {
         ArgumentNullException.ThrowIfNull(field);
         ArgumentNullException.ThrowIfNull(candidates);
+        ArgumentNullException.ThrowIfNull(takenValues);
 
         var clues = FieldClues.Of(field);
 
@@ -59,7 +75,7 @@ public static class FieldMatcher
         // A value found several times keeps its best score: it is one choice, not several
         var ranked = eligible
             .Select(candidate => (Candidate: candidate, Score: Score(candidate, clues, distinctValuesByKind)))
-            .Where(scored => scored.Score > 0)
+            .Where(scored => scored.Score > 0 && !takenValues.Contains(scored.Candidate.Value))
             .GroupBy(scored => scored.Candidate.Value, StringComparer.Ordinal)
             .Select(group => group.MaxBy(scored => scored.Score))
             .OrderByDescending(scored => scored.Score)

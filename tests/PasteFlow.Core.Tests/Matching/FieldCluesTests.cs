@@ -57,6 +57,19 @@ public sealed class FieldCluesTests
         Assert.Equal(1.0, clues.Similarity(LabelConcepts.From("Contact")), precision: 6);
     }
 
+    [Theory]
+    [InlineData("Confirmez votre email", "", true)]
+    [InlineData("Email", "emailConfirmation", true)]
+    [InlineData("Email", "email_repeat", true)]
+    [InlineData("Email", "email", false)]
+    [InlineData("Numéro de confirmation", "confirmation_number", false)]
+    public void Of_TellsWhetherTheFieldIsAConfirmation(string label, string technicalName, bool expected)
+    {
+        var clues = FieldClues.Of(Field(label: label, technicalName: technicalName));
+
+        Assert.Equal(expected, clues.IsConfirmation);
+    }
+
     private static FormField Field(string label, string technicalName = "", string hint = "")
     {
         return new FormField

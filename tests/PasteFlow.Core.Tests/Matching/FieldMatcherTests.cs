@@ -224,6 +224,49 @@ public sealed class FieldMatcherTests
     }
 
     [Fact]
+    public void Match_NeverChoosesTakenValue()
+    {
+        var match = FieldMatcher.Match(
+            TestFields.Text("field", "Email"),
+            new[] { Candidate("antoine.b@orange.fr", CandidateKind.Email, "Email") },
+            new HashSet<string> { "antoine.b@orange.fr" });
+
+        Assert.Null(match.Candidate);
+        Assert.False(match.IsConfident);
+    }
+
+    [Fact]
+    public void Match_TakenValueStillPreventsTheOtherFromBeingUnique()
+    {
+        var match = FieldMatcher.Match(
+            TestFields.Text("field", "Email"),
+            new[]
+            {
+                Candidate("antoine.b@orange.fr", CandidateKind.Email, string.Empty),
+                Candidate("contact@reims-auto.fr", CandidateKind.Email, string.Empty),
+            },
+            new HashSet<string> { "antoine.b@orange.fr" });
+
+        Assert.Equal("contact@reims-auto.fr", match.Candidate?.Value);
+        Assert.False(match.IsConfident);
+    }
+
+    [Fact]
+    public void Match_TakenValueDoesNotHideAnotherValueThatFits()
+    {
+        var match = FieldMatcher.Match(
+            TestFields.Text("field", "Email du parrain"),
+            new[]
+            {
+                Candidate("antoine.b@orange.fr", CandidateKind.Email, "Email"),
+                Candidate("lea.martin@free.fr", CandidateKind.Email, "Email du parrain"),
+            },
+            new HashSet<string> { "antoine.b@orange.fr" });
+
+        AssertFills(match, "lea.martin@free.fr");
+    }
+
+    [Fact]
     public void Match_WithoutCandidates_ReturnsNoCandidate()
     {
         var match = Match("Email");

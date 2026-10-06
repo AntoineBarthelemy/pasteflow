@@ -152,6 +152,20 @@ public static class LabelConcepts
         [("postal", "code")] = "postcode",
     };
 
+    /// <summary>
+    /// Words asking to type again the value of another field, such as "Confirmez votre email".
+    /// </summary>
+    private static readonly HashSet<string> ConfirmationVerbs = new(StringComparer.Ordinal)
+    {
+        "confirmer", "confirmez", "confirm", "repeter", "repetez", "repeat", "retype", "ressaisir", "ressaisissez", "again",
+    };
+
+    /// <summary>
+    /// Words asking for a confirmation only next to a known piece of data: "Confirmation de l'email" repeats
+    /// the email, while "Numéro de confirmation" is a value of its own.
+    /// </summary>
+    private static readonly HashSet<string> ConfirmationNouns = new(StringComparer.Ordinal) { "confirmation" };
+
     private static readonly HashSet<string> AddressWords = new(StringComparer.Ordinal) { "adresse", "address" };
 
     private static readonly HashSet<string> TextConcepts = new(StringComparer.Ordinal)
@@ -163,14 +177,18 @@ public static class LabelConcepts
     /// Gets the concepts a label talks about. Words without a known synonym are kept as their own concept.
     /// </summary>
     /// <param name="label">The label, in any case, with or without accents.</param>
-    /// <returns>The concepts, without the filler words such as "votre" or "please".</returns>
+    /// <returns>
+    /// The concepts, without the filler words such as "votre" or "please" and without the confirmation words,
+    /// so that "Confirmez votre email" talks about the same thing as "Email".
+    /// </returns>
     public static IReadOnlySet<string> From(string label)
     {
         ArgumentNullException.ThrowIfNull(label);
 
         var words = Words(label);
+        var isConfirmation = IsConfirmation(words);
         var concepts = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var word in words.Where(item => !AddressWords.Contains(item)))
+        foreach (var word in words.Where(item => !AddressWords.Contains(item) && !(isConfirmation && IsConfirmationWord(item))))
         {
             var concept = Synonyms.TryGetValue(word, out var known) ? known : word;
             if (!StopWords.Contains(concept))
@@ -190,6 +208,19 @@ public static class LabelConcepts
         }
 
         return concepts;
+    }
+
+    /// <summary>
+    /// Determines whether a text asks to type again a value already asked, such as "Confirmez votre email"
+    /// or "emailConfirmation" once cut into words.
+    /// </summary>
+    /// <param name="text">The label or the technical name of a field.</param>
+    /// <returns><see langword="true"/> if the text asks for a confirmation; otherwise <see langword="false"/>.</returns>
+    public static bool IsConfirmation(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        return IsConfirmation(Words(text));
     }
 
     /// <summary>
@@ -235,6 +266,17 @@ public static class LabelConcepts
 
         var common = first.Count(second.Contains);
         return 2.0 * common / (first.Count + second.Count);
+    }
+
+    private static bool IsConfirmation(List<string> words)
+    {
+        return words.Exists(ConfirmationVerbs.Contains)
+            || (words.Exists(ConfirmationNouns.Contains) && words.Exists(word => Synonyms.ContainsKey(word) || AddressWords.Contains(word)));
+    }
+
+    private static bool IsConfirmationWord(string word)
+    {
+        return ConfirmationVerbs.Contains(word) || ConfirmationNouns.Contains(word);
     }
 
     private static Dictionary<string, string> BuildSynonyms(Dictionary<string, string[]> groups)

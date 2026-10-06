@@ -13,8 +13,8 @@ namespace PasteFlow.Core.Activation;
 /// <remarks>
 /// Pressing the shortcut reads the form of the active window and, at the same time, the candidate sources.
 /// Example values and placeholders are set aside (<see cref="SampleValues"/>), then each field allowed by
-/// <see cref="FillRules"/> receives the value chosen by <see cref="FieldMatcher"/>, only when the matcher is sure
-/// enough; the other fields are left to the user.
+/// <see cref="FillRules"/> receives the value chosen by <see cref="FormMatcher"/>, only when the matcher is sure
+/// enough and the value is not already given to another field; the other fields are left to the user.
 /// </remarks>
 public sealed class ShortcutActivationService : IDisposable
 {
@@ -154,9 +154,11 @@ public sealed class ShortcutActivationService : IDisposable
         var filledValues = new List<FilledValue>();
         var uncertainCount = 0;
         var failedCount = 0;
-        foreach (var field in fields.Where(FillRules.CanFill))
+        // Safety net: the values are chosen for the whole form at once, so one value never fills two fields
+        var fillableFields = fields.Where(FillRules.CanFill).ToList();
+        foreach (var match in FormMatcher.MatchAll(fillableFields, candidates))
         {
-            var match = FieldMatcher.Match(field, candidates);
+            var field = match.Field;
             if (!match.IsConfident || match.Candidate is null)
             {
                 uncertainCount++;

@@ -19,16 +19,23 @@ public sealed partial class FieldClues
 
     private readonly IReadOnlySet<string>[] _conceptSets;
 
-    private FieldClues(IReadOnlySet<string>[] conceptSets, IReadOnlySet<CandidateKind> expectedKinds)
+    private FieldClues(IReadOnlySet<string>[] conceptSets, IReadOnlySet<CandidateKind> expectedKinds, bool isConfirmation)
     {
         _conceptSets = conceptSets;
         ExpectedKinds = expectedKinds;
+        IsConfirmation = isConfirmation;
     }
 
     /// <summary>
     /// Gets the kinds of values the field expects; empty when no clue tells.
     /// </summary>
     public IReadOnlySet<CandidateKind> ExpectedKinds { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the field asks to type again the value of another field,
+    /// such as "Confirmez votre email".
+    /// </summary>
+    public bool IsConfirmation { get; }
 
     /// <summary>
     /// Gathers the clues of a field.
@@ -40,7 +47,8 @@ public sealed partial class FieldClues
         ArgumentNullException.ThrowIfNull(field);
 
         var labelConcepts = LabelConcepts.From(field.Label);
-        var technicalConcepts = LabelConcepts.From(SplitTechnicalName(field.TechnicalName));
+        var technicalName = SplitTechnicalName(field.TechnicalName);
+        var technicalConcepts = LabelConcepts.From(technicalName);
         var hintConcepts = LabelConcepts.From(field.Hint);
 
         // The first clue that tells the expected kind wins: label, then technical name, then help text
@@ -64,7 +72,9 @@ public sealed partial class FieldClues
             .Where(concepts => concepts.Count > 0)
             .ToArray();
 
-        return new FieldClues(conceptSets, expectedKinds);
+        var isConfirmation = LabelConcepts.IsConfirmation(field.Label) || LabelConcepts.IsConfirmation(technicalName);
+
+        return new FieldClues(conceptSets, expectedKinds, isConfirmation);
     }
 
     /// <summary>

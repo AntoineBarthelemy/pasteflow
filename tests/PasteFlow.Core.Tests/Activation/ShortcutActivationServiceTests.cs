@@ -9,6 +9,7 @@ namespace PasteFlow.Core.Tests.Activation;
 public sealed class ShortcutActivationServiceTests : IDisposable
 {
     private static readonly string[] ExpectedFilledFieldIds = { "city", "name" };
+    private static readonly string[] ExpectedEmailAndConfirmationIds = { "confirm", "email" };
 
     private readonly FakeHotkeyListener _listener = new();
     private readonly FakeFormReader _formReader = new();
@@ -140,6 +141,30 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         Assert.Empty(_fieldWriter.WrittenValues);
         var message = Assert.Single(_notifier.Messages);
         Assert.StartsWith("2 à vérifier.", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HotkeyPressed_NeverPastesTheSameValueInTwoFieldsExceptConfirmation()
+    {
+        var formReader = new FakeFormReader
+        {
+            Fields = new[]
+            {
+                TestFields.Text("sponsor", "Email du parrain"),
+                TestFields.Text("email", "Email"),
+                TestFields.Text("confirm", "Confirmez votre email"),
+            },
+        };
+        _candidateSource.Candidates = new[] { Labelled("antoine.b@orange.fr", CandidateKind.Email, "Courriel") };
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Equal(ExpectedEmailAndConfirmationIds, _fieldWriter.WrittenValues.Keys.Order());
+        Assert.All(_fieldWriter.WrittenValues.Values, value => Assert.Equal("antoine.b@orange.fr", value));
+        var message = Assert.Single(_notifier.Messages);
+        Assert.StartsWith("2 champs remplis, 1 à vérifier.", message, StringComparison.Ordinal);
     }
 
     [Fact]
