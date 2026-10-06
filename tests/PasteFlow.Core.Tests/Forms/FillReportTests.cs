@@ -139,6 +139,25 @@ public sealed class FillReportTests
         Assert.DoesNotContain("Reconnu", report.Describe(), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Describe_MentionsIgnoredExamples()
+    {
+        var report = Report(filled: 1, alreadyFilled: 0, failed: 0, new[] { Source("Gmail", 10) }) with
+        {
+            IgnoredSampleCount = 2,
+        };
+
+        Assert.EndsWith("\nIgnoré : 2 exemples.", report.Describe(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Describe_WithoutIgnoredExample_HasNoIgnoredLine()
+    {
+        var report = Report(filled: 1, alreadyFilled: 0, failed: 0, new[] { Source("Gmail", 10) });
+
+        Assert.DoesNotContain("Ignoré", report.Describe(), StringComparison.Ordinal);
+    }
+
     private static SourceSummary Source(string name, int candidateCount)
     {
         return new SourceSummary { Name = name, CandidateCount = candidateCount };

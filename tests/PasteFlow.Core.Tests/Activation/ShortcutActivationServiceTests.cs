@@ -75,7 +75,7 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         _candidateSource.Candidates = new[]
         {
             Labelled("Antoine", CandidateKind.Text, "Nom"),
-            Labelled("antoine@example.com", CandidateKind.Email, "Email"),
+            Labelled("antoine.b@orange.fr", CandidateKind.Email, "Email"),
             Labelled("secret", CandidateKind.Text, "Mot de passe"),
             Labelled("France", CandidateKind.Text, "Pays"),
             Labelled("Reims", CandidateKind.Text, "Ville"),
@@ -103,8 +103,8 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         _candidateSource.Candidates = new[]
         {
             Labelled("CMD-48213", CandidateKind.Reference, "Commande n°"),
-            Labelled("antoine@example.com", CandidateKind.Email, "Courriel"),
-            Labelled("06 12 34 56 78", CandidateKind.Phone, "Tél."),
+            Labelled("antoine.b@orange.fr", CandidateKind.Email, "Courriel"),
+            Labelled("06 47 21 85 39", CandidateKind.Phone, "Tél."),
             Labelled("Bonjour Antoine,", CandidateKind.Text, string.Empty),
         };
         using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
@@ -113,8 +113,8 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         _listener.SimulatePress();
 
         Assert.Equal("CMD-48213", _fieldWriter.WrittenValues["reference"]);
-        Assert.Equal("antoine@example.com", _fieldWriter.WrittenValues["email"]);
-        Assert.Equal("06 12 34 56 78", _fieldWriter.WrittenValues["phone"]);
+        Assert.Equal("antoine.b@orange.fr", _fieldWriter.WrittenValues["email"]);
+        Assert.Equal("06 47 21 85 39", _fieldWriter.WrittenValues["phone"]);
         var message = Assert.Single(_notifier.Messages);
         Assert.Contains("\nRéférence : CMD-48213 (Gmail)", message, StringComparison.Ordinal);
     }
@@ -128,8 +128,8 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         };
         _candidateSource.Candidates = new[]
         {
-            Labelled("antoine@example.com", CandidateKind.Email, string.Empty),
-            Labelled("contact@example.com", CandidateKind.Email, string.Empty),
+            Labelled("antoine.b@orange.fr", CandidateKind.Email, string.Empty),
+            Labelled("contact@reims-auto.fr", CandidateKind.Email, string.Empty),
             Labelled("Bonjour Antoine,", CandidateKind.Text, string.Empty),
         };
         using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
@@ -140,6 +140,49 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         Assert.Empty(_fieldWriter.WrittenValues);
         var message = Assert.Single(_notifier.Messages);
         Assert.StartsWith("2 à vérifier.", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HotkeyPressed_NeverPastesExampleValues()
+    {
+        var formReader = new FakeFormReader
+        {
+            Fields = new[] { TestFields.Text("email", "Email"), TestFields.Text("phone", "Téléphone") },
+        };
+        _candidateSource.Candidates = new[]
+        {
+            Labelled("jean.dupont@exemple.fr", CandidateKind.Email, "ex"),
+            Labelled("06 00 00 00 00", CandidateKind.Phone, string.Empty),
+        };
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Empty(_fieldWriter.WrittenValues);
+        var message = Assert.Single(_notifier.Messages);
+        Assert.EndsWith("Ignoré : 2 exemples.", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void HotkeyPressed_IgnoresPlaceholderShownInTheForm()
+    {
+        var formReader = new FakeFormReader
+        {
+            Fields = new[] { TestFields.Text("email", "Email") with { Hint = "ex : marie.martin@laposte.net" } },
+        };
+        _candidateSource.Candidates = new[]
+        {
+            Labelled("marie.martin@laposte.net", CandidateKind.Email, string.Empty),
+            Labelled("antoine.b@orange.fr", CandidateKind.Email, string.Empty),
+        };
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        // Without the placeholder, the real email is the only one left, so it is pasted
+        Assert.Equal("antoine.b@orange.fr", _fieldWriter.WrittenValues["email"]);
     }
 
     [Fact]
@@ -294,7 +337,7 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         {
             CandidateFrom("Gmail", rank: 0, "CMD-48213") with { Kind = CandidateKind.Reference },
             CandidateFrom("Bloc-notes", rank: 1, "CMD-48213") with { Kind = CandidateKind.Reference },
-            CandidateFrom("Gmail", rank: 0, "antoine@example.com") with { Kind = CandidateKind.Email },
+            CandidateFrom("Gmail", rank: 0, "antoine.b@orange.fr") with { Kind = CandidateKind.Email },
             CandidateFrom("Gmail", rank: 0, "Bonjour"),
         };
         using var service = CreateService();

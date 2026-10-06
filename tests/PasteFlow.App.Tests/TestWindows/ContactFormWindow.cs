@@ -14,6 +14,7 @@ internal sealed class ContactFormWindow : Window
     public const string PasswordValue = "secret-password";
     public const string OrderText = "Commande n° CMD-48213";
     public const string TotalText = "Total : 49,90 €";
+    public const string EmailHint = "ex : jean.dupont@exemple.fr";
 
     public ContactFormWindow()
     {
@@ -30,6 +31,7 @@ internal sealed class ContactFormWindow : Window
 
         EmailBox = new TextBox { Text = "antoine@example.com" };
         AutomationProperties.SetName(EmailBox, "Email");
+        AutomationProperties.SetHelpText(EmailBox, EmailHint);
 
         var cityLabel = new Label { Content = "Ville" };
         CityBox = new TextBox();

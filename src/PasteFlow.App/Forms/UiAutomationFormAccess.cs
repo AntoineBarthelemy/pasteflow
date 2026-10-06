@@ -78,6 +78,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter
             {
                 Id = id,
                 Label = ReadLabel(current),
+                Hint = current.HelpText?.Trim() ?? string.Empty,
                 Kind = kind,
                 HasValue = kind != FieldKind.Password && HasValue(element),
             };

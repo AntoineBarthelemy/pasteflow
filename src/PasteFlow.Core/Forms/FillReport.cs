@@ -64,6 +64,11 @@ public sealed record FillReport
     public IReadOnlyDictionary<CandidateKind, int> RecognizedCounts { get; init; } = new Dictionary<CandidateKind, int>();
 
     /// <summary>
+    /// Gets the number of distinct example values ignored, such as "jean.dupont@exemple.fr" or a placeholder.
+    /// </summary>
+    public int IgnoredSampleCount { get; init; }
+
+    /// <summary>
     /// Gets the time spent reading and filling the form.
     /// </summary>
     public required TimeSpan Elapsed { get; init; }
@@ -74,7 +79,8 @@ public sealed record FillReport
     /// <returns>
     /// A message such as "2 champs remplis, 1 à vérifier. En 120 ms.", followed by one line per value written,
     /// such as "Email : antoine@example.com (Gmail)", then by the sources read, such as
-    /// "Lu à l'écran : Gmail (84), Bloc-notes (12).", and by the values recognized, such as "Reconnu : 1 e-mail.".
+    /// "Lu à l'écran : Gmail (84), Bloc-notes (12).", by the values recognized, such as "Reconnu : 1 e-mail.",
+    /// and by the example values ignored, such as "Ignoré : 2 exemples.".
     /// </returns>
     public string Describe()
     {
@@ -122,7 +128,14 @@ public sealed record FillReport
             .Select(entry => DescribeKind(entry.Key, entry.Value))
             .ToList();
 
-        return recognized.Count > 0 ? $"{message}\nReconnu : {string.Join(", ", recognized)}." : message;
+        if (recognized.Count > 0)
+        {
+            message = $"{message}\nReconnu : {string.Join(", ", recognized)}.";
+        }
+
+        return IgnoredSampleCount > 0
+            ? $"{message}\nIgnoré : {Count(IgnoredSampleCount, "exemple", "exemples")}."
+            : message;
     }
 
     private static string DescribeFilledValue(FilledValue filled)

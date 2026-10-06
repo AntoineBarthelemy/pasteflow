@@ -12,8 +12,9 @@ namespace PasteFlow.Core.Activation;
 /// </summary>
 /// <remarks>
 /// Pressing the shortcut reads the form of the active window and, at the same time, the candidate sources.
-/// Each field allowed by <see cref="FillRules"/> then receives the value chosen by <see cref="FieldMatcher"/>,
-/// only when the matcher is sure enough; the other fields are left to the user.
+/// Example values and placeholders are set aside (<see cref="SampleValues"/>), then each field allowed by
+/// <see cref="FillRules"/> receives the value chosen by <see cref="FieldMatcher"/>, only when the matcher is sure
+/// enough; the other fields are left to the user.
 /// </remarks>
 public sealed class ShortcutActivationService : IDisposable
 {
@@ -137,7 +138,18 @@ public sealed class ShortcutActivationService : IDisposable
         // Sources are read while the form is being read
         var candidatesTask = GetAllCandidatesAsync(cancellationToken);
         var fields = await _formReader.ReadActiveFormAsync(cancellationToken);
-        var candidates = await candidatesTask;
+        var allCandidates = await candidatesTask;
+
+        // Safety net: example values and placeholders are never pasted
+        var hints = fields.Select(field => field.Hint).Where(hint => hint.Length > 0).ToList();
+        var candidates = allCandidates
+            .Where(candidate => !SampleValues.IsSample(candidate) && !SampleValues.AppearsInHints(candidate.Value, hints))
+            .ToList();
+        var ignoredSampleCount = allCandidates
+            .Except(candidates)
+            .Select(candidate => candidate.Value)
+            .Distinct(StringComparer.Ordinal)
+            .Count();
 
         var filledValues = new List<FilledValue>();
         var uncertainCount = 0;
@@ -173,8 +185,9 @@ public sealed class ShortcutActivationService : IDisposable
             AlreadyFilledCount = fields.Count(field => field.Kind == FieldKind.Text && field.HasValue),
             FailedCount = failedCount,
             FilledValues = filledValues,
-            Sources = Summarize(candidates),
+            Sources = Summarize(allCandidates),
             RecognizedCounts = CountRecognized(candidates),
+            IgnoredSampleCount = ignoredSampleCount,
             Elapsed = stopwatch.Elapsed,
         };
     }

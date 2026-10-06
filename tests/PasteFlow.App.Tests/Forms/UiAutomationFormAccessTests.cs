@@ -53,6 +53,15 @@ public sealed class UiAutomationFormAccessTests : IDisposable
     }
 
     [Fact]
+    public async Task ReadFormAsync_ReadsHelpTextAsHint()
+    {
+        var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+
+        Assert.Equal(ContactFormWindow.EmailHint, Field(fields, "Email").Hint);
+        Assert.Equal(string.Empty, Field(fields, "Nom").Hint);
+    }
+
+    [Fact]
     public async Task ReadFormAsync_NeverReadsPasswordValue()
     {
         var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
