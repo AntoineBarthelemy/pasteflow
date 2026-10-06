@@ -27,6 +27,8 @@ internal sealed class FakeFieldWriter : IFieldWriter, IFieldValueReader
     /// <summary>
     /// Simulates the user typing into a field.
     /// </summary>
+    /// <param name="fieldId">The identifier of the field.</param>
+    /// <param name="value">The value the field holds afterwards.</param>
     public void SimulateUserTyping(string fieldId, string value)
     {
         _currentValues[fieldId] = value;

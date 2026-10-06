@@ -159,11 +159,6 @@ public sealed class FillReportTests
         Assert.DoesNotContain("Ignoré", report.Describe(), StringComparison.Ordinal);
     }
 
-    private static SourceSummary Source(string name, int candidateCount)
-    {
-        return new SourceSummary { Name = name, CandidateCount = candidateCount };
-    }
-
     [Fact]
     public void Describe_AfterFilling_GivesTheUndoShortcut()
     {
@@ -184,6 +179,11 @@ public sealed class FillReportTests
         var report = Report(filled: 0, alreadyFilled: 1, failed: 0) with { UndoHotkey = Hotkey.DefaultUndo };
 
         Assert.DoesNotContain("annuler", report.Describe(), StringComparison.Ordinal);
+    }
+
+    private static SourceSummary Source(string name, int candidateCount)
+    {
+        return new SourceSummary { Name = name, CandidateCount = candidateCount };
     }
 
     private static FillReport Report(int filled, int alreadyFilled, int failed, IReadOnlyList<SourceSummary>? sources = null)
