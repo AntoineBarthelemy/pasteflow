@@ -15,6 +15,7 @@ internal sealed class ContactFormWindow : Window
     public const string OrderText = "Commande n° CMD-48213";
     public const string TotalText = "Total : 49,90 €";
     public const string EmailHint = "ex : jean.dupont@exemple.fr";
+    public const string PhoneTechnicalName = "phone_number";
 
     public ContactFormWindow()
     {
@@ -43,6 +44,10 @@ internal sealed class ContactFormWindow : Window
         CountryBox = new ComboBox { ItemsSource = new[] { "France", "Belgique" } };
         AutomationProperties.SetName(CountryBox, "Pays");
 
+        // A field without any visible label, known only by its technical name
+        PhoneBox = new TextBox();
+        AutomationProperties.SetAutomationId(PhoneBox, PhoneTechnicalName);
+
         DisabledBox = new TextBox { IsEnabled = false };
         AutomationProperties.SetName(DisabledBox, "Désactivé");
 
@@ -55,6 +60,7 @@ internal sealed class ContactFormWindow : Window
         panel.Children.Add(CityBox);
         panel.Children.Add(PasswordBox);
         panel.Children.Add(CountryBox);
+        panel.Children.Add(PhoneBox);
         panel.Children.Add(DisabledBox);
         Content = panel;
     }
@@ -68,6 +74,8 @@ internal sealed class ContactFormWindow : Window
     public PasswordBox PasswordBox { get; }
 
     public ComboBox CountryBox { get; }
+
+    public TextBox PhoneBox { get; }
 
     public TextBox DisabledBox { get; }
 }

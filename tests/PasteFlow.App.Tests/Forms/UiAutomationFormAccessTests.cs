@@ -14,7 +14,7 @@ public sealed class UiAutomationFormAccessTests : IDisposable
     {
         var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
 
-        Assert.Equal(new[] { "Nom", "Email", "Ville", "Mot de passe", "Pays" }, fields.Select(field => field.Label));
+        Assert.Equal(new[] { "Nom", "Email", "Ville", "Mot de passe", "Pays", string.Empty }, fields.Select(field => field.Label));
     }
 
     [Fact]
@@ -59,6 +59,15 @@ public sealed class UiAutomationFormAccessTests : IDisposable
 
         Assert.Equal(ContactFormWindow.EmailHint, Field(fields, "Email").Hint);
         Assert.Equal(string.Empty, Field(fields, "Nom").Hint);
+    }
+
+    [Fact]
+    public async Task ReadFormAsync_ReadsTechnicalName()
+    {
+        var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+
+        var phone = Assert.Single(fields, field => field.TechnicalName == ContactFormWindow.PhoneTechnicalName);
+        Assert.Equal(string.Empty, phone.Label);
     }
 
     [Fact]

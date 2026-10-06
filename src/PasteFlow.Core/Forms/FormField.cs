@@ -19,6 +19,12 @@ public sealed record FormField
     public required string Label { get; init; }
 
     /// <summary>
+    /// Gets the technical name given to the field by its developers, such as "billing_email" or "phoneNumber",
+    /// or an empty string if it has none.
+    /// </summary>
+    public string TechnicalName { get; init; } = string.Empty;
+
+    /// <summary>
     /// Gets the help text of the field, such as its placeholder "ex : jean.dupont@exemple.fr",
     /// or an empty string if it has none.
     /// </summary>

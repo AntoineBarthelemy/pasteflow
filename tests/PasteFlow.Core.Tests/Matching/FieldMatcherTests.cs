@@ -155,6 +155,56 @@ public sealed class FieldMatcherTests
     }
 
     [Fact]
+    public void Match_UsesTechnicalNameWhenLabelIsVague()
+    {
+        var field = TestFields.Text("field", "Contact") with { TechnicalName = "contact_email" };
+
+        var match = FieldMatcher.Match(field, new[] { Candidate("antoine.b@orange.fr", CandidateKind.Email, string.Empty) });
+
+        AssertFills(match, "antoine.b@orange.fr");
+    }
+
+    [Fact]
+    public void Match_UsesTechnicalNameWhenFieldHasNoLabel()
+    {
+        var field = TestFields.Text("field", string.Empty) with { TechnicalName = "phoneNumber" };
+
+        var match = FieldMatcher.Match(field, new[] { Candidate("06 47 21 85 39", CandidateKind.Phone, string.Empty) });
+
+        AssertFills(match, "06 47 21 85 39");
+    }
+
+    [Fact]
+    public void Match_UsesDateFormatShownInHint()
+    {
+        var field = TestFields.Text("field", "Le") with { Hint = "JJ/MM/AAAA" };
+
+        var match = FieldMatcher.Match(field, new[] { Candidate("12/03/2005", CandidateKind.Date, string.Empty) });
+
+        AssertFills(match, "12/03/2005");
+    }
+
+    [Fact]
+    public void Match_UsesKindOfExampleShownInHint()
+    {
+        var field = TestFields.Text("field", "Identifiant") with { Hint = "ex : jean.dupont@exemple.fr" };
+
+        var match = FieldMatcher.Match(field, new[] { Candidate("antoine.b@orange.fr", CandidateKind.Email, string.Empty) });
+
+        AssertFills(match, "antoine.b@orange.fr");
+    }
+
+    [Fact]
+    public void Match_TechnicalNameDoesNotOverrideTheLabel()
+    {
+        var field = TestFields.Text("field", "Téléphone") with { TechnicalName = "email" };
+
+        var match = FieldMatcher.Match(field, new[] { Candidate("antoine.b@orange.fr", CandidateKind.Email, "Email") });
+
+        Assert.Null(match.Candidate);
+    }
+
+    [Fact]
     public void Match_WithoutCandidates_ReturnsNoCandidate()
     {
         var match = Match("Email");
