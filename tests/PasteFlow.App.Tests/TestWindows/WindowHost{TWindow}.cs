@@ -67,6 +67,9 @@ internal sealed class WindowHost<TWindow> : IDisposable
         try
         {
             _window = createWindow();
+
+            // Ready once drawn: before that, its fields are still reported as off screen and ignored
+            _window.ContentRendered += (_, _) => _started.Set();
             _window.Show();
         }
         catch (Exception exception)
@@ -76,7 +79,6 @@ internal sealed class WindowHost<TWindow> : IDisposable
             return;
         }
 
-        _started.Set();
         Dispatcher.Run();
     }
 }
