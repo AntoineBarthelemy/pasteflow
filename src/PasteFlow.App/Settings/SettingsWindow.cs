@@ -86,16 +86,6 @@ internal sealed class SettingsWindow : Window
         StartWithWindows = _startWithWindows.IsChecked == true,
     };
 
-    private Prudence PrudenceChosen()
-    {
-        if (_cautious.IsChecked == true)
-        {
-            return Prudence.Cautious;
-        }
-
-        return _bold.IsChecked == true ? Prudence.Bold : Prudence.Balanced;
-    }
-
     private static RadioButton Choice(string text, bool isChecked)
     {
         return new RadioButton { Content = text, GroupName = "Prudence", IsChecked = isChecked, Margin = new Thickness(0, 4, 0, 4) };
@@ -104,6 +94,16 @@ internal sealed class SettingsWindow : Window
     private static TextBlock Heading(string text)
     {
         return new TextBlock { Text = text, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 12, 0, 4) };
+    }
+
+    private Prudence PrudenceChosen()
+    {
+        if (_cautious.IsChecked == true)
+        {
+            return Prudence.Cautious;
+        }
+
+        return _bold.IsChecked == true ? Prudence.Bold : Prudence.Balanced;
     }
 
     private void Save()

@@ -39,16 +39,16 @@ internal sealed class WindowHost<TWindow> : IDisposable
 
     public IntPtr Handle { get; }
 
+    /// <summary>
+    /// Gets a value indicating whether the window was closed, by itself or by the test.
+    /// </summary>
+    public bool IsClosed => _isClosed;
+
     public T Invoke<T>(Func<TWindow, T> action)
     {
         var window = _window ?? throw new InvalidOperationException("The test window is not started.");
         return window.Dispatcher.Invoke(() => action(window));
     }
-
-    /// <summary>
-    /// Gets a value indicating whether the window was closed, by itself or by the test.
-    /// </summary>
-    public bool IsClosed => _isClosed;
 
     public void Dispose()
     {
