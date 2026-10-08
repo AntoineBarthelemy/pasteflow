@@ -15,7 +15,7 @@ namespace PasteFlow.Core.Matching;
 /// </remarks>
 public sealed partial class FieldClues
 {
-    private const int RegexTimeoutMilliseconds = 100;
+    private const int RegexTimeoutMilliseconds = 1000;
 
     private readonly IReadOnlySet<string>[] _conceptSets;
 

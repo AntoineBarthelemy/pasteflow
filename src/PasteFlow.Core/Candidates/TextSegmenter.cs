@@ -23,7 +23,7 @@ public static partial class TextSegmenter
     /// </summary>
     public const int MaxLabelLength = 40;
 
-    private const int RegexTimeoutMilliseconds = 100;
+    private const int RegexTimeoutMilliseconds = 1000;
     private const int MinReferenceLength = 4;
 
     private static readonly char[] LineBreaks = { '\r', '\n' };

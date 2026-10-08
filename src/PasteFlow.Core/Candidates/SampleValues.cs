@@ -10,7 +10,7 @@ namespace PasteFlow.Core.Candidates;
 /// </summary>
 public static partial class SampleValues
 {
-    private const int RegexTimeoutMilliseconds = 100;
+    private const int RegexTimeoutMilliseconds = 1000;
     private const int PhoneSubscriberDigits = 8;
 
     private static readonly HashSet<string> SampleEmailDomains = new(StringComparer.Ordinal)
