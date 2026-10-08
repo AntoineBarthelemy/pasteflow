@@ -46,20 +46,27 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          $total = 0; $passed = 0; $failed = 0
-          Get-ChildItem TestResults -Filter *.trx -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-            [xml]$trx = Get-Content $_.FullName
-            $counters = $trx.TestRun.ResultSummary.Counters
-            $total += [int]$counters.total
-            $passed += [int]$counters.passed
-            $failed += [int]$counters.failed
-            foreach ($result in $trx.TestRun.Results.UnitTestResult | Where-Object { $_.outcome -eq 'Failed' }) {
-              $reason = ($result.Output.ErrorInfo.Message -replace '\s+', ' ')
-              if ($reason.Length -gt 400) { $reason = $reason.Substring(0, 400) }
-              Write-Output "::error title=Test failed::$($result.testName) : $reason"
+          # Informational only: a problem here must not hide the result of the tests, it is shown as a warning
+          try {
+            $total = 0; $passed = 0; $failed = 0
+            Get-ChildItem TestResults -Filter *.trx -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
+              [xml]$trx = Get-Content -Raw -Encoding utf8 $_.FullName
+              $counters = $trx.TestRun.ResultSummary.Counters
+              $total += [int]$counters.total
+              $passed += [int]$counters.passed
+              $failed += [int]$counters.failed
+              foreach ($result in @($trx.TestRun.Results.UnitTestResult) | Where-Object { $_ -and $_.outcome -eq 'Failed' }) {
+                $reason = ([string]$result.Output.ErrorInfo.Message -replace '\s+', ' ')
+                if ($reason.Length -gt 400) { $reason = $reason.Substring(0, 400) }
+                Write-Output "::error title=Test failed::$($result.testName) : $reason"
+              }
             }
+            Write-Output "::notice title=Tests::$passed of $total tests passed, $failed failed"
           }
-          Write-Output "::notice title=Tests::$passed of $total tests passed, $failed failed"
+          catch {
+            $message = ($_.Exception.Message -replace '\s+', ' ')
+            Write-Output "::warning title=Test summary unavailable::$message"
+          }
 
       - name: Keep test results on failure
         if: failure()
