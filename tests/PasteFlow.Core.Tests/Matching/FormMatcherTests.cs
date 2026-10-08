@@ -133,6 +133,78 @@ public sealed class FormMatcherTests
     }
 
     [Fact]
+    public void MatchAll_WhenTheFormAsksTheFirstNameApart_FillsFirstAndLastNames()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("first", "Prénom"), TestFields.Text("last", "Nom") },
+            Person("Marie Lefèvre", "Marie", "Lefèvre"),
+            TestReferenceData.Create());
+
+        AssertFills(matches[0], "Marie");
+        AssertFills(matches[1], "Lefèvre");
+    }
+
+    [Fact]
+    public void MatchAll_WhenTheFormAsksOnlyTheName_FillsTheWholeName()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("name", "Nom"), TestFields.Text("email", "Email") },
+            Person("Marie Lefèvre", "Marie", "Lefèvre"),
+            TestReferenceData.Create());
+
+        AssertFills(matches[0], "Marie Lefèvre");
+    }
+
+    [Fact]
+    public void MatchAll_WithTwoPeopleOnScreen_LeavesNamesToCheckWithBothProposed()
+    {
+        var candidates = Person("Marie Lefèvre", "Marie", "Lefèvre").Concat(Person("Antoine Barthélémy", "Antoine", "Barthélémy")).ToList();
+
+        var matches = FormMatcher.MatchAll(new[] { TestFields.Text("first", "Prénom") }, candidates, TestReferenceData.Create());
+
+        Assert.False(matches[0].IsConfident);
+        Assert.Equal(new[] { "Marie", "Antoine" }, matches[0].Suggestions.Select(candidate => candidate.Value));
+    }
+
+    [Fact]
+    public void MatchAll_FillsCommuneAndPostalCodeThatGoTogether()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("postal", "Code postal"), TestFields.Text("city", "Ville") },
+            new[] { Candidate("51100", CandidateKind.Number, string.Empty), Candidate("Reims", CandidateKind.City, string.Empty) },
+            TestReferenceData.Create());
+
+        AssertFills(matches[0], "51100");
+        AssertFills(matches[1], "Reims");
+    }
+
+    [Fact]
+    public void MatchAll_LeavesCommuneAndPostalCodeThatDoNotGoTogetherToCheck()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("postal", "Code postal"), TestFields.Text("city", "Ville") },
+            new[] { Candidate("51500", CandidateKind.Number, string.Empty), Candidate("Reims", CandidateKind.City, string.Empty) },
+            TestReferenceData.Create());
+
+        Assert.False(matches[0].IsConfident);
+        Assert.False(matches[1].IsConfident);
+        Assert.Equal("51500", Assert.Single(matches[0].Suggestions).Value);
+        Assert.Equal("Reims", Assert.Single(matches[1].Suggestions).Value);
+    }
+
+    [Fact]
+    public void MatchAll_DoesNotJudgeACommuneTheListsDoNotKnow()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("postal", "Code postal"), TestFields.Text("city", "Ville") },
+            new[] { Candidate("51500", CandidateKind.Number, string.Empty), Candidate("Bezannes", CandidateKind.Text, "Ville") },
+            TestReferenceData.Create());
+
+        AssertFills(matches[0], "51500");
+        AssertFills(matches[1], "Bezannes");
+    }
+
+    [Fact]
     public void MatchAll_WithoutFields_ReturnsNothing()
     {
         var matches = FormMatcher.MatchAll(
@@ -140,6 +212,16 @@ public sealed class FormMatcherTests
             new[] { Candidate("antoine.b@orange.fr", CandidateKind.Email, "Email") });
 
         Assert.Empty(matches);
+    }
+
+    private static Candidate[] Person(string fullName, string firstName, string lastName)
+    {
+        return new[]
+        {
+            Candidate(fullName, CandidateKind.FullName, string.Empty),
+            Candidate(firstName, CandidateKind.FirstName, string.Empty),
+            Candidate(lastName, CandidateKind.LastName, string.Empty),
+        };
     }
 
     private static Candidate Candidate(string value, CandidateKind kind, string label)

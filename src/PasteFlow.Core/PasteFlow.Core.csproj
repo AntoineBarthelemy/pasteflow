@@ -5,4 +5,9 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
 
+  <!-- Reference lists built from official open data by tools/PasteFlow.DataBuilder -->
+  <ItemGroup>
+    <EmbeddedResource Include="Data\*.txt.gz" LogicalName="PasteFlow.Core.Data.%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

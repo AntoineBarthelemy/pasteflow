@@ -1,5 +1,6 @@
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
+using PasteFlow.Core.Reference;
 
 namespace PasteFlow.Core.Matching;
 
@@ -12,6 +13,8 @@ namespace PasteFlow.Core.Matching;
 /// value is taken may still get another value, only if that value fits it on its own merits.</para>
 /// <para>A confirmation field, such as "Confirmez votre email", is the exception: it is meant to receive the same
 /// value as the field it confirms.</para>
+/// <para>Last safety net: a postal code and a commune that do not go together according to La Poste are both left
+/// to the user.</para>
 /// </remarks>
 public static class FormMatcher
 {
@@ -23,10 +26,27 @@ public static class FormMatcher
     /// <returns>A match for each field, in the order of the form.</returns>
     public static IReadOnlyList<FieldMatch> MatchAll(IReadOnlyList<FormField> fields, IReadOnlyList<Candidate> candidates)
     {
+        return MatchAll(fields, candidates, ReferenceData.Shared);
+    }
+
+    /// <summary>
+    /// Finds the values of the fields of a form, checking places against given official lists.
+    /// </summary>
+    /// <param name="fields">The fields to fill, in the order of the form.</param>
+    /// <param name="candidates">The values found in the sources.</param>
+    /// <param name="data">The official lists used to check that a postal code and a commune go together.</param>
+    /// <returns>A match for each field, in the order of the form.</returns>
+    public static IReadOnlyList<FieldMatch> MatchAll(IReadOnlyList<FormField> fields, IReadOnlyList<Candidate> candidates, ReferenceData data)
+    {
         ArgumentNullException.ThrowIfNull(fields);
         ArgumentNullException.ThrowIfNull(candidates);
+        ArgumentNullException.ThrowIfNull(data);
 
-        var firstMatches = fields.Select(field => FieldMatcher.Match(field, candidates)).ToArray();
+        // "Nom" means the last name when the form asks the first name elsewhere, the whole name otherwise
+        var firstNameAskedApart = fields.Any(field => AsksFirstNameOnly(FieldClues.Of(field)));
+        var clues = fields.Select(field => FieldClues.Of(field, firstNameAskedApart)).ToArray();
+        var noTakenValue = new HashSet<string>(StringComparer.Ordinal);
+        var firstMatches = fields.Select((field, index) => FieldMatcher.Match(field, clues[index], candidates, noTakenValue)).ToArray();
         var matches = new FieldMatch[fields.Count];
         var takenValues = new HashSet<string>(StringComparer.Ordinal);
 
@@ -36,7 +56,7 @@ public static class FormMatcher
             .ThenByDescending(index => firstMatches[index].Score);
         foreach (var index in surestFirst)
         {
-            if (FieldClues.Of(fields[index]).IsConfirmation)
+            if (clues[index].IsConfirmation)
             {
                 // Safety net exception: a confirmation repeats a value on purpose and takes nothing from others
                 matches[index] = firstMatches[index];
@@ -45,7 +65,7 @@ public static class FormMatcher
 
             var match = takenValues.Count == 0
                 ? firstMatches[index]
-                : FieldMatcher.Match(fields[index], candidates, takenValues);
+                : FieldMatcher.Match(fields[index], clues[index], candidates, takenValues);
             if (match is { IsConfident: true, Candidate: not null })
             {
                 _ = takenValues.Add(match.Candidate.Value);
@@ -54,6 +74,54 @@ public static class FormMatcher
             matches[index] = match;
         }
 
+        CheckPostalCodeAndCommune(matches, clues, data);
         return matches;
+    }
+
+    private static bool AsksFirstNameOnly(FieldClues clues)
+    {
+        return clues.ExpectedKinds.Contains(CandidateKind.FirstName);
+    }
+
+    /// <summary>
+    /// Safety net: a postal code and a commune that do not go together according to La Poste are both left to the
+    /// user, since one of them is wrong.
+    /// </summary>
+    /// <param name="matches">The matches of the form, changed in place.</param>
+    /// <param name="clues">The clues of each field.</param>
+    /// <param name="data">The official lists.</param>
+    private static void CheckPostalCodeAndCommune(FieldMatch[] matches, FieldClues[] clues, ReferenceData data)
+    {
+        var postalCodeIndex = -1;
+        var communeIndex = -1;
+        for (var index = 0; index < matches.Length; index++)
+        {
+            if (!matches[index].IsConfident)
+            {
+                continue;
+            }
+
+            if (clues[index].Mentions(LabelConcepts.PostalCode))
+            {
+                postalCodeIndex = postalCodeIndex < 0 ? index : postalCodeIndex;
+            }
+            else if (clues[index].Mentions(LabelConcepts.City))
+            {
+                communeIndex = communeIndex < 0 ? index : communeIndex;
+            }
+        }
+
+        if (postalCodeIndex < 0 || communeIndex < 0
+            || matches[postalCodeIndex].Candidate is not { } postalCode
+            || matches[communeIndex].Candidate is not { } commune)
+        {
+            return;
+        }
+
+        if (data.IsPostalCode(postalCode.Value) && data.IsCommune(commune.Value) && !data.IsCommuneOf(postalCode.Value, commune.Value))
+        {
+            matches[postalCodeIndex] = matches[postalCodeIndex] with { IsConfident = false };
+            matches[communeIndex] = matches[communeIndex] with { IsConfident = false };
+        }
     }
 }

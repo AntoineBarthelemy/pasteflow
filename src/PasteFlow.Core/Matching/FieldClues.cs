@@ -44,6 +44,19 @@ public sealed partial class FieldClues
     /// <returns>The clues of the field.</returns>
     public static FieldClues Of(FormField field)
     {
+        return Of(field, firstNameAskedApart: false);
+    }
+
+    /// <summary>
+    /// Gathers the clues of a field, knowing the rest of the form.
+    /// </summary>
+    /// <param name="field">The field to understand.</param>
+    /// <param name="firstNameAskedApart">
+    /// Whether the form has a field for the first name: then a "Nom" field expects the last name only.
+    /// </param>
+    /// <returns>The clues of the field.</returns>
+    public static FieldClues Of(FormField field, bool firstNameAskedApart)
+    {
         ArgumentNullException.ThrowIfNull(field);
 
         var labelConcepts = LabelConcepts.From(field.Label);
@@ -52,10 +65,10 @@ public sealed partial class FieldClues
         var hintConcepts = LabelConcepts.From(field.Hint);
 
         // The first clue that tells the expected kind wins: label, then technical name, then help text
-        var expectedKinds = LabelConcepts.ExpectedKinds(labelConcepts);
+        var expectedKinds = LabelConcepts.ExpectedKinds(labelConcepts, firstNameAskedApart);
         if (expectedKinds.Count == 0)
         {
-            expectedKinds = LabelConcepts.ExpectedKinds(technicalConcepts);
+            expectedKinds = LabelConcepts.ExpectedKinds(technicalConcepts, firstNameAskedApart);
         }
 
         if (expectedKinds.Count == 0)
@@ -65,7 +78,7 @@ public sealed partial class FieldClues
 
         if (expectedKinds.Count == 0)
         {
-            expectedKinds = LabelConcepts.ExpectedKinds(hintConcepts);
+            expectedKinds = LabelConcepts.ExpectedKinds(hintConcepts, firstNameAskedApart);
         }
 
         var conceptSets = new[] { labelConcepts, technicalConcepts, hintConcepts }
@@ -137,6 +150,13 @@ public sealed partial class FieldClues
             .Select(piece => piece.Kind)
             .Where(kind => kind != CandidateKind.Text)
             .ToHashSet();
+
+        // "ex : Jean Dupont" shows a whole name, its first and last names are only parts of the example
+        if (kinds.Contains(CandidateKind.FullName))
+        {
+            _ = kinds.Remove(CandidateKind.FirstName);
+            _ = kinds.Remove(CandidateKind.LastName);
+        }
 
         if (DatePatternRegex().IsMatch(hint))
         {

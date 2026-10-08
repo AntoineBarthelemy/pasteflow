@@ -72,10 +72,24 @@ public static class FieldMatcher
     public static FieldMatch Match(FormField field, IReadOnlyList<Candidate> candidates, IReadOnlySet<string> takenValues)
     {
         ArgumentNullException.ThrowIfNull(field);
+
+        return Match(field, FieldClues.Of(field), candidates, takenValues);
+    }
+
+    /// <summary>
+    /// Finds the best value for a field whose clues are already gathered, among the values not taken by other fields.
+    /// </summary>
+    /// <param name="field">The field to fill.</param>
+    /// <param name="clues">What the field tells about the value it expects, knowing the rest of the form.</param>
+    /// <param name="candidates">The values found in the sources.</param>
+    /// <param name="takenValues">The values already given to other fields, see <see cref="Match(FormField, IReadOnlyList{Candidate}, IReadOnlySet{string})"/>.</param>
+    /// <returns>The best candidate and whether it is confident enough.</returns>
+    public static FieldMatch Match(FormField field, FieldClues clues, IReadOnlyList<Candidate> candidates, IReadOnlySet<string> takenValues)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        ArgumentNullException.ThrowIfNull(clues);
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(takenValues);
-
-        var clues = FieldClues.Of(field);
 
         // Only the values the field can accept compete, so "the only value of its kind" means the only acceptable one
         var eligible = candidates.Where(candidate => IsEligible(candidate, clues)).ToList();

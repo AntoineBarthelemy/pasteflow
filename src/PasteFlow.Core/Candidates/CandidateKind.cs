@@ -49,4 +49,34 @@ public enum CandidateKind
     /// A long number, such as a customer number or a postal code.
     /// </summary>
     Number,
+
+    /// <summary>
+    /// A known first name, such as "Antoine".
+    /// </summary>
+    FirstName,
+
+    /// <summary>
+    /// A last name next to a known first name, such as "Barthélémy" in "Antoine Barthélémy".
+    /// </summary>
+    LastName,
+
+    /// <summary>
+    /// A first name followed or preceded by a last name, such as "Antoine Barthélémy".
+    /// </summary>
+    FullName,
+
+    /// <summary>
+    /// A French commune, recognized next to its postal code or alone on an address line.
+    /// </summary>
+    City,
+
+    /// <summary>
+    /// A country, alone on its line.
+    /// </summary>
+    Country,
+
+    /// <summary>
+    /// A company name, recognized through its legal form, such as "Reims Auto SARL".
+    /// </summary>
+    Company,
 }

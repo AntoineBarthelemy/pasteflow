@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using PasteFlow.Core.Reference;
 
 namespace PasteFlow.Core.Candidates;
 
@@ -8,6 +9,7 @@ namespace PasteFlow.Core.Candidates;
 /// </summary>
 /// <remarks>
 /// The rules run line by line. A line made only of a label ending with ":" labels the value of the next line.
+/// People, communes, countries and companies are recognized through the official lists (see <see cref="NameRecognizer"/>).
 /// </remarks>
 public static partial class TextSegmenter
 {
@@ -25,7 +27,7 @@ public static partial class TextSegmenter
     private const int MinReferenceLength = 4;
 
     private static readonly char[] LineBreaks = { '\r', '\n' };
-    private static readonly char[] LabelTrimmedChars = { ' ', '\t', ':', '-', '–', '—', '|', '(', '[', ',', ';' };
+    private static readonly char[] LabelTrimmedChars = { ' ', '\t', ':', '-', '–', '—', '|', '(', '[', ',', ';', '<', '"' };
     private static readonly char[] UrlTrimmedEndChars = { '.', ',', ';', ':', '!', '?', ')', ']', '\'', '"' };
 
     /// <summary>
@@ -50,7 +52,19 @@ public static partial class TextSegmenter
     /// <returns>The pieces of the text.</returns>
     public static IReadOnlyList<TextPiece> Segment(string text)
     {
+        return Segment(text, ReferenceData.Shared);
+    }
+
+    /// <summary>
+    /// Cuts a text into units of meaning, in their order of appearance, without duplicates, with given official lists.
+    /// </summary>
+    /// <param name="text">The text to cut.</param>
+    /// <param name="data">The official lists used to recognize people, communes, countries and companies.</param>
+    /// <returns>The pieces of the text.</returns>
+    public static IReadOnlyList<TextPiece> Segment(string text, ReferenceData data)
+    {
         ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(data);
 
         var pieces = new List<TextPiece>();
         var pendingLabel = string.Empty;
@@ -62,7 +76,7 @@ public static partial class TextSegmenter
                 continue;
             }
 
-            pieces.AddRange(SegmentLine(line, pendingLabel));
+            pieces.AddRange(SegmentLine(line, pendingLabel, data));
             pendingLabel = string.Empty;
         }
 
@@ -74,7 +88,7 @@ public static partial class TextSegmenter
         return line.Length <= MaxLabelLength + 1 && line.EndsWith(':') && char.IsLetter(line[0]);
     }
 
-    private static List<TextPiece> SegmentLine(string line, string contextLabel)
+    private static List<TextPiece> SegmentLine(string line, string contextLabel, ReferenceData data)
     {
         var pieces = new List<TextPiece>();
         try
@@ -85,9 +99,19 @@ public static partial class TextSegmenter
                 var previousEnd = 0;
                 foreach (var (start, value, kind) in values)
                 {
-                    var label = CleanLabel(line[previousEnd..start]);
+                    // A person or a company before a value, as in "Antoine Barthélémy <antoine@example.com>"
+                    var before = line[previousEnd..start];
+                    pieces.AddRange(NameRecognizer.RecognizeSpan(before, contextLabel, data));
+
+                    var label = CleanLabel(before);
                     pieces.Add(Piece(value, kind, label.Length > 0 || previousEnd > 0 ? label : contextLabel));
                     previousEnd = start + value.Length;
+
+                    if (kind == CandidateKind.Number && ValueValidator.IsFrenchPostalCode(value)
+                        && NameRecognizer.CommuneNextToPostalCode(before, value, line[previousEnd..], data) is { } commune)
+                    {
+                        pieces.Add(Piece(commune, CandidateKind.City, contextLabel));
+                    }
                 }
 
                 // The whole line stays available, for example a postal code with its city
@@ -102,9 +126,14 @@ public static partial class TextSegmenter
             var pair = LabelValueRegex().Match(line);
             if (pair.Success)
             {
-                pieces.Add(Piece(pair.Groups["value"].Value.Trim(), CandidateKind.Text, CleanLabel(pair.Groups["label"].Value)));
+                var value = pair.Groups["value"].Value.Trim();
+                var label = CleanLabel(pair.Groups["label"].Value);
+                pieces.AddRange(NameRecognizer.RecognizeSpan(value, label, data));
+                pieces.Add(Piece(value, CandidateKind.Text, label));
                 return pieces;
             }
+
+            pieces.AddRange(NameRecognizer.RecognizeSpan(line, contextLabel, data));
         }
         catch (RegexMatchTimeoutException)
         {

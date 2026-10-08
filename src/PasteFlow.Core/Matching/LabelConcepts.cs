@@ -95,6 +95,16 @@ public static class LabelConcepts
     /// </summary>
     public const string Website = "website";
 
+    /// <summary>
+    /// The concept of a whole name, first name and last name together: "Nom complet", "Full name".
+    /// </summary>
+    public const string FullName = "fullname";
+
+    /// <summary>
+    /// The word that makes a name a last name for sure: "Nom de famille".
+    /// </summary>
+    private const string FamilyWord = "famille";
+
     private static readonly Dictionary<string, string> Synonyms = BuildSynonyms(new Dictionary<string, string[]>
     {
         [Email] = new[] { "email", "mail", "courriel", "emails", "electronique" },
@@ -114,6 +124,7 @@ public static class LabelConcepts
         [Amount] = new[] { "montant", "prix", "total", "amount", "price", "somme", "cout", "cost" },
         [BankAccount] = new[] { "iban", "rib" },
         [Website] = new[] { "site", "website", "url", "web", "lien", "link", "linkedin", "github", "portfolio" },
+        [FullName] = new[] { "fullname", "complet" },
     });
 
     private static readonly HashSet<string> StopWords = new(StringComparer.Ordinal)
@@ -143,6 +154,7 @@ public static class LabelConcepts
     {
         [("e", "mail")] = "email",
         [("first", "name")] = "firstname",
+        [("full", "name")] = "fullname",
         [("given", "name")] = "firstname",
         [("last", "name")] = "lastname",
         [("family", "name")] = "lastname",
@@ -168,9 +180,30 @@ public static class LabelConcepts
 
     private static readonly HashSet<string> AddressWords = new(StringComparer.Ordinal) { "adresse", "address" };
 
-    private static readonly HashSet<string> TextConcepts = new(StringComparer.Ordinal)
+    // The values of these concepts have no particular shape: they are recognized through the official lists or
+    // through their labels, so plain text is accepted too. The first concept found wins: "Nom de l'entreprise" is a company
+    private static readonly (string Concept, CandidateKind[] Kinds)[] TextConceptKinds =
     {
-        Name, FirstName, Address, City, Country, Company,
+        (Company, new[] { CandidateKind.Company, CandidateKind.Text }),
+        (City, new[] { CandidateKind.City, CandidateKind.Text }),
+        (Country, new[] { CandidateKind.Country, CandidateKind.Text }),
+        (Address, new[] { CandidateKind.Text }),
+        (FullName, new[] { CandidateKind.FullName, CandidateKind.Text }),
+    };
+
+    // A place or a name of birth is a place or a name, not a date: "Ville de naissance", "Nom de naissance";
+    // and "Nom du client" is a name, not a customer number
+    private static readonly HashSet<string> PlaceOrPersonConcepts = new(StringComparer.Ordinal)
+    {
+        City, Country, Address, Name, FirstName, FullName,
+    };
+
+    private static readonly HashSet<string> QualifiedByPlaceOrPerson = new(StringComparer.Ordinal) { Birth, Customer, Order, Invoice };
+
+    // Words that keep a name a person's name; any other word makes it unsure, as in "Nom d'utilisateur" or "Nom du projet"
+    private static readonly HashSet<string> PersonNameConcepts = new(StringComparer.Ordinal)
+    {
+        Name, FirstName, FullName, Birth, FamilyWord, "usage",
     };
 
     /// <summary>
@@ -228,21 +261,70 @@ public static class LabelConcepts
     /// </summary>
     /// <param name="concepts">The concepts of the label of the field.</param>
     /// <returns>
-    /// The expected kinds; <see cref="CandidateKind.Text"/> alone for names, addresses and the like;
+    /// The expected kinds; for names, places and companies, the recognized kind and plain text;
     /// an empty set when the concepts give no clue.
     /// </returns>
     public static IReadOnlySet<CandidateKind> ExpectedKinds(IReadOnlySet<string> concepts)
     {
+        return ExpectedKinds(concepts, firstNameAskedApart: false);
+    }
+
+    /// <summary>
+    /// Gets the kinds of values a field described by these concepts expects, knowing the rest of the form.
+    /// </summary>
+    /// <param name="concepts">The concepts of the label of the field.</param>
+    /// <param name="firstNameAskedApart">
+    /// Whether the form has a field for the first name: then "Nom" means the last name only, otherwise the whole name.
+    /// </param>
+    /// <returns>
+    /// The expected kinds; for names, places and companies, the recognized kind and plain text;
+    /// an empty set when the concepts give no clue.
+    /// </returns>
+    public static IReadOnlySet<CandidateKind> ExpectedKinds(IReadOnlySet<string> concepts, bool firstNameAskedApart)
+    {
         ArgumentNullException.ThrowIfNull(concepts);
 
+        var isPlaceOrPerson = concepts.Any(PlaceOrPersonConcepts.Contains);
         var kinds = concepts
-            .Where(ExpectedKindsByConcept.ContainsKey)
+            .Where(concept => ExpectedKindsByConcept.ContainsKey(concept) && !(isPlaceOrPerson && QualifiedByPlaceOrPerson.Contains(concept)))
             .SelectMany(concept => ExpectedKindsByConcept[concept])
             .ToHashSet();
-
-        if (kinds.Count == 0 && concepts.Any(TextConcepts.Contains))
+        if (kinds.Count > 0)
         {
-            _ = kinds.Add(CandidateKind.Text);
+            return kinds;
+        }
+
+        foreach (var (concept, textKinds) in TextConceptKinds)
+        {
+            if (concepts.Contains(concept))
+            {
+                return textKinds.ToHashSet();
+            }
+        }
+
+        var hasName = concepts.Contains(Name);
+        var hasFirstName = concepts.Contains(FirstName);
+        if ((hasName || hasFirstName) && !concepts.All(PersonNameConcepts.Contains))
+        {
+            // "Nom d'utilisateur", "Prénom de l'enfant": only the labels can tell
+            return new HashSet<CandidateKind> { CandidateKind.Text };
+        }
+
+        if (hasName && hasFirstName)
+        {
+            // "Nom et prénom", "Prénom Nom"
+            return new HashSet<CandidateKind> { CandidateKind.FullName, CandidateKind.Text };
+        }
+
+        if (hasFirstName)
+        {
+            return new HashSet<CandidateKind> { CandidateKind.FirstName, CandidateKind.Text };
+        }
+
+        if (hasName)
+        {
+            var isLastName = firstNameAskedApart || concepts.Contains(FamilyWord);
+            return new HashSet<CandidateKind> { isLastName ? CandidateKind.LastName : CandidateKind.FullName, CandidateKind.Text };
         }
 
         return kinds;

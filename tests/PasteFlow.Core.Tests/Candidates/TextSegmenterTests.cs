@@ -1,4 +1,6 @@
 using PasteFlow.Core.Candidates;
+using PasteFlow.Core.Reference;
+using PasteFlow.Core.Tests.Fakes;
 
 namespace PasteFlow.Core.Tests.Candidates;
 
@@ -30,9 +32,9 @@ public sealed class TextSegmenterTests
     [Fact]
     public void Segment_KeepsWholeLineNextToRecognizedValues()
     {
-        var pieces = TextSegmenter.Segment("51500 Taissy");
+        var pieces = TextSegmenter.Segment("51500 Bezannes", ReferenceData.Empty);
 
-        Assert.Equal(new[] { Piece("51500", CandidateKind.Number, string.Empty), Piece("51500 Taissy", CandidateKind.Text, string.Empty) }, pieces);
+        Assert.Equal(new[] { Piece("51500", CandidateKind.Number, string.Empty), Piece("51500 Bezannes", CandidateKind.Text, string.Empty) }, pieces);
     }
 
     [Fact]
@@ -55,9 +57,9 @@ public sealed class TextSegmenterTests
     [Fact]
     public void Segment_SplitsLabelAndValueOfPlainText()
     {
-        var pieces = TextSegmenter.Segment("Nom : Antoine Barthélémy");
+        var pieces = TextSegmenter.Segment("Commentaire : livrer après 18h", ReferenceData.Empty);
 
-        Assert.Equal(new[] { Piece("Antoine Barthélémy", CandidateKind.Text, "Nom") }, pieces);
+        Assert.Equal(new[] { Piece("livrer après 18h", CandidateKind.Text, "Commentaire") }, pieces);
     }
 
     [Fact]
@@ -157,6 +159,69 @@ public sealed class TextSegmenterTests
         var pieces = TextSegmenter.Segment("Contact : antoine..b@orange.fr");
 
         Assert.DoesNotContain(pieces, piece => piece.Kind == CandidateKind.Email);
+    }
+
+    [Fact]
+    public void Segment_ReadsPersonGivenAsLabelAndValue()
+    {
+        var pieces = TextSegmenter.Segment("Nom : Antoine Barthélémy", TestReferenceData.Create());
+
+        Assert.Equal(
+            new[]
+            {
+                Piece("Antoine Barthélémy", CandidateKind.FullName, "Nom"),
+                Piece("Antoine", CandidateKind.FirstName, "Nom"),
+                Piece("Barthélémy", CandidateKind.LastName, "Nom"),
+            },
+            pieces);
+    }
+
+    [Fact]
+    public void Segment_ReadsPersonBeforeTheirEmail()
+    {
+        var pieces = TextSegmenter.Segment("Antoine Barthélémy <antoine.b@orange.fr>", TestReferenceData.Create());
+
+        Assert.Contains(Piece("Antoine Barthélémy", CandidateKind.FullName, string.Empty), pieces);
+        Assert.Contains(Piece("antoine.b@orange.fr", CandidateKind.Email, "Antoine Barthélémy"), pieces);
+    }
+
+    [Fact]
+    public void Segment_ReadsCommuneNextToItsPostalCode()
+    {
+        var pieces = TextSegmenter.Segment("51500 Taissy", TestReferenceData.Create());
+
+        Assert.Equal(
+            new[]
+            {
+                Piece("51500", CandidateKind.Number, string.Empty),
+                Piece("Taissy", CandidateKind.City, string.Empty),
+                Piece("51500 Taissy", CandidateKind.Text, string.Empty),
+            },
+            pieces);
+    }
+
+    [Fact]
+    public void Segment_ReadsAWholeSignature()
+    {
+        var pieces = TextSegmenter.Segment(
+            "Cordialement,\nMarie Lefèvre\nResponsable achats\nBoulangerie Martin SARL\n14 avenue Jean Jaurès\n51100 Reims\nFrance",
+            TestReferenceData.Create());
+
+        Assert.Contains(Piece("Marie Lefèvre", CandidateKind.FullName, string.Empty), pieces);
+        Assert.Contains(Piece("Marie", CandidateKind.FirstName, string.Empty), pieces);
+        Assert.Contains(Piece("Lefèvre", CandidateKind.LastName, string.Empty), pieces);
+        Assert.Contains(Piece("Boulangerie Martin SARL", CandidateKind.Company, string.Empty), pieces);
+        Assert.Contains(Piece("Reims", CandidateKind.City, string.Empty), pieces);
+        Assert.Contains(Piece("France", CandidateKind.Country, string.Empty), pieces);
+        Assert.DoesNotContain(pieces, piece => piece.Kind == CandidateKind.FullName && piece.Value != "Marie Lefèvre");
+    }
+
+    [Fact]
+    public void Segment_WithoutOfficialLists_RecognizesOnlyShapes()
+    {
+        var pieces = TextSegmenter.Segment("Marie Lefèvre\n51100 Reims", ReferenceData.Empty);
+
+        Assert.DoesNotContain(pieces, piece => piece.Kind is CandidateKind.FullName or CandidateKind.City);
     }
 
     [Fact]

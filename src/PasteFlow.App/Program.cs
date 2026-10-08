@@ -9,6 +9,7 @@ using PasteFlow.Core.Activation;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
 using PasteFlow.Core.Hotkeys;
+using PasteFlow.Core.Reference;
 using PasteFlow.Core.Undo;
 
 namespace PasteFlow.App;
@@ -74,6 +75,9 @@ internal static class Program
             trayIcon.ShowStatus("raccourci indisponible");
             notifier.Notify($"Le raccourci {hotkey} est déjà utilisé par une autre application.");
         }
+
+        // The official lists are loaded now, in the background, rather than at the first fill
+        _ = Task.Run(() => ReferenceData.Shared);
 
         return application.Run();
     }

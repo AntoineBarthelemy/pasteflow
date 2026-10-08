@@ -111,6 +111,39 @@ public sealed class LabelConceptsTests
         Assert.Contains(kind, LabelConcepts.ExpectedKinds(LabelConcepts.From(label)));
     }
 
+    [Theory]
+    [InlineData("Prénom", new[] { CandidateKind.FirstName, CandidateKind.Text })]
+    [InlineData("Nom", new[] { CandidateKind.FullName, CandidateKind.Text })]
+    [InlineData("Nom de famille", new[] { CandidateKind.LastName, CandidateKind.Text })]
+    [InlineData("Nom et prénom", new[] { CandidateKind.FullName, CandidateKind.Text })]
+    [InlineData("Nom complet", new[] { CandidateKind.FullName, CandidateKind.Text })]
+    [InlineData("Full name", new[] { CandidateKind.FullName, CandidateKind.Text })]
+    [InlineData("Nom de naissance", new[] { CandidateKind.FullName, CandidateKind.Text })]
+    [InlineData("Ville", new[] { CandidateKind.City, CandidateKind.Text })]
+    [InlineData("Ville de naissance", new[] { CandidateKind.City, CandidateKind.Text })]
+    [InlineData("Pays", new[] { CandidateKind.Country, CandidateKind.Text })]
+    [InlineData("Entreprise", new[] { CandidateKind.Company, CandidateKind.Text })]
+    [InlineData("Nom de l'entreprise", new[] { CandidateKind.Company, CandidateKind.Text })]
+    [InlineData("Adresse", new[] { CandidateKind.Text })]
+    [InlineData("Nom du client", new[] { CandidateKind.Text })]
+    [InlineData("Nom d'utilisateur", new[] { CandidateKind.Text })]
+    [InlineData("Prénom de l'enfant", new[] { CandidateKind.Text })]
+    [InlineData("Date de naissance", new[] { CandidateKind.Date })]
+    [InlineData("Numéro client", new[] { CandidateKind.Reference, CandidateKind.Number })]
+    public void ExpectedKinds_ForNamesPlacesAndCompanies_AcceptsRecognizedValuesAndText(string label, CandidateKind[] expected)
+    {
+        Assert.Equal(expected.Order(), LabelConcepts.ExpectedKinds(LabelConcepts.From(label)).Order());
+    }
+
+    [Theory]
+    [InlineData("Nom", CandidateKind.LastName)]
+    [InlineData("Last name", CandidateKind.LastName)]
+    [InlineData("Nom et prénom", CandidateKind.FullName)]
+    public void ExpectedKinds_WhenTheFormAsksTheFirstNameApart_NameMeansLastName(string label, CandidateKind expected)
+    {
+        Assert.Contains(expected, LabelConcepts.ExpectedKinds(LabelConcepts.From(label), firstNameAskedApart: true));
+    }
+
     [Fact]
     public void ExpectedKinds_WithoutClue_ReturnsNothing()
     {

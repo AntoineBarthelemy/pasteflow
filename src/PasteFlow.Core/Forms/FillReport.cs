@@ -220,6 +220,12 @@ public sealed record FillReport
             CandidateKind.Iban => ("IBAN", "IBAN"),
             CandidateKind.Reference => ("référence", "références"),
             CandidateKind.Number => ("numéro", "numéros"),
+            CandidateKind.FirstName => ("prénom", "prénoms"),
+            CandidateKind.LastName => ("nom", "noms"),
+            CandidateKind.FullName => ("nom complet", "noms complets"),
+            CandidateKind.City => ("ville", "villes"),
+            CandidateKind.Country => ("pays", "pays"),
+            CandidateKind.Company => ("entreprise", "entreprises"),
             _ => ("texte", "textes"),
         };
 
