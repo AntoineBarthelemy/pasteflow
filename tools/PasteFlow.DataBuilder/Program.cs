@@ -15,7 +15,7 @@ internal static class Program
 {
     private const string FirstNamesUrl = "https://www.insee.fr/fr/statistiques/fichier/8595130/prenoms-2025-nat_csv.zip";
     private const string CommunesUrl = "https://data.laposte.fr/data-fair/api/v1/datasets/laposte-hexasmal/raw";
-    private const string CountriesUrl = "https://raw.githubusercontent.com/umpirsky/country-list/master/data/{0}/country.json";
+    private const string CountriesBaseUrl = "https://raw.githubusercontent.com/umpirsky/country-list/master/data";
 
     private static readonly string[] CountryLanguages = { "fr", "en" };
 
@@ -40,7 +40,7 @@ internal static class Program
         var countryLists = new List<string>();
         foreach (var language in CountryLanguages)
         {
-            countryLists.Add(await http.GetStringAsync(new Uri(string.Format(CultureInfo.InvariantCulture, CountriesUrl, language))));
+            countryLists.Add(await http.GetStringAsync(new Uri($"{CountriesBaseUrl}/{language}/country.json")));
         }
 
         var countries = ReferenceLists.Countries(countryLists);
