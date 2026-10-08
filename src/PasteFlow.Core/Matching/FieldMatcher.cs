@@ -22,7 +22,7 @@ namespace PasteFlow.Core.Matching;
 public static class FieldMatcher
 {
     /// <summary>
-    /// The minimum score to fill a field without asking.
+    /// The minimum score to fill a field without asking, with the default prudence (see <see cref="MatchingOptions"/>).
     /// </summary>
     public const double ConfidenceThreshold = 0.6;
 
@@ -86,10 +86,30 @@ public static class FieldMatcher
     /// <returns>The best candidate and whether it is confident enough.</returns>
     public static FieldMatch Match(FormField field, FieldClues clues, IReadOnlyList<Candidate> candidates, IReadOnlySet<string> takenValues)
     {
+        return Match(field, clues, candidates, takenValues, MatchingOptions.Balanced);
+    }
+
+    /// <summary>
+    /// Finds the best value for a field whose clues are already gathered, with given thresholds of confidence.
+    /// </summary>
+    /// <param name="field">The field to fill.</param>
+    /// <param name="clues">What the field tells about the value it expects, knowing the rest of the form.</param>
+    /// <param name="candidates">The values found in the sources.</param>
+    /// <param name="takenValues">The values already given to other fields, see <see cref="Match(FormField, IReadOnlyList{Candidate}, IReadOnlySet{string})"/>.</param>
+    /// <param name="options">The thresholds that decide whether the best value is sure enough.</param>
+    /// <returns>The best candidate and whether it is confident enough.</returns>
+    public static FieldMatch Match(
+        FormField field,
+        FieldClues clues,
+        IReadOnlyList<Candidate> candidates,
+        IReadOnlySet<string> takenValues,
+        MatchingOptions options)
+    {
         ArgumentNullException.ThrowIfNull(field);
         ArgumentNullException.ThrowIfNull(clues);
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(takenValues);
+        ArgumentNullException.ThrowIfNull(options);
 
         // Only the values the field can accept compete, so "the only value of its kind" means the only acceptable one
         var eligible = candidates.Where(candidate => IsEligible(candidate, clues)).ToList();
@@ -119,7 +139,7 @@ public static class FieldMatcher
             Field = field,
             Candidate = best.Candidate,
             Score = best.Score,
-            IsConfident = best.Score >= ConfidenceThreshold && lead >= MinimumLead,
+            IsConfident = best.Score >= options.ConfidenceThreshold && lead >= options.MinimumLead,
             Suggestions = ranked
                 .Where(scored => scored.Score >= SuggestionThreshold)
                 .Take(MaxSuggestions)

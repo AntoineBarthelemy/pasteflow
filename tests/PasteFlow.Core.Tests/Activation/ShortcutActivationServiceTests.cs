@@ -2,6 +2,7 @@ using PasteFlow.Core.Activation;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
 using PasteFlow.Core.Hotkeys;
+using PasteFlow.Core.Matching;
 using PasteFlow.Core.Tests.Fakes;
 using PasteFlow.Core.Undo;
 
@@ -354,6 +355,69 @@ public sealed class ShortcutActivationServiceTests : IDisposable
         _listener.SimulatePress();
 
         Assert.Equal(0, highlighter.CallCount);
+    }
+
+    [Fact]
+    public void HotkeyPressed_WritesValuesInTheFormatTheFieldShows()
+    {
+        var formReader = new FakeFormReader
+        {
+            Fields = new[]
+            {
+                TestFields.Text("birth", "Date de naissance") with { Hint = "JJ/MM/AAAA" },
+                TestFields.Text("phone", "Mobile") with { Hint = "ex : 0612345678" },
+            },
+        };
+        _candidateSource.Candidates = new[]
+        {
+            Labelled("1990-03-12", CandidateKind.Date, "Né le"),
+            Labelled("06 47 21 85 39", CandidateKind.Phone, "Tél."),
+        };
+        var memory = new FillMemory();
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier, memory, new FakeFieldHighlighter());
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Equal("12/03/1990", _fieldWriter.WrittenValues["birth"]);
+        Assert.Equal("0647218539", _fieldWriter.WrittenValues["phone"]);
+        Assert.Contains(memory.TakeLastFill(), written => written.Value == "0647218539");
+    }
+
+    [Fact]
+    public void HotkeyPressed_ProposesValuesInTheFormatTheFieldShows()
+    {
+        var highlighter = new FakeFieldHighlighter();
+        var formReader = new FakeFormReader { Fields = new[] { TestFields.Text("phone", "Mobile") with { Hint = "ex : 0612345678" } } };
+        _candidateSource.Candidates = new[]
+        {
+            Labelled("06 47 21 85 39", CandidateKind.Phone, string.Empty),
+            Labelled("03 26 47 21 85", CandidateKind.Phone, string.Empty),
+        };
+        using var service = CreateHighlightingService(formReader, highlighter);
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Equal(
+            new[] { "0647218539", "0326472185" },
+            Assert.Single(highlighter.HighlightedFields).Suggestions.Select(suggestion => suggestion.Value));
+    }
+
+    [Fact]
+    public void HotkeyPressed_UsesThePrudenceChosen()
+    {
+        var formReader = new FakeFormReader { Fields = new[] { TestFields.Text("phone", "Téléphone") } };
+        _candidateSource.Candidates = new[] { Labelled("06 47 21 85 39", CandidateKind.Phone, string.Empty) };
+        using var service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { _candidateSource }, _notifier)
+        {
+            Options = MatchingOptions.For(Prudence.Cautious),
+        };
+        service.Start(Hotkey.Default);
+
+        _listener.SimulatePress();
+
+        Assert.Empty(_fieldWriter.WrittenValues);
     }
 
     [Fact]

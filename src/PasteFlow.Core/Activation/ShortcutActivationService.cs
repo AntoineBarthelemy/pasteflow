@@ -4,6 +4,7 @@ using PasteFlow.Core.Forms;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Matching;
 using PasteFlow.Core.Notifications;
+using PasteFlow.Core.Reference;
 using PasteFlow.Core.Undo;
 
 namespace PasteFlow.Core.Activation;
@@ -93,6 +94,11 @@ public sealed class ShortcutActivationService : IDisposable
     /// <see langword="null"/> when undoing is not available.
     /// </summary>
     public Hotkey? UndoHotkey { get; set; }
+
+    /// <summary>
+    /// Gets or sets how sure a value must be to fill a field without asking; balanced by default.
+    /// </summary>
+    public MatchingOptions Options { get; set; } = MatchingOptions.Balanced;
 
     /// <summary>
     /// Starts listening to the given shortcut.
@@ -198,7 +204,7 @@ public sealed class ShortcutActivationService : IDisposable
 
         // Safety net: the values are chosen for the whole form at once, so one value never fills two fields
         var fillableFields = fields.Where(FillRules.CanFill).ToList();
-        foreach (var match in FormMatcher.MatchAll(fillableFields, candidates))
+        foreach (var match in FormMatcher.MatchAll(fillableFields, candidates, ReferenceData.Shared, Options))
         {
             var field = match.Field;
             if (!match.IsConfident || match.Candidate is null)
@@ -208,19 +214,27 @@ public sealed class ShortcutActivationService : IDisposable
                 {
                     Field = field,
                     Suggestions = match.Suggestions
-                        .Select(candidate => new SuggestedValue { Value = candidate.Value, SourceName = candidate.SourceName })
+                        .Select(candidate => new SuggestedValue
+                        {
+                            Value = ValueFormatter.Adapt(candidate.Value, candidate.Kind, field),
+                            SourceName = candidate.SourceName,
+                        })
                         .ToList(),
                 });
+                continue;
             }
-            else if (await _fieldWriter.TryWriteAsync(field, match.Candidate.Value, cancellationToken))
+
+            // Written in the format the field shows, such as "JJ/MM/AAAA"
+            var value = ValueFormatter.Adapt(match.Candidate.Value, match.Candidate.Kind, field);
+            if (await _fieldWriter.TryWriteAsync(field, value, cancellationToken))
             {
                 filledValues.Add(new FilledValue
                 {
                     FieldLabel = field.Label,
-                    Value = match.Candidate.Value,
+                    Value = value,
                     SourceName = match.Candidate.SourceName,
                 });
-                writtenFields.Add(new WrittenField { Field = field, Value = match.Candidate.Value });
+                writtenFields.Add(new WrittenField { Field = field, Value = value });
             }
             else
             {

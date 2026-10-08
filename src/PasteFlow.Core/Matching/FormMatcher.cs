@@ -40,9 +40,27 @@ public static class FormMatcher
     /// <returns>A match for each field, in the order of the form.</returns>
     public static IReadOnlyList<FieldMatch> MatchAll(IReadOnlyList<FormField> fields, IReadOnlyList<Candidate> candidates, ReferenceData data)
     {
+        return MatchAll(fields, candidates, data, MatchingOptions.Balanced);
+    }
+
+    /// <summary>
+    /// Finds the values of the fields of a form, with given official lists and thresholds of confidence.
+    /// </summary>
+    /// <param name="fields">The fields to fill, in the order of the form.</param>
+    /// <param name="candidates">The values found in the sources.</param>
+    /// <param name="data">The official lists used to check that a postal code and a commune go together.</param>
+    /// <param name="options">The thresholds that decide whether a value is sure enough, set by the prudence chosen.</param>
+    /// <returns>A match for each field, in the order of the form.</returns>
+    public static IReadOnlyList<FieldMatch> MatchAll(
+        IReadOnlyList<FormField> fields,
+        IReadOnlyList<Candidate> candidates,
+        ReferenceData data,
+        MatchingOptions options)
+    {
         ArgumentNullException.ThrowIfNull(fields);
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(data);
+        ArgumentNullException.ThrowIfNull(options);
 
         // "Nom" means the last name when the form asks the first name elsewhere, the whole name otherwise
         var firstNameAskedApart = fields.Any(field => AsksFirstNameOnly(FieldClues.Of(field)));
@@ -52,7 +70,7 @@ public static class FormMatcher
         var screenCandidates = candidates.Where(candidate => !candidate.IsFromHistory).ToList();
         var historyCandidates = candidates.Where(candidate => candidate.IsFromHistory).ToList();
         var noTakenValue = new HashSet<string>(StringComparer.Ordinal);
-        var firstMatches = fields.Select((field, index) => FieldMatcher.Match(field, clues[index], screenCandidates, noTakenValue)).ToArray();
+        var firstMatches = fields.Select((field, index) => FieldMatcher.Match(field, clues[index], screenCandidates, noTakenValue, options)).ToArray();
         var matches = new FieldMatch[fields.Count];
         var takenValues = new HashSet<string>(StringComparer.Ordinal);
 
@@ -71,7 +89,7 @@ public static class FormMatcher
 
             var match = takenValues.Count == 0
                 ? firstMatches[index]
-                : FieldMatcher.Match(fields[index], clues[index], screenCandidates, takenValues);
+                : FieldMatcher.Match(fields[index], clues[index], screenCandidates, takenValues, options);
             if (match is { IsConfident: true, Candidate: not null })
             {
                 _ = takenValues.Add(match.Candidate.Value);
@@ -82,7 +100,7 @@ public static class FormMatcher
 
         if (historyCandidates.Count > 0)
         {
-            FillGapsFromHistory(fields, clues, matches, historyCandidates, takenValues);
+            FillGapsFromHistory(fields, clues, matches, historyCandidates, takenValues, options);
         }
 
         CheckPostalCodeAndCommune(matches, clues, data);
@@ -98,12 +116,14 @@ public static class FormMatcher
     /// <param name="matches">The matches found on screen, changed in place.</param>
     /// <param name="historyCandidates">The values of the history.</param>
     /// <param name="takenValues">The values already given to fields, completed in place.</param>
+    /// <param name="options">The thresholds of confidence.</param>
     private static void FillGapsFromHistory(
         IReadOnlyList<FormField> fields,
         FieldClues[] clues,
         FieldMatch[] matches,
         List<Candidate> historyCandidates,
-        HashSet<string> takenValues)
+        HashSet<string> takenValues,
+        MatchingOptions options)
     {
         var noTakenValue = new HashSet<string>(StringComparer.Ordinal);
         for (var index = 0; index < matches.Length; index++)
@@ -115,7 +135,7 @@ public static class FormMatcher
             }
 
             var isConfirmation = clues[index].IsConfirmation;
-            var historyMatch = FieldMatcher.Match(fields[index], clues[index], historyCandidates, isConfirmation ? noTakenValue : takenValues);
+            var historyMatch = FieldMatcher.Match(fields[index], clues[index], historyCandidates, isConfirmation ? noTakenValue : takenValues, options);
             if (screenMatch.Suggestions.Count == 0 && historyMatch is { IsConfident: true, Candidate: not null })
             {
                 matches[index] = historyMatch;
