@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text;
 using PasteFlow.App.History;
 using PasteFlow.Core.Candidates;
