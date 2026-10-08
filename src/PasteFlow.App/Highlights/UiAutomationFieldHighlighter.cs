@@ -3,6 +3,8 @@ using System.Windows.Threading;
 using PasteFlow.App.Forms;
 using PasteFlow.App.Interop;
 using PasteFlow.Core.Forms;
+using PasteFlow.Core.History;
+using PasteFlow.Core.Undo;
 
 namespace PasteFlow.App.Highlights;
 
@@ -14,6 +16,7 @@ namespace PasteFlow.App.Highlights;
 /// <para>The frames follow their fields when the window moves or scrolls. A frame disappears as soon as its field
 /// holds a value, and all of them disappear when another window comes to the foreground or after
 /// <see cref="MaxDuration"/>.</para>
+/// <para>The value the user types into a framed field is learned by the history of fills.</para>
 /// <para>Must be created on the user interface thread; its methods can be called from any thread.</para>
 /// </remarks>
 internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposable
@@ -31,6 +34,7 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
     private readonly UiAutomationFormAccess _formAccess;
     private readonly Func<IntPtr> _foregroundWindow;
     private readonly ISuggestionDisplay _suggestionDisplay;
+    private readonly FillHistory _history;
     private readonly Dispatcher _dispatcher;
     private readonly DispatcherTimer _refreshTimer;
     private readonly Dictionary<string, (FieldToCheck ToCheck, FieldFrame Frame)> _frames = new(StringComparer.Ordinal);
@@ -45,8 +49,9 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
     /// </summary>
     /// <param name="formAccess">The access to the fields read.</param>
     /// <param name="suggestionDisplay">The component that shows the values proposed for the field the user is in.</param>
-    public UiAutomationFieldHighlighter(UiAutomationFormAccess formAccess, ISuggestionDisplay suggestionDisplay)
-        : this(formAccess, suggestionDisplay, NativeMethods.GetForegroundWindow)
+    /// <param name="history">The history that learns the values the user types into the fields to check.</param>
+    public UiAutomationFieldHighlighter(UiAutomationFormAccess formAccess, ISuggestionDisplay suggestionDisplay, FillHistory history)
+        : this(formAccess, suggestionDisplay, history, NativeMethods.GetForegroundWindow)
     {
     }
 
@@ -55,18 +60,22 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
     /// </summary>
     /// <param name="formAccess">The access to the fields read.</param>
     /// <param name="suggestionDisplay">The component that shows the values proposed for the field the user is in.</param>
+    /// <param name="history">The history that learns the values the user types into the fields to check.</param>
     /// <param name="foregroundWindow">Gives the window currently in the foreground.</param>
     internal UiAutomationFieldHighlighter(
         UiAutomationFormAccess formAccess,
         ISuggestionDisplay suggestionDisplay,
+        FillHistory history,
         Func<IntPtr> foregroundWindow)
     {
         ArgumentNullException.ThrowIfNull(formAccess);
         ArgumentNullException.ThrowIfNull(suggestionDisplay);
+        ArgumentNullException.ThrowIfNull(history);
         ArgumentNullException.ThrowIfNull(foregroundWindow);
 
         _formAccess = formAccess;
         _suggestionDisplay = suggestionDisplay;
+        _history = history;
         _suggestionDisplay.ValuePicked += OnValuePicked;
         _foregroundWindow = foregroundWindow;
         _dispatcher = Dispatcher.CurrentDispatcher;
@@ -202,11 +211,17 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
                 return;
             }
 
-            foreach (var (id, (_, frame)) in _frames.ToList())
+            var filledByUser = new List<FieldToCheck>();
+            foreach (var (id, (toCheck, frame)) in _frames.ToList())
             {
                 if (!states.TryGetValue(id, out var state) || state.HasValue)
                 {
                     // Filled by the user, or gone with its page
+                    if (state.HasValue)
+                    {
+                        filledByUser.Add(toCheck);
+                    }
+
                     frame.Close();
                     _ = _frames.Remove(id);
                 }
@@ -224,11 +239,34 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
             {
                 ShowSuggestionsOfFocusedField(states);
             }
+
+            foreach (var toCheck in filledByUser)
+            {
+                await LearnTypedValueAsync(toCheck);
+            }
         }
         finally
         {
             _isRefreshing = false;
         }
+    }
+
+    /// <summary>
+    /// Learns the value the user typed into a field the application could not fill: next time, it may fill it.
+    /// </summary>
+    /// <param name="toCheck">The field the user filled.</param>
+    /// <returns>A task completed once the value is learned.</returns>
+    private async Task LearnTypedValueAsync(FieldToCheck toCheck)
+    {
+        var value = (await _formAccess.TryReadValueAsync(toCheck.Field, CancellationToken.None))?.Trim();
+
+        // A suggestion picked is learned when it is written, not a second time here
+        if (string.IsNullOrEmpty(value) || toCheck.Suggestions.Any(suggestion => string.Equals(suggestion.Value, value, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        await _history.RecordAsync(new[] { new WrittenField { Field = toCheck.Field, Value = value } }, CancellationToken.None);
     }
 
     private void ShowSuggestionsOfFocusedField(IReadOnlyDictionary<string, FieldState> states)

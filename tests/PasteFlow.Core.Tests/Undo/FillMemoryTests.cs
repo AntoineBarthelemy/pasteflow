@@ -83,6 +83,24 @@ public sealed class FillMemoryTests
     }
 
     [Fact]
+    public void Events_TellWhatIsFilledAppendedAndUndone()
+    {
+        var memory = new FillMemory();
+        var events = new List<string>();
+        memory.Filled += (_, written) => events.Add($"filled {written.Count}");
+        memory.Appended += (_, written) => events.Add($"appended {written.Value}");
+        memory.Undone += (_, written) => events.Add($"undone {written.Count}");
+
+        memory.Remember(Array.Empty<WrittenField>());
+        memory.Remember(new[] { Written("email", "antoine.b@orange.fr") });
+        memory.Append(Written("city", "Reims"));
+        memory.ReportUndone(Array.Empty<WrittenField>());
+        memory.ReportUndone(new[] { Written("city", "Reims") });
+
+        Assert.Equal(new[] { "filled 1", "appended Reims", "undone 1" }, events);
+    }
+
+    [Fact]
     public void TakeLastFill_WithoutFill_ReturnsNothing()
     {
         Assert.Empty(new FillMemory().TakeLastFill());

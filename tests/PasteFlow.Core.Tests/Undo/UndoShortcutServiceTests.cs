@@ -120,6 +120,21 @@ public sealed class UndoShortcutServiceTests : IDisposable
     }
 
     [Fact]
+    public void HotkeyPressed_ReportsTheValuesUndoneOnly()
+    {
+        IReadOnlyList<WrittenField>? undone = null;
+        _fillMemory.Undone += (_, written) => undone = written;
+        Fill(("email", "antoine.b@orange.fr"), ("city", "Reims"));
+        _fields.SimulateUserTyping("city", "Taissy");
+        using var service = StartService();
+
+        _listener.SimulatePress();
+
+        Assert.NotNull(undone);
+        Assert.Equal("email", Assert.Single(undone).Field.Id);
+    }
+
+    [Fact]
     public void HotkeyPressed_TwiceInARow_UndoesOnlyOnce()
     {
         Fill(("email", "antoine.b@orange.fr"));

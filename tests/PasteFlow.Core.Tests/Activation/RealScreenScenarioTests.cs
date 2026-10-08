@@ -1,9 +1,11 @@
 using PasteFlow.Core.Activation;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
+using PasteFlow.Core.History;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Screen;
 using PasteFlow.Core.Tests.Fakes;
+using PasteFlow.Core.Undo;
 
 namespace PasteFlow.Core.Tests.Activation;
 
@@ -112,9 +114,49 @@ public sealed class RealScreenScenarioTests : IDisposable
         Assert.Empty(_fields.WrittenValues);
     }
 
+    [Fact]
+    public async Task Fill_LearnsAValueUsedTwiceAndFillsItWhenTheScreenSaysNothing()
+    {
+        using var history = new FillHistory(new FakeHistoryStore());
+        var memory = new FillMemory();
+        history.Observe(memory);
+        var form = new[] { TestFields.Text("member", "Numéro adhérent"), TestFields.Text("email", "Email") };
+
+        // Twice the number is on screen and filled, the third time the screen only shows an email
+        FillLearning(form, "Numéro adhérent : A-4521", history, memory);
+        FillLearning(form, "Numéro adhérent : A-4521", history, memory);
+        _fields.SimulateUserTyping("member", string.Empty);
+        FillLearning(form, "Contact : antoine.b@orange.fr", history, memory);
+
+        await Task.Yield();
+        Assert.Equal("A-4521", _fields.CurrentValues["member"]);
+        Assert.Equal("antoine.b@orange.fr", _fields.CurrentValues["email"]);
+        Assert.Contains("Numéro adhérent : A-4521 (Historique)", _notifier.Messages[^1], StringComparison.Ordinal);
+    }
+
     public void Dispose()
     {
         _listener.Dispose();
+    }
+
+    private void FillLearning(IReadOnlyList<FormField> form, string screen, FillHistory history, FillMemory memory)
+    {
+        var reader = new FakeWindowTextReader
+        {
+            Windows = new[] { new WindowText { Title = "Gmail", Text = screen, Rank = 1 } },
+        };
+        using var listener = new FakeHotkeyListener();
+        using var service = new ShortcutActivationService(
+            listener,
+            new FakeFormReader { Fields = form },
+            _fields,
+            new ICandidateSource[] { new ScreenCandidateSource(reader), history },
+            _notifier,
+            memory,
+            new FakeFieldHighlighter());
+        service.Start(Hotkey.Default);
+
+        listener.SimulatePress();
     }
 
     private void Fill(IReadOnlyList<FormField> form, string screen)

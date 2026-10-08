@@ -13,6 +13,8 @@ namespace PasteFlow.Core.Matching;
 /// value is taken may still get another value, only if that value fits it on its own merits.</para>
 /// <para>A confirmation field, such as "Confirmez votre email", is the exception: it is meant to receive the same
 /// value as the field it confirms.</para>
+/// <para>The values of the screen come first. The values of the history only fill the fields the screen offers
+/// nothing plausible for; elsewhere they are only proposed.</para>
 /// <para>Last safety net: a postal code and a commune that do not go together according to La Poste are both left
 /// to the user.</para>
 /// </remarks>
@@ -45,8 +47,12 @@ public static class FormMatcher
         // "Nom" means the last name when the form asks the first name elsewhere, the whole name otherwise
         var firstNameAskedApart = fields.Any(field => AsksFirstNameOnly(FieldClues.Of(field)));
         var clues = fields.Select(field => FieldClues.Of(field, firstNameAskedApart)).ToArray();
+
+        // The screen comes first: the history only fills the fields the screen says nothing about
+        var screenCandidates = candidates.Where(candidate => !candidate.IsFromHistory).ToList();
+        var historyCandidates = candidates.Where(candidate => candidate.IsFromHistory).ToList();
         var noTakenValue = new HashSet<string>(StringComparer.Ordinal);
-        var firstMatches = fields.Select((field, index) => FieldMatcher.Match(field, clues[index], candidates, noTakenValue)).ToArray();
+        var firstMatches = fields.Select((field, index) => FieldMatcher.Match(field, clues[index], screenCandidates, noTakenValue)).ToArray();
         var matches = new FieldMatch[fields.Count];
         var takenValues = new HashSet<string>(StringComparer.Ordinal);
 
@@ -65,7 +71,7 @@ public static class FormMatcher
 
             var match = takenValues.Count == 0
                 ? firstMatches[index]
-                : FieldMatcher.Match(fields[index], clues[index], candidates, takenValues);
+                : FieldMatcher.Match(fields[index], clues[index], screenCandidates, takenValues);
             if (match is { IsConfident: true, Candidate: not null })
             {
                 _ = takenValues.Add(match.Candidate.Value);
@@ -74,8 +80,63 @@ public static class FormMatcher
             matches[index] = match;
         }
 
+        if (historyCandidates.Count > 0)
+        {
+            FillGapsFromHistory(fields, clues, matches, historyCandidates, takenValues);
+        }
+
         CheckPostalCodeAndCommune(matches, clues, data);
         return matches;
+    }
+
+    /// <summary>
+    /// Fills from the history the fields the screen offered nothing plausible for, and adds the values of the history
+    /// to the suggestions of the other fields left to the user.
+    /// </summary>
+    /// <param name="fields">The fields of the form.</param>
+    /// <param name="clues">The clues of each field.</param>
+    /// <param name="matches">The matches found on screen, changed in place.</param>
+    /// <param name="historyCandidates">The values of the history.</param>
+    /// <param name="takenValues">The values already given to fields, completed in place.</param>
+    private static void FillGapsFromHistory(
+        IReadOnlyList<FormField> fields,
+        FieldClues[] clues,
+        FieldMatch[] matches,
+        List<Candidate> historyCandidates,
+        HashSet<string> takenValues)
+    {
+        var noTakenValue = new HashSet<string>(StringComparer.Ordinal);
+        for (var index = 0; index < matches.Length; index++)
+        {
+            var screenMatch = matches[index];
+            if (screenMatch.IsConfident)
+            {
+                continue;
+            }
+
+            var isConfirmation = clues[index].IsConfirmation;
+            var historyMatch = FieldMatcher.Match(fields[index], clues[index], historyCandidates, isConfirmation ? noTakenValue : takenValues);
+            if (screenMatch.Suggestions.Count == 0 && historyMatch is { IsConfident: true, Candidate: not null })
+            {
+                matches[index] = historyMatch;
+                if (!isConfirmation)
+                {
+                    _ = takenValues.Add(historyMatch.Candidate.Value);
+                }
+
+                continue;
+            }
+
+            // The screen hesitates: the history does not decide, it only proposes
+            matches[index] = screenMatch with
+            {
+                Suggestions = screenMatch.Suggestions
+                    .Concat(historyMatch.Suggestions)
+                    .DistinctBy(candidate => candidate.Value, StringComparer.Ordinal)
+                    .Take(FieldMatcher.MaxSuggestions)
+                    .ToList(),
+            };
+        }
     }
 
     private static bool AsksFirstNameOnly(FieldClues clues)

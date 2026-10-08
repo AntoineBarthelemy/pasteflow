@@ -6,11 +6,27 @@ namespace PasteFlow.Core.Undo;
 /// <remarks>
 /// Only the last fill is kept, in memory only: nothing is saved on disk. A fill that writes nothing does not
 /// replace the previous one, so pressing the fill shortcut in the wrong window does not prevent undoing.
+/// Its events let the history of fills learn from what is written and undone.
 /// </remarks>
 public sealed class FillMemory
 {
     private readonly object _gate = new();
     private IReadOnlyList<WrittenField> _lastFill = Array.Empty<WrittenField>();
+
+    /// <summary>
+    /// Occurs when a fill wrote values.
+    /// </summary>
+    public event EventHandler<IReadOnlyList<WrittenField>>? Filled;
+
+    /// <summary>
+    /// Occurs when a value was written after the fill, such as a suggestion picked by the user.
+    /// </summary>
+    public event EventHandler<WrittenField>? Appended;
+
+    /// <summary>
+    /// Occurs when the user undid values of the last fill.
+    /// </summary>
+    public event EventHandler<IReadOnlyList<WrittenField>>? Undone;
 
     /// <summary>
     /// Remembers the values written by a fill.
@@ -25,10 +41,13 @@ public sealed class FillMemory
             return;
         }
 
+        var copy = writtenFields.ToArray();
         lock (_gate)
         {
-            _lastFill = writtenFields.ToArray();
+            _lastFill = copy;
         }
+
+        Filled?.Invoke(this, copy);
     }
 
     /// <summary>
@@ -42,6 +61,22 @@ public sealed class FillMemory
         lock (_gate)
         {
             _lastFill = _lastFill.Append(writtenField).ToArray();
+        }
+
+        Appended?.Invoke(this, writtenField);
+    }
+
+    /// <summary>
+    /// Tells that the user undid values: the fields were emptied again.
+    /// </summary>
+    /// <param name="emptiedFields">The values undone.</param>
+    public void ReportUndone(IReadOnlyList<WrittenField> emptiedFields)
+    {
+        ArgumentNullException.ThrowIfNull(emptiedFields);
+
+        if (emptiedFields.Count > 0)
+        {
+            Undone?.Invoke(this, emptiedFields);
         }
     }
 

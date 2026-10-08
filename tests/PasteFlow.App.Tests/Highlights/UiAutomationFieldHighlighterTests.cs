@@ -5,6 +5,7 @@ using PasteFlow.App.Interop;
 using PasteFlow.App.Tests.Fakes;
 using PasteFlow.App.Tests.TestWindows;
 using PasteFlow.Core.Forms;
+using PasteFlow.Core.History;
 
 namespace PasteFlow.App.Tests.Highlights;
 
@@ -17,6 +18,7 @@ public sealed class UiAutomationFieldHighlighterTests : IDisposable
     private readonly WindowHost<ContactFormWindow> _host = new(() => new ContactFormWindow());
     private readonly UiAutomationFormAccess _formAccess = new();
     private readonly FakeSuggestionDisplay _suggestionDisplay = new();
+    private readonly FillHistory _history = new(new InMemoryHistoryStore());
     private readonly UiAutomationFieldHighlighter _highlighter;
     private IntPtr _foregroundWindow;
 
@@ -25,7 +27,7 @@ public sealed class UiAutomationFieldHighlighterTests : IDisposable
         _foregroundWindow = _host.Handle;
 
         // Frames are windows: the highlighter lives on the user interface thread of the test window
-        _highlighter = _host.Invoke(_ => new UiAutomationFieldHighlighter(_formAccess, _suggestionDisplay, () => _foregroundWindow));
+        _highlighter = _host.Invoke(_ => new UiAutomationFieldHighlighter(_formAccess, _suggestionDisplay, _history, () => _foregroundWindow));
     }
 
     [Fact]
@@ -107,6 +109,32 @@ public sealed class UiAutomationFieldHighlighterTests : IDisposable
     }
 
     [Fact]
+    public async Task RefreshAsync_LearnsTheValueTheUserTypedIntoAFieldToCheck()
+    {
+        await _highlighter.HighlightAsync(await ReadFieldsAsync("Nom", "Ville"));
+        _ = _host.Invoke(window => window.CityBox.Text = "Taissy");
+
+        await _highlighter.RefreshAsync();
+
+        var entry = Assert.Single(await _history.GetEntriesAsync(CancellationToken.None));
+        Assert.Equal("Ville", entry.FieldLabel);
+        Assert.Equal("Taissy", entry.Value);
+    }
+
+    [Fact]
+    public async Task RefreshAsync_DoesNotLearnASuggestionPickedTwice()
+    {
+        var fields = await ReadFieldsAsync("Nom");
+        var withSuggestion = fields[0] with { Suggestions = new[] { new SuggestedValue { Value = "Antoine", SourceName = "Gmail" } } };
+        await _highlighter.HighlightAsync(new[] { withSuggestion });
+        _ = _host.Invoke(window => window.NameBox.Text = "Antoine");
+
+        await _highlighter.RefreshAsync();
+
+        Assert.Empty(await _history.GetEntriesAsync(CancellationToken.None));
+    }
+
+    [Fact]
     public async Task RefreshAsync_FollowsFieldWhenWindowMoves()
     {
         var fields = await ReadFieldsAsync("Nom");
@@ -183,6 +211,7 @@ public sealed class UiAutomationFieldHighlighterTests : IDisposable
     {
         _highlighter.Dispose();
         _host.Dispose();
+        _history.Dispose();
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)

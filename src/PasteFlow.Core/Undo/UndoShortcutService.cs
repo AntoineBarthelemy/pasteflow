@@ -110,7 +110,7 @@ public sealed class UndoShortcutService : IDisposable
 
     private async Task<UndoReport> UndoLastFillAsync(CancellationToken cancellationToken)
     {
-        var emptiedCount = 0;
+        var emptied = new List<WrittenField>();
         var changedCount = 0;
         var failedCount = 0;
         foreach (var written in _fillMemory.TakeLastFill())
@@ -126,7 +126,7 @@ public sealed class UndoShortcutService : IDisposable
             }
             else if (await _fieldWriter.TryWriteAsync(written.Field, string.Empty, cancellationToken))
             {
-                emptiedCount++;
+                emptied.Add(written);
             }
             else
             {
@@ -134,6 +134,8 @@ public sealed class UndoShortcutService : IDisposable
             }
         }
 
-        return new UndoReport { EmptiedCount = emptiedCount, ChangedCount = changedCount, FailedCount = failedCount };
+        // The values undone were wrong: the history forgets them
+        _fillMemory.ReportUndone(emptied);
+        return new UndoReport { EmptiedCount = emptied.Count, ChangedCount = changedCount, FailedCount = failedCount };
     }
 }

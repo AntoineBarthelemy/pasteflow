@@ -29,4 +29,10 @@ public sealed record Candidate
     /// Gets the closeness of the source to the user: 0 for the closest one, higher values for older or farther sources.
     /// </summary>
     public required int SourceRank { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the value comes from the history of fills rather than from the screen:
+    /// such values only fill the fields the screen says nothing about.
+    /// </summary>
+    public bool IsFromHistory { get; init; }
 }

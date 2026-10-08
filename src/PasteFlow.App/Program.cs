@@ -1,6 +1,7 @@
 using System.Windows;
 using PasteFlow.App.Forms;
 using PasteFlow.App.Highlights;
+using PasteFlow.App.History;
 using PasteFlow.App.Hotkeys;
 using PasteFlow.App.Notifications;
 using PasteFlow.App.Screen;
@@ -8,6 +9,7 @@ using PasteFlow.App.Tray;
 using PasteFlow.Core.Activation;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
+using PasteFlow.Core.History;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Reference;
 using PasteFlow.Core.Undo;
@@ -34,19 +36,21 @@ internal static class Program
         var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var notifier = new PopupNotifier();
 
-        using var trayIcon = new TrayIcon(application.Shutdown);
+        using var history = new FillHistory(new ProtectedFileHistoryStore(ProtectedFileHistoryStore.DefaultPath));
+        using var trayIcon = new TrayIcon(application.Shutdown, () => _ = ClearHistoryAsync(history, notifier));
         using var hotkeyListener = new Win32HotkeyListener();
         using var undoHotkeyListener = new Win32HotkeyListener();
         var formAccess = new UiAutomationFormAccess();
         var fillMemory = new FillMemory();
+        history.Observe(fillMemory);
         using var choiceListener1 = new Win32HotkeyListener();
         using var choiceListener2 = new Win32HotkeyListener();
         using var choiceListener3 = new Win32HotkeyListener();
         using var suggestions = new SuggestionBubbleController(
             new SuggestionPicker(formAccess, fillMemory),
             new IHotkeyListener[] { choiceListener1, choiceListener2, choiceListener3 });
-        using var highlighter = new UiAutomationFieldHighlighter(formAccess, suggestions);
-        var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(new UiAutomationWindowTextReader()) };
+        using var highlighter = new UiAutomationFieldHighlighter(formAccess, suggestions, history);
+        var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(new UiAutomationWindowTextReader()), history };
         using var activation = new ShortcutActivationService(
             hotkeyListener,
             formAccess,
@@ -80,5 +84,11 @@ internal static class Program
         _ = Task.Run(() => ReferenceData.Shared);
 
         return application.Run();
+    }
+
+    private static async Task ClearHistoryAsync(FillHistory history, PopupNotifier notifier)
+    {
+        await history.ClearAsync(CancellationToken.None);
+        notifier.Notify("Historique effacé : PasteFlow a oublié les valeurs apprises.");
     }
 }

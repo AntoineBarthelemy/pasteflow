@@ -21,6 +21,11 @@
     <ProjectReference Include="..\PasteFlow.Core\PasteFlow.Core.csproj" />
   </ItemGroup>
 
+  <!-- Encrypts the history of fills with the Windows account of the user (DPAPI) -->
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="PasteFlow.App.Tests" />
   </ItemGroup>

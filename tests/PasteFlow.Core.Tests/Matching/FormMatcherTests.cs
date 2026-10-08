@@ -205,6 +205,73 @@ public sealed class FormMatcherTests
     }
 
     [Fact]
+    public void MatchAll_FillsFromTheHistoryTheFieldsTheScreenSaysNothingAbout()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("email", "Email"), TestFields.Text("phone", "Téléphone") },
+            new[] { Candidate("06 47 21 85 39", CandidateKind.Phone, "Tél."), FromHistory("antoine.b@orange.fr", CandidateKind.Email, "Email") },
+            TestReferenceData.Create());
+
+        AssertFills(matches[0], "antoine.b@orange.fr");
+        Assert.True(matches[0].Candidate!.IsFromHistory);
+        AssertFills(matches[1], "06 47 21 85 39");
+    }
+
+    [Fact]
+    public void MatchAll_NeverPrefersTheHistoryToASureValueOnScreen()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("email", "Email") },
+            new[] { FromHistory("antoine.b@orange.fr", CandidateKind.Email, "Email"), Candidate("contact@reims-auto.fr", CandidateKind.Email, string.Empty) },
+            TestReferenceData.Create());
+
+        AssertFills(matches[0], "contact@reims-auto.fr");
+    }
+
+    [Fact]
+    public void MatchAll_WhenTheScreenHesitates_TheHistoryOnlyProposes()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("email", "Email") },
+            new[]
+            {
+                Candidate("contact@reims-auto.fr", CandidateKind.Email, string.Empty),
+                Candidate("lea.martin@free.fr", CandidateKind.Email, string.Empty),
+                FromHistory("antoine.b@orange.fr", CandidateKind.Email, "Email"),
+            },
+            TestReferenceData.Create());
+
+        Assert.False(matches[0].IsConfident);
+        Assert.Equal(
+            new[] { "contact@reims-auto.fr", "lea.martin@free.fr", "antoine.b@orange.fr" },
+            matches[0].Suggestions.Select(candidate => candidate.Value));
+    }
+
+    [Fact]
+    public void MatchAll_TheHistoryDoesNotGiveAValueTakenOnScreenToAnotherField()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("email", "Email"), TestFields.Text("sponsor", "Email du parrain") },
+            new[] { Candidate("antoine.b@orange.fr", CandidateKind.Email, "Email"), FromHistory("antoine.b@orange.fr", CandidateKind.Email, "Email du parrain") },
+            TestReferenceData.Create());
+
+        AssertFills(matches[0], "antoine.b@orange.fr");
+        Assert.False(matches[1].IsConfident);
+    }
+
+    [Fact]
+    public void MatchAll_WithTwoValuesInTheHistory_LetsTheUserChoose()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("email", "Email") },
+            new[] { FromHistory("antoine.b@orange.fr", CandidateKind.Email, "Email"), FromHistory("antoine@codilee.fr", CandidateKind.Email, "Email") },
+            TestReferenceData.Create());
+
+        Assert.False(matches[0].IsConfident);
+        Assert.Equal(2, matches[0].Suggestions.Count);
+    }
+
+    [Fact]
     public void MatchAll_WithoutFields_ReturnsNothing()
     {
         var matches = FormMatcher.MatchAll(
@@ -212,6 +279,11 @@ public sealed class FormMatcherTests
             new[] { Candidate("antoine.b@orange.fr", CandidateKind.Email, "Email") });
 
         Assert.Empty(matches);
+    }
+
+    private static Candidate FromHistory(string value, CandidateKind kind, string label)
+    {
+        return Candidate(value, kind, label) with { SourceName = "Historique", SourceRank = 0, IsFromHistory = true };
     }
 
     private static Candidate[] Person(string fullName, string firstName, string lastName)
