@@ -1,12 +1,13 @@
 name: Reference data
 
 # Rebuilds the lists of first names, communes and countries embedded in PasteFlow.Core from the official sources.
-# Run by hand when the sources are updated (once a year), then commit the files of the artifact.
+# Run by hand when the sources are updated (once a year): the lists are pushed to the "reference-data" branch,
+# to be reviewed and brought into main.
 on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -27,11 +28,14 @@ jobs:
           global-json-file: global.json
 
       - name: Download and compact the official data
-        run: dotnet run --project tools/PasteFlow.DataBuilder --configuration Release -- reference-data
+        run: dotnet run --project tools/PasteFlow.DataBuilder --configuration Release -- src/PasteFlow.Core/Data
 
-      - name: Keep the lists
-        uses: actions/upload-artifact@v7
-        with:
-          name: reference-data
-          path: reference-data
-          retention-days: 7
+      - name: Push the lists to the reference-data branch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B reference-data
+          git add src/PasteFlow.Core/Data
+          git commit -m "chore(data): update reference lists from official sources"
+          git push --force origin reference-data
