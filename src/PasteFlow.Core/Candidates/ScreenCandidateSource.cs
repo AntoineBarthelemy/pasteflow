@@ -34,6 +34,7 @@ public sealed class ScreenCandidateSource : ICandidateSource
                 Label = piece.Label,
                 SourceName = window.Title,
                 SourceRank = window.Rank,
+                IsReadFromImage = window.IsReadFromImage,
             }))
             .ToList();
     }

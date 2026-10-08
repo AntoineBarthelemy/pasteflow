@@ -31,11 +31,12 @@ public sealed class SettingsWindowTests : IDisposable
         Select(window, "Prudent");
         Toggle(window, "Apprendre de mes remplissages");
         Toggle(window, "Lancer PasteFlow au démarrage de Windows");
+        Toggle(window, "Lire l'image des fenêtres");
 
         Click(window, "Enregistrer");
 
         WaitUntil(() => _saved is not null);
-        Assert.Equal(new AppSettings { Prudence = Prudence.Cautious, LearnFromFills = false, StartWithWindows = true }, _saved);
+        Assert.Equal(new AppSettings { Prudence = Prudence.Cautious, LearnFromFills = false, StartWithWindows = true, ReadImages = false }, _saved);
         WaitUntil(() => _host.IsClosed);
     }
 

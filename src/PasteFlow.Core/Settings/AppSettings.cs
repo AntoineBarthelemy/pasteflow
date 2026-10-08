@@ -23,6 +23,12 @@ public sealed record AppSettings
     public bool LearnFromFills { get; init; } = true;
 
     /// <summary>
+    /// Gets a value indicating whether the text of windows that give none is read from their image (OCR); on by default.
+    /// The values read this way are only proposed.
+    /// </summary>
+    public bool ReadImages { get; init; } = true;
+
+    /// <summary>
     /// Gets a value indicating whether the application starts with Windows; off by default.
     /// </summary>
     public bool StartWithWindows { get; init; }

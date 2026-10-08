@@ -34,6 +34,24 @@ public sealed class ScreenCandidateSourceTests
     }
 
     [Fact]
+    public async Task GetCandidatesAsync_MarksValuesReadFromAnImage()
+    {
+        var reader = new FakeWindowTextReader
+        {
+            Windows = new[]
+            {
+                Window("Gmail", rank: 1, "Commande n° CMD-48213"),
+                Window("Scan", rank: 2, "Facture FAC-2026-118") with { IsReadFromImage = true },
+            },
+        };
+
+        var candidates = await new ScreenCandidateSource(reader).GetCandidatesAsync(CancellationToken.None);
+
+        Assert.All(candidates.Where(candidate => candidate.SourceName == "Gmail"), candidate => Assert.False(candidate.IsReadFromImage));
+        Assert.All(candidates.Where(candidate => candidate.SourceName == "Scan"), candidate => Assert.True(candidate.IsReadFromImage));
+    }
+
+    [Fact]
     public async Task GetCandidatesAsync_OrdersWindowsClosestFirst()
     {
         var reader = new FakeWindowTextReader

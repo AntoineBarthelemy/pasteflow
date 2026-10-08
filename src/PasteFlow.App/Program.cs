@@ -61,7 +61,8 @@ internal static class Program
         // The shortcuts
         using var hotkeyListener = new Win32HotkeyListener();
         using var undoHotkeyListener = new Win32HotkeyListener();
-        var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(new UiAutomationWindowTextReader()), history };
+        var windowReader = new UiAutomationWindowTextReader(OcrTextRecognizer.TryCreate());
+        var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(windowReader), history };
         using var activation = new ShortcutActivationService(
             hotkeyListener,
             formAccess,
@@ -76,6 +77,7 @@ internal static class Program
         {
             activation.Options = MatchingOptions.For(chosen.Prudence);
             history.IsEnabled = chosen.LearnFromFills;
+            windowReader.ReadImages = chosen.ReadImages;
         }
 
         SettingsWindow? settingsWindow = null;

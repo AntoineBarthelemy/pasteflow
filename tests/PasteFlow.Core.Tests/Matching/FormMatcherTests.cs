@@ -311,6 +311,33 @@ public sealed class FormMatcherTests
     }
 
     [Fact]
+    public void MatchAll_AValueReadFromAnImageIsOnlyProposed()
+    {
+        var fromImage = Candidate("06 47 21 85 39", CandidateKind.Phone, "Tél.") with { IsReadFromImage = true };
+
+        var matches = FormMatcher.MatchAll(new[] { TestFields.Text("phone", "Téléphone") }, new[] { fromImage }, TestReferenceData.Create());
+
+        Assert.False(matches[0].IsConfident);
+        Assert.Equal("06 47 21 85 39", Assert.Single(matches[0].Suggestions).Value);
+    }
+
+    [Fact]
+    public void MatchAll_AValueReadFromAnImageDoesNotStopTheOthersFromBeingFilled()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("phone", "Téléphone"), TestFields.Text("email", "Email") },
+            new[]
+            {
+                Candidate("06 47 21 85 39", CandidateKind.Phone, "Tél.") with { IsReadFromImage = true },
+                Candidate("antoine.b@orange.fr", CandidateKind.Email, "Email"),
+            },
+            TestReferenceData.Create());
+
+        Assert.False(matches[0].IsConfident);
+        AssertFills(matches[1], "antoine.b@orange.fr");
+    }
+
+    [Fact]
     public void MatchAll_WithoutFields_ReturnsNothing()
     {
         var matches = FormMatcher.MatchAll(

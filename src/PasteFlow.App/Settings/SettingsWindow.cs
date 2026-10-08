@@ -14,6 +14,7 @@ internal sealed class SettingsWindow : Window
     private readonly RadioButton _cautious;
     private readonly RadioButton _bold;
     private readonly CheckBox _learn;
+    private readonly CheckBox _readImages;
     private readonly CheckBox _startWithWindows;
 
     /// <summary>
@@ -41,6 +42,12 @@ internal sealed class SettingsWindow : Window
             IsChecked = current.LearnFromFills,
             Margin = new Thickness(0, 4, 0, 4),
         };
+        _readImages = new CheckBox
+        {
+            Content = "Lire l'image des fenêtres qui ne donnent pas leur texte (valeurs seulement proposées)",
+            IsChecked = current.ReadImages,
+            Margin = new Thickness(0, 4, 0, 4),
+        };
         _startWithWindows = new CheckBox
         {
             Content = "Lancer PasteFlow au démarrage de Windows",
@@ -62,8 +69,9 @@ internal sealed class SettingsWindow : Window
         panel.Children.Add(_cautious);
         panel.Children.Add(balanced);
         panel.Children.Add(_bold);
-        panel.Children.Add(Heading("Apprentissage et démarrage"));
+        panel.Children.Add(Heading("Lecture, apprentissage et démarrage"));
         panel.Children.Add(_learn);
+        panel.Children.Add(_readImages);
         panel.Children.Add(_startWithWindows);
         panel.Children.Add(Heading("Raccourcis"));
         panel.Children.Add(new TextBlock
@@ -83,6 +91,7 @@ internal sealed class SettingsWindow : Window
     {
         Prudence = PrudenceChosen(),
         LearnFromFills = _learn.IsChecked == true,
+        ReadImages = _readImages.IsChecked == true,
         StartWithWindows = _startWithWindows.IsChecked == true,
     };
 

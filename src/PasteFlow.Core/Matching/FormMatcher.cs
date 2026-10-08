@@ -15,6 +15,7 @@ namespace PasteFlow.Core.Matching;
 /// value as the field it confirms.</para>
 /// <para>The values of the screen come first. The values of the history only fill the fields the screen offers
 /// nothing plausible for; elsewhere they are only proposed.</para>
+/// <para>A value read from the image of a window (OCR) is only proposed, never written without the user.</para>
 /// <para>Last safety net: a postal code and a commune that do not go together according to La Poste are both left
 /// to the user.</para>
 /// </remarks>
@@ -127,7 +128,24 @@ public static class FormMatcher
         }
 
         CheckPostalCodeAndCommune(matches, clues, data);
+        LeaveValuesReadFromImagesToTheUser(matches);
         return matches;
+    }
+
+    /// <summary>
+    /// Safety net: a value read from the image of a window (OCR) may hold a misread character, such as a 8 read as a 3:
+    /// it is proposed, never written without the user.
+    /// </summary>
+    /// <param name="matches">The matches of the form, changed in place.</param>
+    private static void LeaveValuesReadFromImagesToTheUser(FieldMatch[] matches)
+    {
+        for (var index = 0; index < matches.Length; index++)
+        {
+            if (matches[index] is { IsConfident: true, Candidate.IsReadFromImage: true })
+            {
+                matches[index] = matches[index] with { IsConfident = false };
+            }
+        }
     }
 
     /// <summary>

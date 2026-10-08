@@ -35,4 +35,10 @@ public sealed record Candidate
     /// such values only fill the fields the screen says nothing about.
     /// </summary>
     public bool IsFromHistory { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the value was read from the image of a window (OCR): a character may be misread,
+    /// so such a value is only proposed, never written without the user.
+    /// </summary>
+    public bool IsReadFromImage { get; init; }
 }

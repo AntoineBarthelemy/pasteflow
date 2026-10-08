@@ -136,4 +136,27 @@ internal static partial class NativeMethods
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
+
+    /// <summary>
+    /// Gets the position and size of a window on the screen, in pixels.
+    /// </summary>
+    /// <param name="hWnd">The window.</param>
+    /// <param name="lpRect">The position of the window.</param>
+    /// <returns><see langword="true"/> on success; otherwise <see langword="false"/>.</returns>
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetWindowRect(IntPtr hWnd, out NativeRect lpRect);
+
+    /// <summary>
+    /// Draws a window into a device context, even when other windows cover it.
+    /// </summary>
+    /// <param name="hwnd">The window.</param>
+    /// <param name="hdcBlt">The device context to draw into.</param>
+    /// <param name="nFlags">Options, for example PW_RENDERFULLCONTENT (2) for windows drawn by the GPU.</param>
+    /// <returns><see langword="true"/> on success; otherwise <see langword="false"/>.</returns>
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool PrintWindow(IntPtr hwnd, IntPtr hdcBlt, uint nFlags);
 }

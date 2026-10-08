@@ -19,4 +19,10 @@ public sealed record WindowText
     /// Gets the position of the window in the Alt+Tab order: 0 for the active window, 1 for the one just behind, and so on.
     /// </summary>
     public required int Rank { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the text was read from the image of the window (OCR), because the window gives
+    /// no text: it may hold misread characters.
+    /// </summary>
+    public bool IsReadFromImage { get; init; }
 }
