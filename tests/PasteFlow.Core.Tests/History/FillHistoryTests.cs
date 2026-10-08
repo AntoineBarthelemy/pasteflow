@@ -56,6 +56,9 @@ public sealed class FillHistoryTests : IDisposable
     [Theory]
     [InlineData("Prénom", "Antoine", CandidateKind.FirstName)]
     [InlineData("Nom", "Barthélémy", CandidateKind.LastName)]
+    [InlineData("Nom", "Antoine Barthélémy", CandidateKind.FullName)]
+    [InlineData("Nom", "Wei Zhang", CandidateKind.Text)]
+    [InlineData("Email ou nom d'utilisateur", "antoine51", CandidateKind.Text)]
     [InlineData("Ville", "Taissy", CandidateKind.City)]
     [InlineData("Téléphone", "06 47 21 85 39", CandidateKind.Phone)]
     [InlineData("Numéro adhérent", "A-4521", CandidateKind.Reference)]
@@ -99,12 +102,64 @@ public sealed class FillHistoryTests : IDisposable
     }
 
     [Fact]
-    public async Task ForgetAsync_RemovesAValueUndone()
+    public async Task ForgetAsync_TakesBackOneUseSoAValueUsedTwiceIsNoLongerOffered()
     {
         await RecordAsync("Email", "antoine.b@orange.fr");
         await RecordAsync("Email", "antoine.b@orange.fr");
 
         await _history.ForgetAsync(new[] { Written("Email", "antoine.b@orange.fr") }, CancellationToken.None);
+
+        Assert.Equal(1, Assert.Single(await _history.GetEntriesAsync(CancellationToken.None)).UseCount);
+        Assert.Empty(await _history.GetCandidatesAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ForgetAsync_KeepsAValueUsedOftenOfferedAfterOneUndo()
+    {
+        for (var use = 0; use < 15; use++)
+        {
+            await RecordAsync("Email", "antoine.b@orange.fr");
+        }
+
+        await _history.ForgetAsync(new[] { Written("Email", "antoine.b@orange.fr") }, CancellationToken.None);
+
+        Assert.Single(await _history.GetCandidatesAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ForgetAsync_RemovesAValueUsedOnce()
+    {
+        await RecordAsync("Email", "antoine.b@orange.fr");
+
+        await _history.ForgetAsync(new[] { Written("Email", "antoine.b@orange.fr") }, CancellationToken.None);
+
+        Assert.Empty(await _history.GetEntriesAsync(CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData("Numéro de carte", "4970 1012 3456 7890")]
+    [InlineData("Cryptogramme visuel", "123")]
+    [InlineData("Code de vérification", "482913")]
+    [InlineData("Numéro de sécurité sociale", "1 90 03 51 454 123 45")]
+    [InlineData("IBAN", "FR76 3000 6000 0112 3456 7890 189")]
+    [InlineData("Commentaire", "4970101234567890")]
+    public async Task RecordAsync_NeverLearnsSensitiveValues(string label, string value)
+    {
+        await RecordAsync(label, value);
+
+        Assert.Empty(await _history.GetEntriesAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RecordAsync_NeverLearnsCodesOfFieldsNamedTechnically()
+    {
+        await _history.RecordAsync(
+            new[]
+            {
+                new WrittenField { Field = TestFields.Text("otp", string.Empty) with { TechnicalName = "oneTimeCode" }, Value = "482913" },
+                new WrittenField { Field = TestFields.Text("cc", string.Empty) with { TechnicalName = "cc-csc" }, Value = "123" },
+            },
+            CancellationToken.None);
 
         Assert.Empty(await _history.GetEntriesAsync(CancellationToken.None));
     }
@@ -169,7 +224,7 @@ public sealed class FillHistoryTests : IDisposable
         Assert.Single(await _history.GetCandidatesAsync(CancellationToken.None));
 
         memory.ReportUndone(new[] { Written("Email", "antoine.b@orange.fr") });
-        Assert.Empty(await _history.GetEntriesAsync(CancellationToken.None));
+        Assert.Empty(await _history.GetCandidatesAsync(CancellationToken.None));
     }
 
     public void Dispose()

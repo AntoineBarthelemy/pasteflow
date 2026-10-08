@@ -13,8 +13,8 @@ namespace PasteFlow.Core.Candidates;
 /// <list type="bullet">
 /// <item><description>a person is 2 to 4 capitalized words, one end being a known first name, such as
 /// "Antoine Barthélémy" or "BARTHÉLÉMY Antoine";</description></item>
-/// <item><description>a commune follows its postal code ("51500 Taissy"), stands alone in capitals ("REIMS") or starts
-/// a dated line ("Reims, le 12 octobre");</description></item>
+/// <item><description>a commune follows its postal code ("51500 Taissy") or starts a dated line
+/// ("Reims, le 12 octobre");</description></item>
 /// <item><description>a country stands alone;</description></item>
 /// <item><description>a company ends or starts with a legal form, such as "Reims Auto SARL".</description></item>
 /// </list>
@@ -61,13 +61,6 @@ public static class NameRecognizer
         "IMPASSE", "INFORMATIQUE", "LYCEE", "MAGASIN", "MAIRIE", "MUTUELLE", "PHARMACIE", "PLACE", "QUAI", "RESTAURANT",
         "ROUTE", "RUE", "SERVICES", "SOLUTIONS", "STUDIO", "TECHNOLOGIES", "TELEVISION", "TELEVISIONS", "TRANSPORTS",
         "UNIVERSITE",
-    };
-
-    // Communes named like common words or brands, which a capital word on screen rarely means
-    private static readonly HashSet<string> CommonWordCommunes = new(StringComparer.Ordinal)
-    {
-        "BOURG", "FORGES", "MONTAGNE", "ORANGE", "PARC", "PLACE", "PONT", "PORT", "ROUTE", "RUE", "SENS", "TOUR", "VERS",
-        "VILLE",
     };
 
     // Compared without dots, so that "S.A.R.L." is "SARL"; case matters, so that the word "sa" is not a legal form
@@ -123,12 +116,8 @@ public static class NameRecognizer
             };
         }
 
-        // "REIMS" alone in capitals, as in an address block; capital words such as "VILLE" in a table header are not
-        if (IsInCapitals(text) && data.IsCommune(text) && !data.IsFirstName(text) && !IsCommonWord(text))
-        {
-            return new[] { Piece(text, CandidateKind.City, label) };
-        }
-
+        // A commune alone on its line is not recognized: too many headings and words ("FACTURE", "VILLE") are also
+        // names of places. Communes are recognized next to their postal code or starting a dated line.
         return Array.Empty<TextPiece>();
     }
 
@@ -208,8 +197,8 @@ public static class NameRecognizer
         var lastInCapitals = IsInCapitals(words[^1]);
 
         // "BARTHÉLÉMY Antoine": last name first, in capitals, as in official documents
-        var isLastNameFirst = lastIsFirstName && firstInCapitals && !lastInCapitals
-            && (!firstIsFirstName || words.Count == 2);
+        // The capitals mark the last name even when it is also a first name: "MARTIN Jean Pierre"
+        var isLastNameFirst = lastIsFirstName && firstInCapitals && !words.Skip(1).Any(IsInCapitals);
         if (!isLastNameFirst && !firstIsFirstName)
         {
             return false;
@@ -244,11 +233,6 @@ public static class NameRecognizer
         }
 
         return count;
-    }
-
-    private static bool IsCommonWord(string text)
-    {
-        return CommonWordCommunes.Contains(ReferenceText.Normalize(text));
     }
 
     /// <summary>

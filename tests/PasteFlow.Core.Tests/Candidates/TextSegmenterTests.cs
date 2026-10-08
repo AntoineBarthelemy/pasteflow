@@ -224,6 +224,24 @@ public sealed class TextSegmenterTests
         Assert.DoesNotContain(pieces, piece => piece.Kind is CandidateKind.FullName or CandidateKind.City);
     }
 
+    [Theory]
+    [InlineData("Prénom : France")]
+    [InlineData("Prénom :\nFrance")]
+    public void Segment_KeepsWhatTheLabelSaysOverWhatTheListsRecognize(string text)
+    {
+        var pieces = TextSegmenter.Segment(text, TestReferenceData.Create());
+
+        Assert.Equal(new[] { Piece("France", CandidateKind.Text, "Prénom") }, pieces);
+    }
+
+    [Fact]
+    public void Segment_KeepsTheCountryWhenTheLabelAsksForIt()
+    {
+        var pieces = TextSegmenter.Segment("Pays : France", TestReferenceData.Create());
+
+        Assert.Contains(Piece("France", CandidateKind.Country, "Pays"), pieces);
+    }
+
     [Fact]
     public void Segment_WithEmptyText_ReturnsNothing()
     {

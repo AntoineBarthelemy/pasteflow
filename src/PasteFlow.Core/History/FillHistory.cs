@@ -13,8 +13,8 @@ namespace PasteFlow.Core.History;
 /// <remarks>
 /// <para>Learning is cautious: a value is offered only once it was written at least <see cref="MinUses"/> times into the
 /// same kind of field, by a fill, a suggestion picked or the user typing it. A value undone is forgotten.</para>
-/// <para>Passwords are never learned: they are never filled, picked or read. The history is kept by an
-/// <see cref="IHistoryStore"/>, which encrypts it.</para>
+/// <para>Passwords, card numbers, security codes and other sensitive values are never learned
+/// (see <see cref="SensitiveFields"/>). The history is kept by an <see cref="IHistoryStore"/>, which encrypts it.</para>
 /// </remarks>
 public sealed class FillHistory : ICandidateSource, IDisposable
 {
@@ -34,6 +34,13 @@ public sealed class FillHistory : ICandidateSource, IDisposable
     public const string SourceName = "Historique";
 
     private const int MaxValueLength = 200;
+
+    // Kinds recognized through lists or labels, which a value can get from the field it was written into
+    private static readonly HashSet<CandidateKind> UnshapedKinds = new()
+    {
+        CandidateKind.FirstName, CandidateKind.LastName, CandidateKind.FullName, CandidateKind.City, CandidateKind.Country,
+        CandidateKind.Company,
+    };
 
     private readonly IHistoryStore _store;
     private readonly TimeProvider _timeProvider;
@@ -93,7 +100,7 @@ public sealed class FillHistory : ICandidateSource, IDisposable
         ArgumentNullException.ThrowIfNull(writtenFields);
 
         var toRecord = writtenFields
-            .Where(written => IsEnabled && written.Field.Kind == FieldKind.Text)
+            .Where(written => IsEnabled && written.Field.Kind == FieldKind.Text && !SensitiveFields.IsSensitive(written.Field, written.Value))
             .Select(written => written with { Value = written.Value.Trim() })
             .Where(written => written.Value.Length is > 0 and <= MaxValueLength)
             .ToList();
@@ -129,17 +136,39 @@ public sealed class FillHistory : ICandidateSource, IDisposable
     }
 
     /// <summary>
-    /// Forgets values written into fields, for example because the user undid them.
+    /// Takes back one use of values written into fields, because the user undid them: a value used often stays
+    /// known, a value used once or twice is no longer offered.
     /// </summary>
     /// <param name="writtenFields">The values and the fields they were written into.</param>
     /// <param name="cancellationToken">A token to cancel the change.</param>
-    /// <returns>A task completed once the values are forgotten and the history saved.</returns>
+    /// <returns>A task completed once the uses are taken back and the history saved.</returns>
     public async Task ForgetAsync(IEnumerable<WrittenField> writtenFields, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(writtenFields);
 
         var toForget = writtenFields.Select(written => written with { Value = written.Value.Trim() }).ToList();
-        await ChangeAsync(entries => entries.RemoveAll(entry => toForget.Exists(written => IsSame(entry, written))), cancellationToken);
+        await ChangeAsync(
+            entries =>
+            {
+                foreach (var written in toForget)
+                {
+                    var index = entries.FindIndex(entry => IsSame(entry, written));
+                    if (index < 0)
+                    {
+                        continue;
+                    }
+
+                    if (entries[index].UseCount <= 1)
+                    {
+                        entries.RemoveAt(index);
+                    }
+                    else
+                    {
+                        entries[index] = entries[index] with { UseCount = entries[index].UseCount - 1 };
+                    }
+                }
+            },
+            cancellationToken);
     }
 
     /// <summary>
@@ -215,9 +244,21 @@ public sealed class FillHistory : ICandidateSource, IDisposable
             return shape;
         }
 
-        var expected = FieldClues.Of(written.Field, firstNameAskedApart: true).ExpectedKinds
-            .Where(kind => kind != CandidateKind.Text)
-            .ToList();
+        // A value without shape never gets a kind that has one: "antoine51" typed into "Email ou identifiant" stays text
+        var expected = FieldClues.Of(written.Field).ExpectedKinds.Where(UnshapedKinds.Contains).ToList();
+        if (expected.Contains(CandidateKind.FullName) || expected.Contains(CandidateKind.LastName))
+        {
+            // A name field: the value itself tells a whole name from a last name, whatever the form was
+            if (!written.Value.Contains(' ', StringComparison.Ordinal))
+            {
+                return CandidateKind.LastName;
+            }
+
+            var isWholeName = NameRecognizer.RecognizeSpan(written.Value, string.Empty, ReferenceData.Shared)
+                .Any(piece => piece.Kind == CandidateKind.FullName);
+            return isWholeName ? CandidateKind.FullName : CandidateKind.Text;
+        }
+
         return expected.Count == 1 ? expected[0] : CandidateKind.Text;
     }
 

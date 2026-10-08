@@ -57,13 +57,36 @@ public static class FormMatcher
         ReferenceData data,
         MatchingOptions options)
     {
+        return MatchAll(fields, candidates, data, options, fields);
+    }
+
+    /// <summary>
+    /// Finds the values of some fields of a form, knowing all its fields.
+    /// </summary>
+    /// <param name="fields">The fields to fill, in the order of the form.</param>
+    /// <param name="candidates">The values found in the sources.</param>
+    /// <param name="data">The official lists used to check that a postal code and a commune go together.</param>
+    /// <param name="options">The thresholds that decide whether a value is sure enough, set by the prudence chosen.</param>
+    /// <param name="formFields">
+    /// All the fields of the form, including those already filled: they tell what the other fields mean, such as a
+    /// "Prénom" field already filled that makes "Nom" the last name.
+    /// </param>
+    /// <returns>A match for each field to fill, in the order of the form.</returns>
+    public static IReadOnlyList<FieldMatch> MatchAll(
+        IReadOnlyList<FormField> fields,
+        IReadOnlyList<Candidate> candidates,
+        ReferenceData data,
+        MatchingOptions options,
+        IReadOnlyList<FormField> formFields)
+    {
         ArgumentNullException.ThrowIfNull(fields);
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(formFields);
 
         // "Nom" means the last name when the form asks the first name elsewhere, the whole name otherwise
-        var firstNameAskedApart = fields.Any(field => AsksFirstNameOnly(FieldClues.Of(field)));
+        var firstNameAskedApart = formFields.Concat(fields).Any(field => AsksFirstNameOnly(FieldClues.Of(field)));
         var clues = fields.Select(field => FieldClues.Of(field, firstNameAskedApart)).ToArray();
 
         // The screen comes first: the history only fills the fields the screen says nothing about

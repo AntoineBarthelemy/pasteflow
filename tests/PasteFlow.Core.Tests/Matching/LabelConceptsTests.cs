@@ -121,6 +121,8 @@ public sealed class LabelConceptsTests
     [InlineData("Nom de naissance", new[] { CandidateKind.FullName, CandidateKind.Text })]
     [InlineData("Ville", new[] { CandidateKind.City, CandidateKind.Text })]
     [InlineData("Ville de naissance", new[] { CandidateKind.City, CandidateKind.Text })]
+    [InlineData("Lieu de naissance", new[] { CandidateKind.City, CandidateKind.Text })]
+    [InlineData("Place of birth", new[] { CandidateKind.City, CandidateKind.Text })]
     [InlineData("Pays", new[] { CandidateKind.Country, CandidateKind.Text })]
     [InlineData("Entreprise", new[] { CandidateKind.Company, CandidateKind.Text })]
     [InlineData("Nom de l'entreprise", new[] { CandidateKind.Company, CandidateKind.Text })]

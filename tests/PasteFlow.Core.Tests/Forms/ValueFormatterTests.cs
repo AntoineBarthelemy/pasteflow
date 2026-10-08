@@ -9,7 +9,9 @@ public sealed class ValueFormatterTests
     [Theory]
     [InlineData("12/03/1990", "Date de naissance (AAAA-MM-JJ)", "", "1990-03-12")]
     [InlineData("1990-03-12", "Date de naissance", "JJ/MM/AAAA", "12/03/1990")]
-    [InlineData("12.03.90", "Date", "DD/MM/YYYY", "12/03/1990")]
+    [InlineData("12.03.90", "Date", "DD/MM/YYYY", "12.03.90")]
+    [InlineData("15/06/45", "Date de naissance", "JJ/MM/AAAA", "15/06/45")]
+    [InlineData("15/06/45", "Date", "JJ-MM-AA", "15-06-45")]
     [InlineData("12/03/1990", "Date", "MM/DD/YYYY", "03/12/1990")]
     [InlineData("12/03/1990", "Date", "JJMMAAAA", "12031990")]
     [InlineData("12/03/1990", "Date", "ex : 31-12-2000", "12-03-1990")]
@@ -49,6 +51,10 @@ public sealed class ValueFormatterTests
     [InlineData("$19.99", "0,00", "19,99")]
     [InlineData("1250.50 EUR", "0.00", "1250.50")]
     [InlineData("49,90 €", "", "49,90 €")]
+    [InlineData("$1,234.56", "0.00", "1234.56")]
+    [InlineData("€1,234", "0,00", "1234")]
+    [InlineData("1.250,00 €", "0.00", "1250.00")]
+    [InlineData("1250.5 EUR", "0,00", "1250,50")]
     public void Adapt_WritesBareNumbersWhenTheFieldShowsOne(string value, string hint, string expected)
     {
         Assert.Equal(expected, ValueFormatter.Adapt(value, CandidateKind.Amount, Field("Montant", hint)));

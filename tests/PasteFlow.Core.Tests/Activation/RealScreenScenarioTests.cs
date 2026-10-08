@@ -83,7 +83,7 @@ public sealed class RealScreenScenarioTests : IDisposable
             51500 Reims
             """;
 
-        Fill(new[] { TestFields.Text("postal", "Code postal"), TestFields.Text("city", "Ville") }, Screen + "\nREIMS");
+        Fill(new[] { TestFields.Text("postal", "Code postal"), TestFields.Text("city", "Ville") }, Screen + "\nVille : Reims");
 
         Assert.Empty(_fields.WrittenValues);
     }
@@ -99,6 +99,25 @@ public sealed class RealScreenScenarioTests : IDisposable
 
         Assert.Equal(firstName, _fields.WrittenValues["first"]);
         Assert.Equal(lastName, _fields.WrittenValues["last"]);
+    }
+
+    [Fact]
+    public void Fill_AFirstNameThatIsAlsoACountryStaysAFirstName()
+    {
+        Fill(
+            new[] { TestFields.Text("first", "Prénom"), TestFields.Text("country", "Pays") },
+            "Prénom : Maurice\nNom : Durand");
+
+        Assert.Equal("Maurice", _fields.WrittenValues["first"]);
+        Assert.False(_fields.WrittenValues.ContainsKey("country"));
+    }
+
+    [Fact]
+    public void Fill_NeverTakesAnInvoiceHeadingForACommune()
+    {
+        Fill(new[] { TestFields.Text("city", "Ville") }, "FACTURE\nTotal : 49,90 €");
+
+        Assert.Empty(_fields.WrittenValues);
     }
 
     [Fact]

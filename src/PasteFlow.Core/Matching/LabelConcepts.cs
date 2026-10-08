@@ -103,7 +103,7 @@ public static class LabelConcepts
     /// <summary>
     /// The word that makes a name a last name for sure: "Nom de famille".
     /// </summary>
-    private const string FamilyWord = "famille";
+    public const string FamilyName = "famille";
 
     private static readonly Dictionary<string, string> Synonyms = BuildSynonyms(new Dictionary<string, string[]>
     {
@@ -112,7 +112,7 @@ public static class LabelConcepts
         [Name] = new[] { "nom", "name", "surname", "lastname" },
         [FirstName] = new[] { "prenom", "firstname", "forename", "given" },
         [Address] = new[] { "rue", "street", "voie" },
-        [City] = new[] { "ville", "city", "town", "commune", "localite" },
+        [City] = new[] { "ville", "city", "town", "commune", "localite", "lieu", "place", "endroit" },
         [PostalCode] = new[] { "postal", "cp", "zip", "postcode", "zipcode" },
         [Country] = new[] { "pays", "country" },
         [Company] = new[] { "entreprise", "societe", "company", "organisation", "organization", "employeur", "employer" },
@@ -203,7 +203,7 @@ public static class LabelConcepts
     // Words that keep a name a person's name; any other word makes it unsure, as in "Nom d'utilisateur" or "Nom du projet"
     private static readonly HashSet<string> PersonNameConcepts = new(StringComparer.Ordinal)
     {
-        Name, FirstName, FullName, Birth, FamilyWord, "usage",
+        Name, FirstName, FullName, Birth, FamilyName, "usage",
     };
 
     /// <summary>
@@ -323,7 +323,7 @@ public static class LabelConcepts
 
         if (hasName)
         {
-            var isLastName = firstNameAskedApart || concepts.Contains(FamilyWord);
+            var isLastName = firstNameAskedApart || concepts.Contains(FamilyName);
             return new HashSet<CandidateKind> { isLastName ? CandidateKind.LastName : CandidateKind.FullName, CandidateKind.Text };
         }
 

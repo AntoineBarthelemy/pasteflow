@@ -38,6 +38,7 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
     private readonly Dispatcher _dispatcher;
     private readonly DispatcherTimer _refreshTimer;
     private readonly Dictionary<string, (FieldToCheck ToCheck, FieldFrame Frame)> _frames = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, FieldToCheck> _typedFields = new(StringComparer.Ordinal);
     private IntPtr _formWindow;
     private long _shownAt;
     private int _generation;
@@ -187,7 +188,7 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
 
     private async Task RefreshFramesAsync()
     {
-        if (_isRefreshing || _frames.Count == 0)
+        if (_isRefreshing || (_frames.Count == 0 && _typedFields.Count == 0))
         {
             return;
         }
@@ -204,22 +205,23 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
         try
         {
             var generation = _generation;
-            var fields = _frames.Values.Select(entry => entry.ToCheck.Field).ToList();
+            var fields = _frames.Values.Select(entry => entry.ToCheck.Field)
+                .Concat(_typedFields.Values.Select(toCheck => toCheck.Field))
+                .ToList();
             var states = await _formAccess.ReadStatesAsync(fields, CancellationToken.None);
             if (generation != _generation)
             {
                 return;
             }
 
-            var filledByUser = new List<FieldToCheck>();
             foreach (var (id, (toCheck, frame)) in _frames.ToList())
             {
                 if (!states.TryGetValue(id, out var state) || state.HasValue)
                 {
-                    // Filled by the user, or gone with its page
+                    // Filled by the user, or gone with its page; what the user types is learned once they leave the field
                     if (state.HasValue)
                     {
-                        filledByUser.Add(toCheck);
+                        _typedFields[id] = toCheck;
                     }
 
                     frame.Close();
@@ -231,7 +233,9 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
                 }
             }
 
-            if (_frames.Count == 0)
+            await LearnFinishedTypingAsync(states);
+
+            if (_frames.Count == 0 && _typedFields.Count == 0)
             {
                 RemoveFrames();
             }
@@ -239,15 +243,36 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
             {
                 ShowSuggestionsOfFocusedField(states);
             }
-
-            foreach (var toCheck in filledByUser)
-            {
-                await LearnTypedValueAsync(toCheck);
-            }
         }
         finally
         {
             _isRefreshing = false;
+        }
+    }
+
+    /// <summary>
+    /// Learns the values of the fields the user typed into and has left: while the field has the focus, the value
+    /// may still be the first letters only.
+    /// </summary>
+    /// <param name="states">The states of the fields just read.</param>
+    /// <returns>A task completed once the finished values are learned.</returns>
+    private async Task LearnFinishedTypingAsync(IReadOnlyDictionary<string, FieldState> states)
+    {
+        foreach (var (id, toCheck) in _typedFields.ToList())
+        {
+            if (!states.TryGetValue(id, out var state))
+            {
+                // Gone with its page: nothing sure to learn
+                _ = _typedFields.Remove(id);
+            }
+            else if (!state.HasFocus)
+            {
+                _ = _typedFields.Remove(id);
+                if (state.HasValue)
+                {
+                    await LearnTypedValueAsync(toCheck);
+                }
+            }
         }
     }
 
@@ -285,6 +310,7 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
 
     private void RemoveFrames()
     {
+        _typedFields.Clear();
         _generation++;
         _suggestionDisplay.Hide();
         _refreshTimer.Stop();

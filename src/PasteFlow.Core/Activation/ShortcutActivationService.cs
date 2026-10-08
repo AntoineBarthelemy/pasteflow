@@ -204,7 +204,8 @@ public sealed class ShortcutActivationService : IDisposable
 
         // Safety net: the values are chosen for the whole form at once, so one value never fills two fields
         var fillableFields = fields.Where(FillRules.CanFill).ToList();
-        foreach (var match in FormMatcher.MatchAll(fillableFields, candidates, ReferenceData.Shared, Options))
+        var textFields = fields.Where(field => field.Kind == FieldKind.Text).ToList();
+        foreach (var match in FormMatcher.MatchAll(fillableFields, candidates, ReferenceData.Shared, Options, textFields))
         {
             var field = match.Field;
             if (!match.IsConfident || match.Candidate is null)

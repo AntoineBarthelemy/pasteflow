@@ -162,6 +162,14 @@ public static class FieldMatcher
             return false;
         }
 
+        // A last name field does not take a whole name read as plain text, such as "Nom : Wei Zhang"
+        if (candidate.Kind == CandidateKind.Text && expectedKinds.Contains(CandidateKind.LastName)
+            && candidate.Value.Trim().Contains(' ', StringComparison.Ordinal)
+            && !LabelConcepts.From(candidate.Label).Contains(LabelConcepts.FamilyName))
+        {
+            return false;
+        }
+
         // Safety net: a postal code field only takes a real French postal code
         return candidate.Kind != CandidateKind.Number
             || !clues.Mentions(LabelConcepts.PostalCode)

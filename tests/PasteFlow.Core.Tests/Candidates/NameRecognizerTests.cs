@@ -21,6 +21,7 @@ public sealed class NameRecognizerTests
     [InlineData("Pierre Martin", "Pierre Martin", "Pierre", "Martin")]
     [InlineData("MARTIN Pierre", "MARTIN Pierre", "Pierre", "MARTIN")]
     [InlineData("Marie d'Arcy", "Marie d'Arcy", "Marie", "d'Arcy")]
+    [InlineData("MARTIN Jean Pierre", "MARTIN Jean Pierre", "Jean Pierre", "MARTIN")]
     public void RecognizeSpan_ReadsPeople(string span, string fullName, string firstName, string lastName)
     {
         var pieces = NameRecognizer.RecognizeSpan(span, "De", _data);
@@ -98,10 +99,9 @@ public sealed class NameRecognizerTests
     }
 
     [Theory]
-    [InlineData("REIMS", "REIMS")]
     [InlineData("Reims, le 12 octobre 2026", "Reims")]
-    [InlineData("CHALONS EN CHAMPAGNE", "CHALONS EN CHAMPAGNE")]
-    public void RecognizeSpan_ReadsCommunesInCapitalsOrStartingADatedLine(string span, string expected)
+    [InlineData("Châlons-en-Champagne, le 3 mars", "Châlons-en-Champagne")]
+    public void RecognizeSpan_ReadsCommunesStartingADatedLine(string span, string expected)
     {
         var piece = Assert.Single(NameRecognizer.RecognizeSpan(span, string.Empty, _data));
 
@@ -111,6 +111,7 @@ public sealed class NameRecognizerTests
 
     [Theory]
     [InlineData("Reims")]
+    [InlineData("REIMS")]
     [InlineData("VILLE")]
     [InlineData("RUE")]
     [InlineData("ORANGE")]

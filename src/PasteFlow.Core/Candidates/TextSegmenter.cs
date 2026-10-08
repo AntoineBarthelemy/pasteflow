@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using PasteFlow.Core.Matching;
 using PasteFlow.Core.Reference;
 
 namespace PasteFlow.Core.Candidates;
@@ -25,6 +26,8 @@ public static partial class TextSegmenter
 
     private const int RegexTimeoutMilliseconds = 1000;
     private const int MinReferenceLength = 4;
+
+    private static readonly HashSet<CandidateKind> PersonKinds = new() { CandidateKind.FirstName, CandidateKind.LastName, CandidateKind.FullName };
 
     private static readonly char[] LineBreaks = { '\r', '\n' };
     private static readonly char[] LabelTrimmedChars = { ' ', '\t', ':', '-', '–', '—', '|', '(', '[', ',', ';', '<', '"' };
@@ -83,6 +86,27 @@ public static partial class TextSegmenter
         return RemoveDuplicates(pieces);
     }
 
+    /// <summary>
+    /// Recognizes people, communes, countries and companies, keeping only what the label allows: after
+    /// "Prénom :", "Maurice" is a first name, not the country.
+    /// </summary>
+    /// <param name="span">The text to recognize.</param>
+    /// <param name="label">The label of the text.</param>
+    /// <param name="data">The official lists.</param>
+    /// <returns>The pieces recognized that fit the label.</returns>
+    private static IEnumerable<TextPiece> RecognizeFitting(string span, string label, ReferenceData data)
+    {
+        return NameRecognizer.RecognizeSpan(span, label, data).Where(piece => FitsLabel(piece.Kind, label));
+    }
+
+    private static bool FitsLabel(CandidateKind kind, string label)
+    {
+        var expected = LabelConcepts.ExpectedKinds(LabelConcepts.From(label));
+        return expected.Count == 0
+            || expected.Contains(kind)
+            || (PersonKinds.Contains(kind) && expected.Overlaps(PersonKinds));
+    }
+
     private static bool IsLabelOnly(string line)
     {
         return line.Length <= MaxLabelLength + 1 && line.EndsWith(':') && char.IsLetter(line[0]);
@@ -101,14 +125,15 @@ public static partial class TextSegmenter
                 {
                     // A person or a company before a value, as in "Antoine Barthélémy <antoine@example.com>"
                     var before = line[previousEnd..start];
-                    pieces.AddRange(NameRecognizer.RecognizeSpan(before, contextLabel, data));
+                    pieces.AddRange(RecognizeFitting(before, contextLabel, data));
 
                     var label = CleanLabel(before);
                     pieces.Add(Piece(value, kind, label.Length > 0 || previousEnd > 0 ? label : contextLabel));
                     previousEnd = start + value.Length;
 
                     if (kind == CandidateKind.Number && ValueValidator.IsFrenchPostalCode(value)
-                        && NameRecognizer.CommuneNextToPostalCode(before, value, line[previousEnd..], data) is { } commune)
+                        && NameRecognizer.CommuneNextToPostalCode(before, value, line[previousEnd..], data) is { } commune
+                        && FitsLabel(CandidateKind.City, contextLabel))
                     {
                         pieces.Add(Piece(commune, CandidateKind.City, contextLabel));
                     }
@@ -128,12 +153,12 @@ public static partial class TextSegmenter
             {
                 var value = pair.Groups["value"].Value.Trim();
                 var label = CleanLabel(pair.Groups["label"].Value);
-                pieces.AddRange(NameRecognizer.RecognizeSpan(value, label, data));
+                pieces.AddRange(RecognizeFitting(value, label, data));
                 pieces.Add(Piece(value, CandidateKind.Text, label));
                 return pieces;
             }
 
-            pieces.AddRange(NameRecognizer.RecognizeSpan(line, contextLabel, data));
+            pieces.AddRange(RecognizeFitting(line, contextLabel, data));
         }
         catch (RegexMatchTimeoutException)
         {

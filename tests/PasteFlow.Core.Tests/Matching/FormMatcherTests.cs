@@ -167,6 +167,45 @@ public sealed class FormMatcherTests
     }
 
     [Fact]
+    public void MatchAll_WhenTheFirstNameFieldIsAlreadyFilled_NomStillMeansTheLastName()
+    {
+        var form = new[] { TestFields.Text("first", "Prénom", hasValue: true), TestFields.Text("last", "Nom") };
+
+        var matches = FormMatcher.MatchAll(
+            new[] { form[1] },
+            Person("Antoine Barthélémy", "Antoine", "Barthélémy"),
+            TestReferenceData.Create(),
+            MatchingOptions.Balanced,
+            form);
+
+        AssertFills(matches[0], "Barthélémy");
+    }
+
+    [Theory]
+    [InlineData("Wei Zhang", "Nom")]
+    [InlineData("Rose Dupont", "Nom")]
+    public void MatchAll_ALastNameFieldNeverTakesAWholeNameReadAsText(string value, string label)
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("first", "Prénom"), TestFields.Text("last", "Nom") },
+            new[] { Candidate(value, CandidateKind.Text, label) },
+            TestReferenceData.Create());
+
+        Assert.Null(matches[1].Candidate);
+    }
+
+    [Fact]
+    public void MatchAll_ALastNameFieldTakesSeveralWordsLabelledAsAFamilyName()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("first", "Prénom"), TestFields.Text("last", "Nom de famille") },
+            new[] { Candidate("De La Fontaine", CandidateKind.Text, "Nom de famille") },
+            TestReferenceData.Create());
+
+        AssertFills(matches[1], "De La Fontaine");
+    }
+
+    [Fact]
     public void MatchAll_FillsCommuneAndPostalCodeThatGoTogether()
     {
         var matches = FormMatcher.MatchAll(

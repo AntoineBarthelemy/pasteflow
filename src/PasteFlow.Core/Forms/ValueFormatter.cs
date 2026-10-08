@@ -19,8 +19,10 @@ public static partial class ValueFormatter
     private const int FrenchPhoneDigits = 10;
     private const int IbanGroupSize = 4;
 
-    private static readonly string[] DayFirstFormats = { "d/M/yyyy", "d/M/yy", "d.M.yyyy", "d.M.yy", "d-M-yyyy", "d-M-yy", "yyyy-M-d" };
-    private static readonly string[] MonthFirstFormats = { "M/d/yyyy", "M/d/yy" };
+    private static readonly string[] DayFirstFormats = { "d/M/yyyy", "d.M.yyyy", "d-M-yyyy", "yyyy-M-d" };
+    private static readonly string[] DayFirstShortYearFormats = { "d/M/yy", "d.M.yy", "d-M-yy" };
+    private static readonly string[] MonthFirstFormats = { "M/d/yyyy" };
+    private static readonly char[] DecimalSeparators = { '.', ',' };
 
     /// <summary>
     /// Adapts a value to the format its field asks for.
@@ -61,6 +63,13 @@ public static partial class ValueFormatter
         }
 
         var text = value.Trim();
+        var hasShortYear = text.Split('/', '.', '-')[^1].Length == 2;
+        if (hasShortYear && DateOnly.TryParseExact(text, DayFirstShortYearFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var shortYearDate))
+        {
+            // "15/06/45" may be 1945 or 2045: the century is never guessed, the value stays as found
+            return target.Contains("yyyy", StringComparison.Ordinal) ? null : shortYearDate.ToString(target, CultureInfo.InvariantCulture);
+        }
+
         return DateOnly.TryParseExact(text, DayFirstFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
             || DateOnly.TryParseExact(text, MonthFirstFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out date)
             ? date.ToString(target, CultureInfo.InvariantCulture)
@@ -202,9 +211,13 @@ public static partial class ValueFormatter
             return null;
         }
 
-        var integerPart = string.Concat(amount.Groups["integer"].Value.Where(char.IsAsciiDigit));
-        var cents = amount.Groups["cents"].Value;
-        return cents.Length > 0 && decimalSeparator.Length > 0 ? $"{integerPart}{decimalSeparator}{cents}" : integerPart;
+        // The last "." or "," followed by one or two digits separates the cents; the others group thousands:
+        // "1 250,00", "1.250,00", "$1,234.56", "€1,234"
+        var number = amount.Value;
+        var lastSeparator = number.LastIndexOfAny(DecimalSeparators);
+        var hasCents = lastSeparator >= 0 && number.Length - lastSeparator - 1 is 1 or 2;
+        var integerPart = string.Concat((hasCents ? number[..lastSeparator] : number).Where(char.IsAsciiDigit));
+        return hasCents ? $"{integerPart}{decimalSeparator}{number[(lastSeparator + 1)..].PadRight(2, '0')}" : integerPart;
     }
 
     [GeneratedRegex(@"\b(?:(?:JJ|DD)[/.\-]?MM[/.\-]?(?:AAAA|YYYY|AA|YY)|MM/(?:JJ|DD)/(?:AAAA|YYYY)|(?:AAAA|YYYY)-MM-(?:JJ|DD))\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
@@ -222,6 +235,6 @@ public static partial class ValueFormatter
     [GeneratedRegex(@"(?<![\d.,])\d+(?<separator>[.,])\d{2}(?![\d.,])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex NumberExampleRegex();
 
-    [GeneratedRegex(@"(?<integer>\d+(?:[   .]\d{3})*)(?:[.,](?<cents>\d{1,2}))?", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    [GeneratedRegex(@"\d(?:[\d   .,]*\d)?", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex AmountRegex();
 }
