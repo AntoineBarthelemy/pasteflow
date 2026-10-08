@@ -13,7 +13,7 @@ internal static class TestReferenceData
             new[] { "Antoine", "Marie", "Jean", "Pierre", "Jean-Pierre", "Martin", "Rose", "France", "Claude", "Charles" },
             new[]
             {
-                "51500;TAISSY", "51100;REIMS", "75010;PARIS", "85160;ST JEAN DE MONTS", "80120;RUE", "67220;VILLE",
+                "51500;TAISSY", "51100;REIMS", "75010;PARIS 10", "85160;ST JEAN DE MONTS", "80120;RUE", "67220;VILLE",
                 "84100;ORANGE", "51000;CHALONS EN CHAMPAGNE",
             },
             new[] { "France", "Belgique", "Germany" });

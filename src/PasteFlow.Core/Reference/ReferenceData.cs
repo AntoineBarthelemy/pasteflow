@@ -54,14 +54,18 @@ public sealed class ReferenceData
                 continue;
             }
 
-            _ = _communes.Add(commune);
             if (!_communesByPostalCode.TryGetValue(postalCode, out var communes))
             {
                 communes = new HashSet<string>(StringComparer.Ordinal);
                 _communesByPostalCode[postalCode] = communes;
             }
 
-            _ = communes.Add(commune);
+            // La Poste names the districts of Paris, Lyon and Marseille "PARIS 10": addresses just say "Paris"
+            foreach (var name in new[] { commune, WithoutDistrictNumber(commune) })
+            {
+                _ = _communes.Add(name);
+                _ = communes.Add(name);
+            }
         }
     }
 
@@ -147,6 +151,12 @@ public sealed class ReferenceData
         var normalized = ReferenceText.Normalize(name);
         var cedex = normalized.IndexOf(" CEDEX", StringComparison.Ordinal);
         return cedex > 0 ? normalized[..cedex] : normalized;
+    }
+
+    private static string WithoutDistrictNumber(string commune)
+    {
+        var lastSpace = commune.LastIndexOf(' ');
+        return lastSpace > 0 && commune[(lastSpace + 1)..].All(char.IsAsciiDigit) ? commune[..lastSpace] : commune;
     }
 
     private static ReferenceData LoadEmbedded()

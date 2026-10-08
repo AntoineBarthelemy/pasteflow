@@ -23,6 +23,8 @@ public sealed class ReferenceDataTests
     [InlineData("51100", "REIMS CEDEX 2", true)]
     [InlineData("85160", "Saint-Jean-de-Monts", true)]
     [InlineData("51000", "Châlons-en-Champagne", true)]
+    [InlineData("75010", "Paris", true)]
+    [InlineData("75010", "Paris 10", true)]
     [InlineData("51500", "Reims", false)]
     [InlineData("99999", "Reims", false)]
     public void IsCommuneOf_ChecksTheCommuneGoesWithThePostalCode(string postalCode, string commune, bool expected)
@@ -87,6 +89,8 @@ public sealed class ReferenceDataTests
         Assert.True(data.IsCommuneOf("51100", "Reims"));
         Assert.True(data.IsCommuneOf("51000", "Châlons-en-Champagne"));
         Assert.True(data.IsCommuneOf("75010", "Paris"));
+        Assert.True(data.IsCommuneOf("69003", "Lyon"));
+        Assert.True(data.IsCommuneOf("13008", "Marseille"));
         Assert.True(data.IsCountry("Allemagne"));
         Assert.True(data.IsCountry("Germany"));
         Assert.False(data.IsFirstName("Barthélémy"));

@@ -22,6 +22,10 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
     /// </summary>
     internal const int RememberedReadingCount = 3;
 
+    private const int MaxReadAttempts = 2;
+
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(100);
+
     private static readonly Condition FieldCondition = new AndCondition(
         new OrCondition(
             new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
@@ -280,7 +284,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
         var fields = new List<FormField>();
         var reading = Interlocked.Increment(ref _readingCount);
 
-        if (windowHandle != IntPtr.Zero)
+        for (var attempt = 1; attempt <= MaxReadAttempts && windowHandle != IntPtr.Zero; attempt++)
         {
             try
             {
@@ -298,18 +302,25 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
                         fields.Add(field);
                     }
                 }
+
+                break;
             }
             catch (ElementNotAvailableException)
             {
                 // The window was closed while being read
                 fields.Clear();
                 elements.Clear();
+                break;
             }
             catch (COMException)
             {
-                // The application does not answer accessibility requests
+                // The application did not answer in time, often because it is busy: one more try
                 fields.Clear();
                 elements.Clear();
+                if (attempt < MaxReadAttempts)
+                {
+                    Thread.Sleep(RetryDelay);
+                }
             }
         }
 
