@@ -194,17 +194,18 @@ public static class NameRecognizer
         var firstIsFirstName = data.IsFirstName(words[0]);
         var lastIsFirstName = data.IsFirstName(words[^1]);
         var firstInCapitals = IsInCapitals(words[0]);
-        var lastInCapitals = IsInCapitals(words[^1]);
 
         // "BARTHÉLÉMY Antoine": last name first, in capitals, as in official documents
-        // The capitals mark the last name even when it is also a first name: "MARTIN Jean Pierre"
-        var isLastNameFirst = lastIsFirstName && firstInCapitals && !words.Skip(1).Any(IsInCapitals);
+        // The capitals mark the last name even when it is also a first name: "MARTIN Jean Pierre", "DE LA FONTAINE Jean"
+        var capitalWords = words.TakeWhile(IsInCapitals).Count();
+        var isLastNameFirst = lastIsFirstName && firstInCapitals && capitalWords < words.Count
+            && !words.Skip(capitalWords).Any(IsInCapitals);
         if (!isLastNameFirst && !firstIsFirstName)
         {
             return false;
         }
 
-        var firstNameCount = isLastNameFirst ? CountFirstNames(Enumerable.Reverse(words).ToList(), data) : CountFirstNames(words, data);
+        var firstNameCount = isLastNameFirst ? words.Count - capitalWords : CountFirstNames(words, data);
         var firstNameWords = isLastNameFirst ? words.Skip(words.Count - firstNameCount).ToList() : words.Take(firstNameCount).ToList();
         var lastNameWords = isLastNameFirst ? words.Take(words.Count - firstNameCount).ToList() : words.Skip(firstNameCount).ToList();
         var lastNameInCapitals = lastNameWords.Any(IsInCapitals);
