@@ -76,7 +76,7 @@ Raccourcis :
 | Ctrl+Alt+Z | Annule le dernier remplissage : vide les champs remplis par l'outil, sauf ceux modifiés depuis |
 | Ctrl+Maj+1, 2, 3 | Dans un champ encadré en orange, choisit une des valeurs proposées (actif seulement quand la bulle est affichée) |
 
-Pour quitter l'application : clic droit sur l'icône près de l'horloge, puis « Quitter ».
+Clic droit sur l'icône près de l'horloge : « Paramètres… » (prudence, apprentissage, démarrage avec Windows), « Effacer l'historique », « Quitter ».
 
 ## Structure
 

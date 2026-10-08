@@ -20,6 +20,7 @@ internal sealed class WindowHost<TWindow> : IDisposable
     private TWindow? _window;
     private ExceptionDispatchInfo? _startError;
     private bool _isDisposed;
+    private bool _isClosed;
 
     public WindowHost(Func<TWindow> createWindow)
     {
@@ -44,6 +45,11 @@ internal sealed class WindowHost<TWindow> : IDisposable
         return window.Dispatcher.Invoke(() => action(window));
     }
 
+    /// <summary>
+    /// Gets a value indicating whether the window was closed, by itself or by the test.
+    /// </summary>
+    public bool IsClosed => _isClosed;
+
     public void Dispose()
     {
         if (_isDisposed)
@@ -54,7 +60,14 @@ internal sealed class WindowHost<TWindow> : IDisposable
         _isDisposed = true;
         if (_window is not null)
         {
-            _window.Dispatcher.Invoke(_window.Close);
+            // A window may have closed itself, as a settings window does once saved
+            _window.Dispatcher.Invoke(() =>
+            {
+                if (!_isClosed)
+                {
+                    _window.Close();
+                }
+            });
             _window.Dispatcher.InvokeShutdown();
         }
 
@@ -70,6 +83,7 @@ internal sealed class WindowHost<TWindow> : IDisposable
 
             // Ready once drawn: before that, its fields are still reported as off screen and ignored
             _window.ContentRendered += (_, _) => _started.Set();
+            _window.Closed += (_, _) => _isClosed = true;
             _window.Show();
         }
         catch (Exception exception)

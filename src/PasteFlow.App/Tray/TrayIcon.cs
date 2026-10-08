@@ -21,12 +21,15 @@ internal sealed class TrayIcon : IDisposable
     /// </summary>
     /// <param name="exitRequested">The action to run when the user chooses to quit the application.</param>
     /// <param name="clearHistoryRequested">The action to run when the user chooses to clear the history of fills.</param>
-    public TrayIcon(Action exitRequested, Action clearHistoryRequested)
+    /// <param name="settingsRequested">The action to run when the user chooses to open the settings.</param>
+    public TrayIcon(Action exitRequested, Action clearHistoryRequested, Action settingsRequested)
     {
         ArgumentNullException.ThrowIfNull(exitRequested);
         ArgumentNullException.ThrowIfNull(clearHistoryRequested);
+        ArgumentNullException.ThrowIfNull(settingsRequested);
 
         _menu = new ContextMenuStrip();
+        _ = _menu.Items.Add("Paramètres…", image: null, (_, _) => settingsRequested());
         _ = _menu.Items.Add("Effacer l'historique", image: null, (_, _) => clearHistoryRequested());
         _ = _menu.Items.Add(new ToolStripSeparator());
         _ = _menu.Items.Add("Quitter", image: null, (_, _) => exitRequested());

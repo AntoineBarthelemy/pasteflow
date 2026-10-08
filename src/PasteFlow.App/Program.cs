@@ -5,13 +5,16 @@ using PasteFlow.App.History;
 using PasteFlow.App.Hotkeys;
 using PasteFlow.App.Notifications;
 using PasteFlow.App.Screen;
+using PasteFlow.App.Settings;
 using PasteFlow.App.Tray;
 using PasteFlow.Core.Activation;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
 using PasteFlow.Core.History;
 using PasteFlow.Core.Hotkeys;
+using PasteFlow.Core.Matching;
 using PasteFlow.Core.Reference;
+using PasteFlow.Core.Settings;
 using PasteFlow.Core.Undo;
 
 namespace PasteFlow.App;
@@ -22,6 +25,7 @@ namespace PasteFlow.App;
 internal static class Program
 {
     private const string SingleInstanceMutexName = @"Local\PasteFlow.SingleInstance";
+    private const string StartupEntryName = "PasteFlow";
 
     [STAThread]
     private static int Main()
@@ -35,14 +39,17 @@ internal static class Program
 
         var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var notifier = new PopupNotifier();
+        var settingsStore = new JsonSettingsStore(JsonSettingsStore.DefaultPath);
+        var startup = new StartupRegistration(StartupEntryName);
+        var settings = settingsStore.Load() with { StartWithWindows = startup.IsEnabled };
 
+        // What the fills learn and what can be undone
         using var history = new FillHistory(new ProtectedFileHistoryStore(ProtectedFileHistoryStore.DefaultPath));
-        using var trayIcon = new TrayIcon(application.Shutdown, () => _ = ClearHistoryAsync(history, notifier));
-        using var hotkeyListener = new Win32HotkeyListener();
-        using var undoHotkeyListener = new Win32HotkeyListener();
-        var formAccess = new UiAutomationFormAccess();
         var fillMemory = new FillMemory();
         history.Observe(fillMemory);
+
+        // Reading and writing forms, frames and suggestions
+        var formAccess = new UiAutomationFormAccess();
         using var choiceListener1 = new Win32HotkeyListener();
         using var choiceListener2 = new Win32HotkeyListener();
         using var choiceListener3 = new Win32HotkeyListener();
@@ -50,6 +57,10 @@ internal static class Program
             new SuggestionPicker(formAccess, fillMemory),
             new IHotkeyListener[] { choiceListener1, choiceListener2, choiceListener3 });
         using var highlighter = new UiAutomationFieldHighlighter(formAccess, suggestions, history);
+
+        // The shortcuts
+        using var hotkeyListener = new Win32HotkeyListener();
+        using var undoHotkeyListener = new Win32HotkeyListener();
         var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(new UiAutomationWindowTextReader()), history };
         using var activation = new ShortcutActivationService(
             hotkeyListener,
@@ -60,6 +71,37 @@ internal static class Program
             fillMemory,
             highlighter);
         using var undo = new UndoShortcutService(undoHotkeyListener, fillMemory, formAccess, formAccess, notifier);
+
+        void Apply(AppSettings chosen)
+        {
+            activation.Options = MatchingOptions.For(chosen.Prudence);
+            history.IsEnabled = chosen.LearnFromFills;
+        }
+
+        SettingsWindow? settingsWindow = null;
+        void OpenSettings()
+        {
+            if (settingsWindow is { IsVisible: true })
+            {
+                _ = settingsWindow.Activate();
+                return;
+            }
+
+            settingsWindow = new SettingsWindow(settings, chosen =>
+            {
+                settings = chosen;
+                Apply(chosen);
+                var isSaved = settingsStore.TrySave(chosen);
+                var isStartupSet = Environment.ProcessPath is { } path && startup.TrySet(chosen.StartWithWindows, path);
+                notifier.Notify(isSaved && isStartupSet
+                    ? "Paramètres enregistrés."
+                    : "Paramètres appliqués, mais ils n'ont pas pu être tous enregistrés.");
+            });
+            settingsWindow.Show();
+        }
+
+        Apply(settings);
+        using var trayIcon = new TrayIcon(application.Shutdown, () => _ = ClearHistoryAsync(history, notifier), OpenSettings);
 
         // Without its own shortcut, undoing is simply not announced: filling still works
         var undoHotkey = Hotkey.DefaultUndo;
