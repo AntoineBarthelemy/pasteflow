@@ -22,7 +22,7 @@ Feuille de route :
 6. [x] Associer champs et candidats, remplir le formulaire
 7. [x] Interface : annulation globale, surlignage des champs à vérifier, récapitulatif, propositions au focus d'un champ à vérifier
 8. [x] Reconnaître noms, prénoms, villes, pays et entreprises grâce aux listes officielles (INSEE, La Poste), vérifier code postal et ville
-9. [ ] Apprentissage des habitudes et historique (SQLite)
+9. [x] Historique chiffré (DPAPI) et apprentissage : une valeur utilisée deux fois dans un même type de champ est reprise quand l'écran ne dit rien
 10. [ ] Finitions : OCR de secours, adaptation des formats, paramètres
 
 Les informations à coller viennent de **sources** interchangeables (interface commune posée à l'étape 4). Sources prévues :
@@ -31,7 +31,7 @@ Les informations à coller viennent de **sources** interchangeables (interface c
 |---|---|
 | Texte affiché à l'écran | Étape 4 |
 | Profil de l'utilisateur (identité, adresse, liens, études) | Après l'étape 6 |
-| Historique des remplissages | Étape 9 |
+| Historique des remplissages (chiffré, effaçable depuis le menu de l'icône) | Étape 9 |
 | Gestionnaire de mots de passe (Bitwarden, via son CLI) | Après la V1, avec le volet confidentialité |
 
 L'auto-remplissage de Chrome n'est pas une source envisagée : ses données sont chiffrées pour qu'aucun logiciel extérieur ne puisse les lire.
