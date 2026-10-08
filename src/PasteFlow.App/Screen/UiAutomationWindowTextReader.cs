@@ -27,6 +27,12 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
     private static readonly TimeSpan WindowTimeout = TimeSpan.FromMilliseconds(600);
     private static readonly TimeSpan ImageReadingTimeout = TimeSpan.FromMilliseconds(1500);
 
+    private static readonly Condition DocumentCondition =
+        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Document);
+
+    private static readonly Condition TextCondition =
+        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text);
+
     private readonly OcrTextRecognizer? _ocr;
 
     /// <summary>
@@ -51,12 +57,6 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
     /// </summary>
     public bool ReadImages { get; set; } = true;
 
-    private static readonly Condition DocumentCondition =
-        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Document);
-
-    private static readonly Condition TextCondition =
-        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text);
-
     /// <inheritdoc/>
     public async Task<IReadOnlyList<WindowText>> ReadWindowsAsync(CancellationToken cancellationToken)
     {
@@ -65,6 +65,32 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
 
         var results = await Task.WhenAll(readings).ConfigureAwait(false);
         return results.OfType<WindowText>().ToList();
+    }
+
+    /// <summary>
+    /// Reads the text of one window.
+    /// </summary>
+    /// <param name="handle">The window to read.</param>
+    /// <param name="rank">The position of the window in the Alt+Tab order.</param>
+    /// <returns>The text of the window, or <see langword="null"/> if the window cannot be read.</returns>
+    internal static WindowText? ReadWindow(IntPtr handle, int rank)
+    {
+        try
+        {
+            var window = AutomationElement.FromHandle(handle);
+            var text = ReadDocuments(window) ?? ReadTextElements(window);
+            return new WindowText { Title = window.Current.Name, Text = text, Rank = rank };
+        }
+        catch (ElementNotAvailableException)
+        {
+            // The window was closed while being read
+            return null;
+        }
+        catch (COMException)
+        {
+            // The application does not answer accessibility requests
+            return null;
+        }
     }
 
     /// <summary>
@@ -93,32 +119,6 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
             ? accessibleTitle
             : UntitledWindow;
         return new WindowText { Title = title, Text = fromImage, Rank = rank, IsReadFromImage = true };
-    }
-
-    /// <summary>
-    /// Reads the text of one window.
-    /// </summary>
-    /// <param name="handle">The window to read.</param>
-    /// <param name="rank">The position of the window in the Alt+Tab order.</param>
-    /// <returns>The text of the window, or <see langword="null"/> if the window cannot be read.</returns>
-    internal static WindowText? ReadWindow(IntPtr handle, int rank)
-    {
-        try
-        {
-            var window = AutomationElement.FromHandle(handle);
-            var text = ReadDocuments(window) ?? ReadTextElements(window);
-            return new WindowText { Title = window.Current.Name, Text = text, Rank = rank };
-        }
-        catch (ElementNotAvailableException)
-        {
-            // The window was closed while being read
-            return null;
-        }
-        catch (COMException)
-        {
-            // The application does not answer accessibility requests
-            return null;
-        }
     }
 
     private static async Task<WindowText?> ReadWithTimeoutAsync(IntPtr window, int rank, CancellationToken cancellationToken)
