@@ -10,7 +10,7 @@ Outil Windows de remplissage de formulaires sans souris : on se place dans un fo
 
 ## État d'avancement
 
-Étapes 1 à 5 du prototype : l'application tourne en arrière-plan (icône près de l'horloge). Ctrl+Alt+V lit les champs du formulaire de la fenêtre active, lit le texte des fenêtres visibles (active et 3 juste derrière) en y reconnaissant les valeurs utiles, puis remplit les champs texte vides (pour l'instant avec le nom de chaque champ), sans jamais toucher aux champs déjà remplis ni aux mots de passe.
+Prototype complet (étapes 1 à 10) : l'application tourne en arrière-plan (icône près de l'horloge). Ctrl+Alt+V lit les champs du formulaire de la fenêtre active et le texte des fenêtres visibles (active et 3 juste derrière). Il y reconnaît les valeurs utiles (e-mails, téléphones, dates, montants, IBAN, références, noms, villes, pays, entreprises), puis remplit les champs dont la valeur est sûre, au format attendu par le champ. Les champs incertains sont encadrés en orange, avec des propositions. Les champs déjà remplis et les mots de passe ne sont jamais touchés, et Ctrl+Alt+Z annule le remplissage.
 
 Feuille de route :
 
@@ -23,7 +23,8 @@ Feuille de route :
 7. [x] Interface : annulation globale, surlignage des champs à vérifier, récapitulatif, propositions au focus d'un champ à vérifier
 8. [x] Reconnaître noms, prénoms, villes, pays et entreprises grâce aux listes officielles (INSEE, La Poste), vérifier code postal et ville
 9. [x] Historique chiffré (DPAPI) et apprentissage : une valeur utilisée deux fois dans un même type de champ est reprise quand l'écran ne dit rien
-10. [ ] Finitions : OCR de secours, adaptation des formats, paramètres
+10. [x] Finitions : valeurs écrites au format du champ (dates, téléphones, IBAN, montants), paramètres (prudence, apprentissage, démarrage avec Windows)
+11. [ ] Plus tard : OCR de secours pour les fenêtres sans accessibilité, envoi optionnel vers l'historique Win+V, choix des raccourcis
 
 Les informations à coller viennent de **sources** interchangeables (interface commune posée à l'étape 4). Sources prévues :
 
