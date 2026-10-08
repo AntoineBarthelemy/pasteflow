@@ -93,6 +93,7 @@ public sealed class ReferenceDataTests
         Assert.True(data.IsCommuneOf("13008", "Marseille"));
         Assert.True(data.IsCountry("Allemagne"));
         Assert.True(data.IsCountry("Germany"));
-        Assert.False(data.IsFirstName("Barthélémy"));
+        Assert.False(data.IsFirstName("Dupont"));
+        Assert.False(data.IsFirstName("Lefèvre"));
     }
 }

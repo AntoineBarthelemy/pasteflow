@@ -86,6 +86,19 @@ public sealed class RealScreenScenarioTests : IDisposable
         Assert.Empty(_fields.WrittenValues);
     }
 
+    [Theory]
+    [InlineData("Antoine Barthélémy", "Antoine", "Barthélémy")]
+    [InlineData("BARTHÉLÉMY Antoine", "Antoine", "BARTHÉLÉMY")]
+    [InlineData("Pierre Martin", "Pierre", "Martin")]
+    [InlineData("Jean-Pierre Dupont", "Jean-Pierre", "Dupont")]
+    public void Fill_SplitsNamesThatAreAlsoFirstNames(string person, string firstName, string lastName)
+    {
+        Fill(new[] { TestFields.Text("first", "Prénom"), TestFields.Text("last", "Nom") }, $"Cordialement,\n{person}");
+
+        Assert.Equal(firstName, _fields.WrittenValues["first"]);
+        Assert.Equal(lastName, _fields.WrittenValues["last"]);
+    }
+
     [Fact]
     public void Fill_NeverTakesTableHeadersForValues()
     {
