@@ -1,0 +1,37 @@
+name: Reference data
+
+# Rebuilds the lists of first names, communes and countries embedded in PasteFlow.Core from the official sources.
+# Run by hand when the sources are updated (once a year), then commit the files of the artifact.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build reference lists
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      HUSKY: 0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Download and compact the official data
+        run: dotnet run --project tools/PasteFlow.DataBuilder --configuration Release -- reference-data
+
+      - name: Keep the lists
+        uses: actions/upload-artifact@v7
+        with:
+          name: reference-data
+          path: reference-data
+          retention-days: 7

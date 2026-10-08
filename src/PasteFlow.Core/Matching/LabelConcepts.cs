@@ -1,6 +1,6 @@
-using System.Globalization;
 using System.Text;
 using PasteFlow.Core.Candidates;
+using PasteFlow.Core.Reference;
 
 namespace PasteFlow.Core.Matching;
 
@@ -301,7 +301,7 @@ public static class LabelConcepts
     /// <returns>The words of the label.</returns>
     private static List<string> Words(string label)
     {
-        var normalized = RemoveAccents(label).ToLowerInvariant();
+        var normalized = ReferenceText.RemoveAccents(label).ToLowerInvariant();
 
         var words = new List<string>();
         var word = new StringBuilder();
@@ -334,19 +334,5 @@ public static class LabelConcepts
         }
 
         return words;
-    }
-
-    private static string RemoveAccents(string text)
-    {
-        var builder = new StringBuilder(text.Length);
-        foreach (var character in text.Normalize(NormalizationForm.FormD))
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
-            {
-                _ = builder.Append(character);
-            }
-        }
-
-        return builder.ToString().Normalize(NormalizationForm.FormC);
     }
 }

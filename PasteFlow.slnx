@@ -14,5 +14,9 @@
   <Folder Name="/tests/">
     <Project Path="tests/PasteFlow.App.Tests/PasteFlow.App.Tests.csproj" />
     <Project Path="tests/PasteFlow.Core.Tests/PasteFlow.Core.Tests.csproj" />
+    <Project Path="tests/PasteFlow.DataBuilder.Tests/PasteFlow.DataBuilder.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/PasteFlow.DataBuilder/PasteFlow.DataBuilder.csproj" />
   </Folder>
 </Solution>
