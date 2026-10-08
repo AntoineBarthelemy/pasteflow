@@ -148,9 +148,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
         try
         {
             var current = element.Current;
-            var kind = current.IsPassword
-                ? FieldKind.Password
-                : current.ControlType == ControlType.ComboBox ? FieldKind.Choice : FieldKind.Text;
+            var kind = current.IsPassword ? FieldKind.Password : KindOf(element, current.ControlType);
 
             return new FormField
             {
@@ -166,6 +164,40 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
         {
             // The field disappeared while being read
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Tells a text field from a list of choices. A combo box where the user can type, such as a search box, an address
+    /// bar or a field with suggestions, is a text field; a closed list such as a country picker is a list of choices.
+    /// </summary>
+    /// <param name="element">The field.</param>
+    /// <param name="controlType">The type of control of the field.</param>
+    /// <returns>The kind of the field.</returns>
+    private static FieldKind KindOf(AutomationElement element, ControlType controlType)
+    {
+        if (controlType != ControlType.ComboBox)
+        {
+            return FieldKind.Text;
+        }
+
+        var isEditable = element.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern)
+            && pattern is ValuePattern valuePattern
+            && !valuePattern.Current.IsReadOnly;
+        return isEditable ? FieldKind.Text : FieldKind.Choice;
+    }
+
+    private static bool IsInsideComboBox(AutomationElement element)
+    {
+        try
+        {
+            return element.Current.ControlType == ControlType.Edit
+                && TreeWalker.ControlViewWalker.GetParent(element) is { } parent
+                && parent.Current.ControlType == ControlType.ComboBox;
+        }
+        catch (ElementNotAvailableException)
+        {
+            return false;
         }
     }
 
@@ -292,6 +324,12 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
                 foreach (AutomationElement element in window.FindAll(TreeScope.Descendants, FieldCondition))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+
+                    // The text box inside a combo box where the user can type is the combo box itself, read once
+                    if (IsInsideComboBox(element))
+                    {
+                        continue;
+                    }
 
                     // Unique across readings: a field of an old reading never targets an element of a new one
                     var id = string.Create(CultureInfo.InvariantCulture, $"{reading}-{elements.Count}");

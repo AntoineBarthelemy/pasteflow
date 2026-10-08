@@ -14,7 +14,7 @@ public sealed class UiAutomationFormAccessTests : IDisposable
     {
         var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
 
-        Assert.Equal(new[] { "Nom", "Email", "Ville", "Mot de passe", "Pays", string.Empty }, fields.Select(field => field.Label));
+        Assert.Equal(new[] { "Nom", "Email", "Ville", "Mot de passe", "Pays", string.Empty, "Recherche" }, fields.Select(field => field.Label));
     }
 
     [Fact]
@@ -33,6 +33,7 @@ public sealed class UiAutomationFormAccessTests : IDisposable
         Assert.Equal(FieldKind.Text, Field(fields, "Nom").Kind);
         Assert.Equal(FieldKind.Password, Field(fields, "Mot de passe").Kind);
         Assert.Equal(FieldKind.Choice, Field(fields, "Pays").Kind);
+        Assert.Equal(FieldKind.Text, Field(fields, "Recherche").Kind);
     }
 
     [Fact]
@@ -114,6 +115,17 @@ public sealed class UiAutomationFormAccessTests : IDisposable
 
         Assert.True(isWritten);
         Assert.Equal("Reims", _host.Invoke(window => window.CityBox.Text));
+    }
+
+    [Fact]
+    public async Task TryWriteAsync_WritesIntoAComboBoxWhereTheUserCanType()
+    {
+        var fields = await _formAccess.ReadFormAsync(_host.Handle, CancellationToken.None);
+
+        var isWritten = await _formAccess.TryWriteAsync(Field(fields, "Recherche"), "Taissy", CancellationToken.None);
+
+        Assert.True(isWritten);
+        Assert.Equal("Taissy", _host.Invoke(window => window.SearchBox.Text));
     }
 
     [Fact]

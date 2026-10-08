@@ -42,6 +42,8 @@ internal sealed class ContactFormWindow : Window
         AutomationProperties.SetName(PasswordBox, "Mot de passe");
 
         CountryBox = new ComboBox { ItemsSource = new[] { "France", "Belgique" } };
+        SearchBox = new ComboBox { IsEditable = true, ItemsSource = new[] { "Reims", "Taissy" } };
+        AutomationProperties.SetName(SearchBox, "Recherche");
         AutomationProperties.SetName(CountryBox, "Pays");
 
         // A field without any visible label, known only by its technical name
@@ -61,6 +63,7 @@ internal sealed class ContactFormWindow : Window
         panel.Children.Add(PasswordBox);
         panel.Children.Add(CountryBox);
         panel.Children.Add(PhoneBox);
+        panel.Children.Add(SearchBox);
         panel.Children.Add(DisabledBox);
         Content = panel;
     }
@@ -74,6 +77,11 @@ internal sealed class ContactFormWindow : Window
     public PasswordBox PasswordBox { get; }
 
     public ComboBox CountryBox { get; }
+
+    /// <summary>
+    /// Gets a combo box where the user can type, as a search box with suggestions.
+    /// </summary>
+    public ComboBox SearchBox { get; }
 
     public TextBox PhoneBox { get; }
 
