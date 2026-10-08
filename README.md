@@ -19,9 +19,9 @@ Feuille de route :
 3. [x] Écrire une valeur dans un champ
 4. [x] Lire le texte des fenêtres visibles et des fenêtres juste derrière
 5. [x] Découper le texte en unités de sens : e-mails, téléphones, dates, montants, IBAN, références, avec leur libellé (règles)
-6. [ ] Associer champs et candidats, remplir le formulaire
+6. [x] Associer champs et candidats, remplir le formulaire
 7. [x] Interface : annulation globale, surlignage des champs à vérifier, récapitulatif, propositions au focus d'un champ à vérifier
-8. [ ] Petits modèles d'IA locaux (ONNX Runtime)
+8. [x] Reconnaître noms, prénoms, villes, pays et entreprises grâce aux listes officielles (INSEE, La Poste), vérifier code postal et ville
 9. [ ] Apprentissage des habitudes et historique (SQLite)
 10. [ ] Finitions : OCR de secours, adaptation des formats, paramètres
 
@@ -35,6 +35,18 @@ Les informations à coller viennent de **sources** interchangeables (interface c
 | Gestionnaire de mots de passe (Bitwarden, via son CLI) | Après la V1, avec le volet confidentialité |
 
 L'auto-remplissage de Chrome n'est pas une source envisagée : ses données sont chiffrées pour qu'aucun logiciel extérieur ne puisse les lire.
+
+### Données de référence
+
+L'outil reconnaît les noms, villes et pays grâce à des listes officielles, intégrées à l'application (270 Ko compressés) :
+
+| Liste | Source | Licence |
+|---|---|---|
+| Prénoms donnés au moins 500 fois depuis 1900 | [Fichier des prénoms, INSEE](https://www.insee.fr/fr/statistiques/8595130) | Licence Ouverte 2.0 |
+| Codes postaux et communes | [Base officielle des codes postaux, La Poste](https://www.data.gouv.fr/fr/datasets/base-officielle-des-codes-postaux/) | Licence Ouverte 2.0 |
+| Pays en français et en anglais | [umpirsky/country-list](https://github.com/umpirsky/country-list) | MIT |
+
+Pour les mettre à jour (une fois par an) : lancer le workflow « Reference data » dans l'onglet Actions de GitHub. Il pousse les nouvelles listes sur la branche `reference-data`, à relire puis à reporter dans `main`.
 
 ## Installation / Configuration
 
@@ -73,6 +85,7 @@ Pour quitter l'application : clic droit sur l'icône près de l'horloge, puis «
 | `src/PasteFlow.Core` | Logique métier, sans dépendance à Windows, entièrement testable |
 | `src/PasteFlow.App` | Application Windows : icône, raccourci global (API Win32), notifications |
 | `tests/PasteFlow.Core.Tests` | Tests unitaires (xUnit) de la logique métier |
+| `tools/PasteFlow.DataBuilder` | Outil qui construit les listes de référence à partir des données officielles |
 | `tests/PasteFlow.App.Tests` | Tests d'intégration Windows : un vrai formulaire de test est affiché, puis lu et rempli via UI Automation |
 
 Le cœur ne connaît que des interfaces (`IHotkeyListener`, `IUserNotifier`). Les implémentations Windows sont dans `PasteFlow.App`, ce qui permet de tester le cœur avec de faux objets (dossier `Fakes`).
