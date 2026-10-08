@@ -1,3 +1,4 @@
+using System.Buffers;
 using PasteFlow.Core.Reference;
 
 namespace PasteFlow.Core.Candidates;
@@ -28,6 +29,8 @@ public static class NameRecognizer
     private const int MaxCompanyLength = 60;
     private const int MaxCompanyWords = 8;
     private const int MaxCountryLength = 40;
+
+    private static readonly SearchValues<char> EndOfPlaceChars = SearchValues.Create(",;(/|");
 
     private static readonly char[] TrimmedChars = { ' ', '\t', ',', '.', ';', ':', '!', '?', '<', '>', '"', '(', ')', '[', ']', '«', '»', '-', '–' };
 
@@ -303,7 +306,7 @@ public static class NameRecognizer
 
     private static string UpToPunctuation(string text)
     {
-        var end = text.IndexOfAny(new[] { ',', ';', '(', '/', '|' });
+        var end = text.AsSpan().IndexOfAny(EndOfPlaceChars);
         return (end >= 0 ? text[..end] : text).Trim(TrimmedChars);
     }
 
