@@ -1,3 +1,4 @@
+using PasteFlow.Core.Forms;
 using PasteFlow.Core.Picking;
 using PasteFlow.Core.Tests.Fakes;
 
@@ -8,7 +9,7 @@ public sealed class FreePasteTests
     [Fact]
     public void IsFreeText_InADocumentWithoutField_ReturnsTrue()
     {
-        Assert.True(FreePaste.IsFreeText(Array.Empty<Forms.FormField>(), new CaretContext { IsEditable = true }));
+        Assert.True(FreePaste.IsFreeText(Array.Empty<FormField>(), new CaretContext { IsEditable = true }));
     }
 
     [Fact]
@@ -38,7 +39,7 @@ public sealed class FreePasteTests
     [Fact]
     public void IsFreeText_WhereNothingCanBeTyped_ReturnsFalse()
     {
-        Assert.False(FreePaste.IsFreeText(Array.Empty<Forms.FormField>(), new CaretContext { IsEditable = false }));
+        Assert.False(FreePaste.IsFreeText(Array.Empty<FormField>(), new CaretContext { IsEditable = false }));
     }
 
     [Theory]
