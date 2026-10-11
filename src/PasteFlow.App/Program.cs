@@ -4,6 +4,7 @@ using PasteFlow.App.Highlights;
 using PasteFlow.App.History;
 using PasteFlow.App.Hotkeys;
 using PasteFlow.App.Notifications;
+using PasteFlow.App.Picking;
 using PasteFlow.App.Screen;
 using PasteFlow.App.Settings;
 using PasteFlow.App.Tray;
@@ -72,6 +73,11 @@ internal static class Program
             fillMemory,
             highlighter);
         using var undo = new UndoShortcutService(undoHotkeyListener, fillMemory, formAccess, formAccess, notifier);
+
+        // Outside a form, the shortcut pastes at the cursor, or lets the user choose
+        activation.CaretReader = formAccess;
+        activation.Picker = new PastePicker();
+        activation.Inserter = new KeyboardTextInserter();
 
         void Apply(AppSettings chosen)
         {

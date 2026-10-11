@@ -159,4 +159,66 @@ internal static partial class NativeMethods
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool PrintWindow(IntPtr hwnd, IntPtr hdcBlt, uint nFlags);
+
+    /// <summary>
+    /// Brings a window to the front and gives it the keyboard.
+    /// </summary>
+    /// <param name="hWnd">The window.</param>
+    /// <returns><see langword="true"/> if the window was brought to the front; otherwise <see langword="false"/>.</returns>
+    [LibraryImport("user32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetForegroundWindow(IntPtr hWnd);
+
+    /// <summary>
+    /// Sends keystrokes as if typed on the keyboard.
+    /// </summary>
+    /// <param name="cInputs">The number of keystrokes.</param>
+    /// <param name="pInputs">The keystrokes.</param>
+    /// <param name="cbSize">The size of one <see cref="Input"/>, in bytes.</param>
+    /// <returns>The number of keystrokes sent.</returns>
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    internal static partial uint SendInput(uint cInputs, [In] Input[] pInputs, int cbSize);
+
+    /// <summary>
+    /// Tells whether a key is held down right now.
+    /// </summary>
+    /// <param name="vKey">The virtual-key code, for example VK_CONTROL (0x11).</param>
+    /// <returns>A value whose highest bit is set while the key is down.</returns>
+    [LibraryImport("user32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    internal static partial short GetAsyncKeyState(int vKey);
+
+    /// <summary>
+    /// Gets where the text cursor of a thread is, for applications that show a classic Windows caret.
+    /// </summary>
+    /// <param name="idThread">The thread, or 0 for the thread of the foreground window.</param>
+    /// <param name="pgui">The information, with its size set beforehand.</param>
+    /// <returns><see langword="true"/> on success; otherwise <see langword="false"/>.</returns>
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetGUIThreadInfo(uint idThread, ref GuiThreadInfo pgui);
+
+    /// <summary>
+    /// Converts a point of the inside of a window to screen pixels.
+    /// </summary>
+    /// <param name="hWnd">The window.</param>
+    /// <param name="lpPoint">The point, converted in place.</param>
+    /// <returns><see langword="true"/> on success; otherwise <see langword="false"/>.</returns>
+    [LibraryImport("user32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool ClientToScreen(IntPtr hWnd, ref NativePoint lpPoint);
+
+    /// <summary>
+    /// Gets the position of the mouse pointer in screen pixels.
+    /// </summary>
+    /// <param name="lpPoint">The position.</param>
+    /// <returns><see langword="true"/> on success; otherwise <see langword="false"/>.</returns>
+    [LibraryImport("user32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetCursorPos(out NativePoint lpPoint);
 }

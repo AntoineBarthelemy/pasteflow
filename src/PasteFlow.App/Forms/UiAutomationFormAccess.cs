@@ -1,8 +1,10 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
+using System.Windows.Automation.Text;
 using PasteFlow.App.Interop;
 using PasteFlow.Core.Forms;
+using PasteFlow.Core.Picking;
 
 namespace PasteFlow.App.Forms;
 
@@ -15,7 +17,7 @@ namespace PasteFlow.App.Forms;
 /// Each reading gives its fields new identifiers, and the fields of the last few readings stay reachable,
 /// so that a fill can be undone even after the shortcut was pressed in another window.
 /// </remarks>
-internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IFieldValueReader
+internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IFieldValueReader, ICaretReader
 {
     /// <summary>
     /// The number of readings whose fields stay reachable.
@@ -23,6 +25,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
     internal const int RememberedReadingCount = 3;
 
     private const int MaxReadAttempts = 2;
+    private const int MaxTextBeforeCaret = 200;
 
     private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(100);
 
@@ -80,6 +83,79 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
         return Task.Run(() => TryReadValue(target), cancellationToken);
     }
 
+    /// <inheritdoc/>
+    public Task<CaretContext?> ReadCaretAsync(CancellationToken cancellationToken)
+    {
+        return Task.Run(ReadCaret, cancellationToken);
+    }
+
+    /// <summary>
+    /// Determines whether an element is a place where the user can type: a text box, an editable combo box, or a
+    /// document showing a text cursor (a page being written, not a page being read).
+    /// </summary>
+    /// <param name="element">The element.</param>
+    /// <returns><see langword="true"/> if text can be typed there; otherwise <see langword="false"/>.</returns>
+    internal static bool IsEditable(AutomationElement element)
+    {
+        var current = element.Current;
+        if (current.IsPassword || !current.IsEnabled)
+        {
+            return false;
+        }
+
+        var valuePattern = element.TryGetCurrentPattern(ValuePattern.Pattern, out var value) ? value as ValuePattern : null;
+        if (current.ControlType == ControlType.Edit)
+        {
+            return valuePattern is null || !valuePattern.Current.IsReadOnly;
+        }
+
+        if (current.ControlType == ControlType.ComboBox)
+        {
+            return valuePattern is { Current.IsReadOnly: false };
+        }
+
+        if (current.ControlType != ControlType.Document)
+        {
+            return false;
+        }
+
+        if (valuePattern is { Current.IsReadOnly: false })
+        {
+            return true;
+        }
+
+        // A document being written shows a blinking cursor: an empty selection
+        return element.TryGetCurrentPattern(TextPattern.Pattern, out var text)
+            && text is TextPattern textPattern
+            && textPattern.GetSelection() is [var caret]
+            && caret.CompareEndpoints(TextPatternRangeEndpoint.Start, caret, TextPatternRangeEndpoint.End) == 0;
+    }
+
+    /// <summary>
+    /// Reads the text written just before the cursor of an element, on the current line or the lines above.
+    /// </summary>
+    /// <param name="element">The element holding the cursor.</param>
+    /// <returns>Up to 200 characters before the cursor, or the end of the value when the cursor cannot be found.</returns>
+    internal static string ReadTextBeforeCaret(AutomationElement element)
+    {
+        if (element.TryGetCurrentPattern(TextPattern.Pattern, out var text) && text is TextPattern textPattern
+            && textPattern.GetSelection() is { Length: > 0 } selection)
+        {
+            var before = selection[0].Clone();
+            before.MoveEndpointByRange(TextPatternRangeEndpoint.End, selection[0], TextPatternRangeEndpoint.Start);
+            _ = before.MoveEndpointByUnit(TextPatternRangeEndpoint.Start, TextUnit.Character, -MaxTextBeforeCaret);
+            return before.GetText(MaxTextBeforeCaret);
+        }
+
+        if (element.TryGetCurrentPattern(ValuePattern.Pattern, out var value) && value is ValuePattern valuePattern)
+        {
+            var whole = valuePattern.Current.Value ?? string.Empty;
+            return whole.Length > MaxTextBeforeCaret ? whole[^MaxTextBeforeCaret..] : whole;
+        }
+
+        return string.Empty;
+    }
+
     /// <summary>
     /// Determines whether a text box belongs to a combo box, which stands for it.
     /// </summary>
@@ -119,6 +195,25 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
 
         // Web pages often expose the placeholder as help text
         return current.HelpText?.Trim() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Describes the place of an element holding the cursor, tying it to a field of the last reading of the form.
+    /// </summary>
+    /// <param name="element">The element holding the cursor.</param>
+    /// <returns>The place of the cursor.</returns>
+    internal CaretContext DescribeCaret(AutomationElement element)
+    {
+        // The text box of a combo box is the combo box itself for the form
+        var field = IsInsideComboBox(element) ? TreeWalker.ControlViewWalker.GetParent(element) ?? element : element;
+        var isEditable = IsEditable(element);
+        return new CaretContext
+        {
+            IsEditable = isEditable,
+            FocusedFieldId = FindLastReadingId(field),
+            FieldLabel = ReadLabel(field.Current),
+            TextBefore = isEditable ? ReadTextBeforeCaret(element) : string.Empty,
+        };
     }
 
     /// <summary>
@@ -377,6 +472,38 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
 
         Remember(elements, windowHandle);
         return fields;
+    }
+
+    private CaretContext? ReadCaret()
+    {
+        try
+        {
+            return AutomationElement.FocusedElement is { } focused ? DescribeCaret(focused) : null;
+        }
+        catch (ElementNotAvailableException)
+        {
+            // The element lost the focus while being read
+            return null;
+        }
+        catch (COMException)
+        {
+            // The application does not answer accessibility requests
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            // The text of the element cannot be read around the cursor
+            return null;
+        }
+    }
+
+    private string? FindLastReadingId(AutomationElement element)
+    {
+        lock (_gate)
+        {
+            var lastIds = _readingIds.LastOrDefault() ?? Array.Empty<string>();
+            return lastIds.FirstOrDefault(id => _rememberedFields.TryGetValue(id, out var remembered) && Automation.Compare(remembered.Element, element));
+        }
     }
 
     private void Remember(Dictionary<string, AutomationElement> elements, IntPtr windowHandle)
