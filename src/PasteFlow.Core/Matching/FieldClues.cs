@@ -105,6 +105,10 @@ public sealed partial class FieldClues
     /// <summary>
     /// Measures how much a label talks about the same thing as the field, through its best matching clue.
     /// </summary>
+    /// <remarks>
+    /// When the field says more than the shape of its value, only that counts: for "Date d'échéance", "Échéance"
+    /// matches and "Date de facture" does not, though both are dates.
+    /// </remarks>
     /// <param name="labelConcepts">The concepts of the label to compare.</param>
     /// <returns>A value from 0 (nothing in common) to 1 (same concepts).</returns>
     public double Similarity(IReadOnlySet<string> labelConcepts)
@@ -113,7 +117,19 @@ public sealed partial class FieldClues
 
         return _conceptSets.Length == 0
             ? 0
-            : _conceptSets.Max(concepts => LabelConcepts.Similarity(concepts, labelConcepts));
+            : _conceptSets.Max(concepts => SpecificSimilarity(concepts, labelConcepts));
+    }
+
+    private static double SpecificSimilarity(IReadOnlySet<string> fieldConcepts, IReadOnlySet<string> labelConcepts)
+    {
+        var specific = fieldConcepts.Where(concept => !LabelConcepts.ShapeConcepts.Contains(concept)).ToHashSet(StringComparer.Ordinal);
+        if (specific.Count == 0 || specific.Count == fieldConcepts.Count)
+        {
+            return LabelConcepts.Similarity(fieldConcepts, labelConcepts);
+        }
+
+        var labelSpecific = labelConcepts.Where(concept => !LabelConcepts.ShapeConcepts.Contains(concept)).ToHashSet(StringComparer.Ordinal);
+        return LabelConcepts.Similarity(specific, labelSpecific);
     }
 
     /// <summary>

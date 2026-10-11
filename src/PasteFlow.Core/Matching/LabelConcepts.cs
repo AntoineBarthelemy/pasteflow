@@ -214,6 +214,15 @@ public static class LabelConcepts
     };
 
     /// <summary>
+    /// Gets the concepts that only name the shape of a value, such as "date" or "email": next to a more specific word,
+    /// as in "Date d'échéance", they do not tell which value is meant.
+    /// </summary>
+    public static IReadOnlySet<string> ShapeConcepts { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        Email, Phone, Website, Date, Amount,
+    };
+
+    /// <summary>
     /// Gets the concepts a label talks about. Words without a known synonym are kept as their own concept.
     /// </summary>
     /// <param name="label">The label, in any case, with or without accents.</param>
