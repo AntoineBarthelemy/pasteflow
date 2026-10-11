@@ -1,0 +1,562 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "signature",
+      "group": "Formulaires",
+      "title": "Signature de mail vers formulaire de contact",
+      "checks": "Lit une signature, reconnaît chaque valeur, la met au format du champ (téléphone sans espace, date JJ/MM/AAAA), recopie l'e-mail dans la confirmation et laisse le message vide.",
+      "sources": [
+        {
+          "title": "Mail de Marie Lefèvre",
+          "text": "Bonjour,\n\nMerci pour votre commande CMD-48213, elle sera livrée le 14/10/2026.\n\nCordialement,\nMarie Lefèvre\nResponsable achats\nBoulangerie Martin SARL\n14 avenue Jean Jaurès\n51100 Reims\nFrance\nTél. 03 26 47 21 85\nmarie.lefevre@boulangerie-martin.fr"
+        }
+      ],
+      "form": [
+        {
+          "id": "prenom",
+          "label": "Prénom"
+        },
+        {
+          "id": "nom",
+          "label": "Nom"
+        },
+        {
+          "id": "societe",
+          "label": "Société"
+        },
+        {
+          "id": "email",
+          "label": "Adresse e-mail",
+          "hint": "ex : jean.dupont@exemple.fr"
+        },
+        {
+          "id": "email2",
+          "label": "Confirmez votre e-mail"
+        },
+        {
+          "id": "tel",
+          "label": "Téléphone",
+          "hint": "ex : 0612345678"
+        },
+        {
+          "id": "cp",
+          "label": "Code postal"
+        },
+        {
+          "id": "ville",
+          "label": "Ville"
+        },
+        {
+          "id": "pays",
+          "label": "Pays"
+        },
+        {
+          "id": "commande",
+          "label": "N° de commande"
+        },
+        {
+          "id": "date",
+          "label": "Date de livraison",
+          "hint": "JJ/MM/AAAA"
+        },
+        {
+          "id": "message",
+          "label": "Votre message",
+          "kind": "textarea"
+        }
+      ],
+      "expected": {
+        "prenom": "Marie",
+        "nom": "Lefèvre",
+        "societe": "Boulangerie Martin SARL",
+        "email": "marie.lefevre@boulangerie-martin.fr",
+        "email2": "marie.lefevre@boulangerie-martin.fr",
+        "tel": "0326472185",
+        "cp": "51100",
+        "ville": "Reims",
+        "pays": "France",
+        "commande": "CMD-48213",
+        "date": "14/10/2026",
+        "message": ""
+      },
+      "after": [
+        "Ctrl+Alt+Z : tous les champs remplis se vident.",
+        "Refais Ctrl+Alt+V, change le prénom à la main, puis Ctrl+Alt+Z : le prénom modifié reste, le reste se vide."
+      ]
+    },
+    {
+      "id": "formats",
+      "group": "Formulaires",
+      "title": "Formats demandés par les champs",
+      "checks": "Réécrit la date, le téléphone, l'IBAN et le montant au format montré par chaque champ.",
+      "sources": [
+        {
+          "title": "Confirmation de rendez-vous",
+          "text": "Votre rendez-vous est fixé au 05/03/2027.\nTél. : 06 47 21 85 39\nIBAN : FR76 3000 6000 0112 3456 7890 189\nMontant à régler : 1 249,90 €"
+        }
+      ],
+      "form": [
+        {
+          "id": "date",
+          "label": "Date du rendez-vous",
+          "hint": "AAAA-MM-JJ"
+        },
+        {
+          "id": "tel",
+          "label": "Téléphone",
+          "hint": "ex : +33 6 12 34 56 78"
+        },
+        {
+          "id": "iban",
+          "label": "IBAN (sans espace)"
+        },
+        {
+          "id": "montant",
+          "label": "Montant",
+          "hint": "0,00"
+        }
+      ],
+      "expected": {
+        "date": "2027-03-05",
+        "tel": "+33 6 47 21 85 39",
+        "iban": "FR7630006000011234567890189",
+        "montant": "1249,90"
+      }
+    },
+    {
+      "id": "facture",
+      "group": "Formulaires",
+      "title": "Facture : deux dates, une référence",
+      "checks": "Choisit la bonne date grâce à l'étiquette (échéance, pas date de facture) et reprend référence, montant et IBAN.",
+      "sources": [
+        {
+          "title": "Facture FAC-2026-118",
+          "text": "FACTURE N° FAC-2026-118\nDate : 02/10/2026\nÉchéance : 01/11/2026\nTotal TTC : 49,90 €\nIBAN : FR76 3000 6000 0112 3456 7890 189"
+        }
+      ],
+      "form": [
+        {
+          "id": "ref",
+          "label": "Référence de la facture"
+        },
+        {
+          "id": "montant",
+          "label": "Montant"
+        },
+        {
+          "id": "iban",
+          "label": "IBAN"
+        },
+        {
+          "id": "echeance",
+          "label": "Date d'échéance"
+        }
+      ],
+      "expected": {
+        "ref": "FAC-2026-118",
+        "montant": "49,90 €",
+        "iban": "FR76 3000 6000 0112 3456 7890 189",
+        "echeance": "01/11/2026"
+      }
+    },
+    {
+      "id": "noms-majuscules",
+      "group": "Noms",
+      "title": "Nom de famille en majuscules",
+      "checks": "Coupe « BARTHÉLÉMY Antoine » en prénom et nom, même avec le nom en premier.",
+      "sources": [
+        {
+          "title": "Mail",
+          "text": "Cordialement,\nBARTHÉLÉMY Antoine"
+        }
+      ],
+      "form": [
+        {
+          "id": "prenom",
+          "label": "Prénom"
+        },
+        {
+          "id": "nom",
+          "label": "Nom"
+        }
+      ],
+      "expected": {
+        "prenom": "Antoine",
+        "nom": "BARTHÉLÉMY"
+      }
+    },
+    {
+      "id": "nom-complet",
+      "group": "Noms",
+      "title": "Un seul champ Nom",
+      "checks": "Sans champ Prénom, « Nom » reçoit le nom complet.",
+      "sources": [
+        {
+          "title": "Mail de Marie Lefèvre",
+          "text": "Bonjour,\n\nMerci pour votre commande CMD-48213, elle sera livrée le 14/10/2026.\n\nCordialement,\nMarie Lefèvre\nResponsable achats\nBoulangerie Martin SARL\n14 avenue Jean Jaurès\n51100 Reims\nFrance\nTél. 03 26 47 21 85\nmarie.lefevre@boulangerie-martin.fr"
+        }
+      ],
+      "form": [
+        {
+          "id": "nom",
+          "label": "Nom"
+        },
+        {
+          "id": "email",
+          "label": "Email"
+        }
+      ],
+      "expected": {
+        "nom": "Marie Lefèvre",
+        "email": "marie.lefevre@boulangerie-martin.fr"
+      }
+    },
+    {
+      "id": "prenom-pays",
+      "group": "Noms",
+      "title": "Un prénom qui est aussi un pays",
+      "checks": "« Prénom : Maurice » reste un prénom : le champ Pays reste vide.",
+      "sources": [
+        {
+          "title": "Fiche",
+          "text": "Prénom : Maurice\nNom : Durand"
+        }
+      ],
+      "form": [
+        {
+          "id": "prenom",
+          "label": "Prénom"
+        },
+        {
+          "id": "pays",
+          "label": "Pays"
+        }
+      ],
+      "expected": {
+        "prenom": "Maurice",
+        "pays": ""
+      }
+    },
+    {
+      "id": "exemples",
+      "group": "Pièges",
+      "title": "Exemples et textes d'aide",
+      "checks": "Ne colle jamais un exemple (jean.dupont@exemple.fr, 06 00 00 00 00, Jean Dupont).",
+      "sources": [
+        {
+          "title": "Page d'aide",
+          "text": "Adresse e-mail (ex : jean.dupont@exemple.fr)\nTéléphone : 06 00 00 00 00\nNom : Jean Dupont\nDate : JJ/MM/AAAA"
+        }
+      ],
+      "form": [
+        {
+          "id": "email",
+          "label": "Email"
+        },
+        {
+          "id": "tel",
+          "label": "Téléphone"
+        },
+        {
+          "id": "nom",
+          "label": "Nom"
+        }
+      ],
+      "expected": {
+        "email": "",
+        "tel": "",
+        "nom": ""
+      }
+    },
+    {
+      "id": "cp-ville",
+      "group": "Pièges",
+      "title": "Code postal d'une autre ville",
+      "checks": "51500 n'est pas le code de Reims : code postal et ville sont laissés à vérifier.",
+      "sources": [
+        {
+          "title": "Bon de livraison",
+          "text": "Livraison :\nAntoine Barthélémy\n3 rue des Vignes\n51500 Reims\nVille : Reims"
+        }
+      ],
+      "form": [
+        {
+          "id": "cp",
+          "label": "Code postal"
+        },
+        {
+          "id": "ville",
+          "label": "Ville"
+        }
+      ],
+      "expected": {
+        "cp": "",
+        "ville": ""
+      }
+    },
+    {
+      "id": "en-tetes",
+      "group": "Pièges",
+      "title": "En-têtes de tableau",
+      "checks": "Ne prend pas « NOM », « PRÉNOM » ou « FACTURE » pour des valeurs.",
+      "sources": [
+        {
+          "title": "Tableau de commandes",
+          "text": "NOM          PRÉNOM       VILLE\nCommande     Statut       Total\nFACTURE\nTotal : 49,90 €"
+        }
+      ],
+      "form": [
+        {
+          "id": "ville",
+          "label": "Ville"
+        },
+        {
+          "id": "prenom",
+          "label": "Prénom"
+        },
+        {
+          "id": "nom",
+          "label": "Nom"
+        }
+      ],
+      "expected": {
+        "ville": "",
+        "prenom": "",
+        "nom": ""
+      }
+    },
+    {
+      "id": "hesitation",
+      "group": "Pièges",
+      "title": "Deux valeurs possibles, aucun indice",
+      "checks": "Deux e-mails sans indice : le champ reste vide, encadré en orange, avec les deux adresses proposées (Ctrl+Maj+1 ou 2).",
+      "sources": [
+        {
+          "title": "Équipe",
+          "text": "Léa : lea.martin@atelier-nova.fr\nHugo : hugo@atelier-nova.fr"
+        }
+      ],
+      "form": [
+        {
+          "id": "email",
+          "label": "Email"
+        }
+      ],
+      "expected": {
+        "email": ""
+      },
+      "after": [
+        "Clique dans le champ Email : la bulle de propositions apparaît.",
+        "Ctrl+Maj+1 colle la première proposition."
+      ]
+    },
+    {
+      "id": "intouchables",
+      "group": "Champs protégés",
+      "title": "Mot de passe, recherche, liste, champ déjà rempli",
+      "checks": "1er appui : rien n'est touché. 2e appui dans les 8 secondes : l'e-mail déjà rempli est remplacé, jamais le mot de passe, la recherche ou la liste.",
+      "sources": [
+        {
+          "title": "Fiche contact",
+          "text": "Contact : Paul Girard\npaul.girard@cabinet-girard.fr\nMot de passe : Soleil2026!"
+        }
+      ],
+      "form": [
+        {
+          "id": "email",
+          "label": "Email",
+          "value": "ancien.contact@orange.fr"
+        },
+        {
+          "id": "mdp",
+          "label": "Mot de passe",
+          "kind": "password"
+        },
+        {
+          "id": "recherche",
+          "label": "Rechercher",
+          "kind": "search"
+        },
+        {
+          "id": "pays",
+          "label": "Pays",
+          "kind": "choice",
+          "options": [
+            "France",
+            "Belgique",
+            "Suisse"
+          ]
+        }
+      ],
+      "expected": {
+        "email": "ancien.contact@orange.fr",
+        "mdp": "",
+        "recherche": "",
+        "pays": ""
+      },
+      "secondPress": {
+        "email": "paul.girard@cabinet-girard.fr",
+        "mdp": "",
+        "recherche": "",
+        "pays": ""
+      },
+      "after": [
+        "Ctrl+Alt+Z après le 2e appui : l'ancienne adresse revient."
+      ]
+    },
+    {
+      "id": "copie-formulaire",
+      "group": "Deux fenêtres",
+      "title": "Copier un formulaire rempli dans un autre",
+      "twoWindows": true,
+      "checks": "Les champs remplis de la fenêtre source sont repris sous la même étiquette, description sur plusieurs lignes comprise. La recherche n'est pas reprise.",
+      "sources": [
+        {
+          "title": "Détails de la vidéo",
+          "text": "Détails de la vidéo",
+          "fields": [
+            {
+              "id": "src-search",
+              "label": "Search across your channel",
+              "value": "tuto"
+            },
+            {
+              "id": "src-title",
+              "label": "Title (required)",
+              "value": "Mon tuto PasteFlow"
+            },
+            {
+              "id": "src-desc",
+              "label": "Description",
+              "value": "Dans cette vidéo, je montre comment remplir un formulaire sans souris.\n\nLe code : https://github.com/AntoineBarthelemy/pasteflow\nContact : antoine.b@orange.fr",
+              "kind": "textarea"
+            }
+          ]
+        }
+      ],
+      "form": [
+        {
+          "id": "search",
+          "label": "Search across your channel",
+          "kind": "search"
+        },
+        {
+          "id": "title",
+          "label": "Title (required)"
+        },
+        {
+          "id": "desc",
+          "label": "Description",
+          "kind": "textarea"
+        }
+      ],
+      "expected": {
+        "search": "",
+        "title": "Mon tuto PasteFlow",
+        "desc": "Dans cette vidéo, je montre comment remplir un formulaire sans souris.\n\nLe code : https://github.com/AntoineBarthelemy/pasteflow\nContact : antoine.b@orange.fr"
+      }
+    },
+    {
+      "id": "destinataire",
+      "group": "Deux fenêtres",
+      "title": "Destinataire désigné par « Bonjour Léa »",
+      "twoWindows": true,
+      "checks": "Deux adresses dans la réponse de Claude, mais le message commence par « Bonjour Léa » : « À » reçoit l'adresse de Léa, « Cc » reste vide.",
+      "sources": [
+        {
+          "title": "Claude",
+          "text": "Voici les contacts que j'ai trouvés :\nLéa Martin, responsable communication\nlea.martin@atelier-nova.fr\n06 12 48 30 77\n\nHugo Bernard, fondateur\nhugo@atelier-nova.fr\n\nLe mieux est d'écrire d'abord à Léa. Elle gère l'agenda d'Hugo."
+        }
+      ],
+      "page": "Bonjour Léa,\nJe prépare une interview pour ma chaîne et j'aimerais beaucoup recevoir Hugo.",
+      "form": [
+        {
+          "id": "to",
+          "label": "À"
+        },
+        {
+          "id": "cc",
+          "label": "Cc"
+        }
+      ],
+      "expected": {
+        "to": "lea.martin@atelier-nova.fr",
+        "cc": ""
+      }
+    },
+    {
+      "id": "destinataire-ambigu",
+      "group": "Deux fenêtres",
+      "title": "Message pour tout le monde",
+      "twoWindows": true,
+      "checks": "« Bonjour à tous » ne désigne personne : « À » reste vide, avec les deux adresses proposées.",
+      "sources": [
+        {
+          "title": "Claude",
+          "text": "Voici les contacts que j'ai trouvés :\nLéa Martin, responsable communication\nlea.martin@atelier-nova.fr\n06 12 48 30 77\n\nHugo Bernard, fondateur\nhugo@atelier-nova.fr\n\nLe mieux est d'écrire d'abord à Léa. Elle gère l'agenda d'Hugo."
+        }
+      ],
+      "page": "Bonjour à tous,\nPetit point sur l'interview de la semaine prochaine.",
+      "form": [
+        {
+          "id": "to",
+          "label": "À"
+        }
+      ],
+      "expected": {
+        "to": ""
+      }
+    },
+    {
+      "id": "image",
+      "group": "Deux fenêtres",
+      "title": "Texte lu dans une image",
+      "twoWindows": true,
+      "image": true,
+      "checks": "L'image n'a pas de texte lisible par Windows : l'outil la lit par OCR. Les valeurs lues dans une image sont seulement proposées, jamais écrites.",
+      "sources": [
+        {
+          "title": "Bon de commande scanné",
+          "text": "Commande n° CMD-77120\nmarie.lefevre@boulangerie-martin.fr",
+          "image": true
+        }
+      ],
+      "form": [
+        {
+          "id": "email",
+          "label": "Email"
+        },
+        {
+          "id": "commande",
+          "label": "N° de commande"
+        }
+      ],
+      "expected": {
+        "email": "",
+        "commande": ""
+      }
+    },
+    {
+      "id": "historique",
+      "group": "Mémoire",
+      "title": "Une valeur apprise",
+      "manual": true,
+      "checks": "Une valeur utilisée deux fois dans le même type de champ est reprise quand l'écran ne dit rien.",
+      "steps": [
+        "Fais deux fois le scénario « Signature de mail » (Ctrl+Alt+V, puis Tout vider, puis Ctrl+Alt+V).",
+        "Reviens ici, ferme la fenêtre source, clique dans Ville et appuie sur Ctrl+Alt+V : Reims revient tout seul."
+      ],
+      "sources": [],
+      "form": [
+        {
+          "id": "ville",
+          "label": "Ville"
+        }
+      ],
+      "expected": {
+        "ville": "Reims"
+      }
+    }
+  ]
+}
