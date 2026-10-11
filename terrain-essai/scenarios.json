@@ -557,6 +557,125 @@
       "expected": {
         "ville": "Reims"
       }
+    },
+    {
+      "id": "partout-sur",
+      "group": "Coller n'importe où",
+      "title": "Message : la valeur demandée juste avant le curseur",
+      "manual": true,
+      "checks": "Hors formulaire, les mots juste avant le curseur disent quoi coller : « son téléphone : » appelle le téléphone, collé tout de suite au curseur.",
+      "steps": [
+        "Laisse la source visible (« Tout » ou une 2e fenêtre derrière).",
+        "Clique tout au bout du message, après « son téléphone : ».",
+        "Appuie sur Ctrl+Alt+V : le numéro s'écrit au curseur, sans liste.",
+        "Clique sur Vérifier."
+      ],
+      "sources": [
+        {
+          "title": "Claude",
+          "text": "Voici les contacts que j'ai trouvés :\nLéa Martin, responsable communication\nlea.martin@atelier-nova.fr\n06 12 48 30 77\n\nHugo Bernard, fondateur\nhugo@atelier-nova.fr\n\nLe mieux est d'écrire d'abord à Léa. Elle gère l'agenda d'Hugo."
+        }
+      ],
+      "form": [
+        {
+          "id": "msg",
+          "label": "Message à Paul",
+          "kind": "textarea",
+          "value": "Salut Paul, tu peux appeler Léa, son téléphone : "
+        }
+      ],
+      "expected": {
+        "msg": "Salut Paul, tu peux appeler Léa, son téléphone : 06 12 48 30 77"
+      }
+    },
+    {
+      "id": "partout-liste",
+      "group": "Coller n'importe où",
+      "title": "Aucun indice : la liste au curseur",
+      "manual": true,
+      "checks": "Rien n'indique quoi coller : une liste s'ouvre sous le curseur avec les valeurs les plus probables, numérotées de 1 à 5.",
+      "steps": [
+        "Clique tout au bout du message, après « Tiens : ».",
+        "Appuie sur Ctrl+Alt+V : la liste s'ouvre sous le curseur.",
+        "Choisis l'adresse de Hugo avec les flèches puis Entrée (ou son numéro).",
+        "Clique sur Vérifier."
+      ],
+      "sources": [
+        {
+          "title": "Claude",
+          "text": "Voici les contacts que j'ai trouvés :\nLéa Martin, responsable communication\nlea.martin@atelier-nova.fr\n06 12 48 30 77\n\nHugo Bernard, fondateur\nhugo@atelier-nova.fr\n\nLe mieux est d'écrire d'abord à Léa. Elle gère l'agenda d'Hugo."
+        }
+      ],
+      "form": [
+        {
+          "id": "msg",
+          "label": "Message à Paul",
+          "kind": "textarea",
+          "value": "Tiens : "
+        }
+      ],
+      "expected": {
+        "msg": "Tiens : hugo@atelier-nova.fr"
+      }
+    },
+    {
+      "id": "partout-recherche",
+      "group": "Coller n'importe où",
+      "title": "Un bout de phrase, trouvé en tapant",
+      "manual": true,
+      "checks": "Dans la liste, taper quelques lettres cherche dans les fenêtres et coupe au bout des mots : « agenda d'hu » donne « agenda d'Hugo ».",
+      "steps": [
+        "Clique tout au bout du message, après « Elle gère ».",
+        "Ctrl+Alt+V, puis tape « agenda d'hu » dans la liste.",
+        "Entrée.",
+        "Clique sur Vérifier."
+      ],
+      "sources": [
+        {
+          "title": "Claude",
+          "text": "Voici les contacts que j'ai trouvés :\nLéa Martin, responsable communication\nlea.martin@atelier-nova.fr\n06 12 48 30 77\n\nHugo Bernard, fondateur\nhugo@atelier-nova.fr\n\nLe mieux est d'écrire d'abord à Léa. Elle gère l'agenda d'Hugo."
+        }
+      ],
+      "form": [
+        {
+          "id": "msg",
+          "label": "Message à Paul",
+          "kind": "textarea",
+          "value": "Elle gère "
+        }
+      ],
+      "expected": {
+        "msg": "Elle gère l'agenda d'Hugo"
+      }
+    },
+    {
+      "id": "partout-phrase",
+      "group": "Coller n'importe où",
+      "title": "La phrase entière, puis au mot près",
+      "manual": true,
+      "checks": "Tab élargit à la phrase ; Ctrl+Maj+← enlève le dernier mot.",
+      "steps": [
+        "Clique dans le message vide.",
+        "Ctrl+Alt+V, tape « le mieux », puis Tab : la phrase entière s'affiche.",
+        "Ctrl+Maj+← trois fois : « Léa. », « à » puis « d'abord » partent, il reste « Le mieux est d'écrire ».",
+        "Entrée, puis Vérifier."
+      ],
+      "sources": [
+        {
+          "title": "Claude",
+          "text": "Voici les contacts que j'ai trouvés :\nLéa Martin, responsable communication\nlea.martin@atelier-nova.fr\n06 12 48 30 77\n\nHugo Bernard, fondateur\nhugo@atelier-nova.fr\n\nLe mieux est d'écrire d'abord à Léa. Elle gère l'agenda d'Hugo."
+        }
+      ],
+      "form": [
+        {
+          "id": "msg",
+          "label": "Note",
+          "kind": "textarea"
+        }
+      ],
+      "expected": {
+        "msg": "Le mieux est d'écrire"
+      }
     }
   ]
 }
