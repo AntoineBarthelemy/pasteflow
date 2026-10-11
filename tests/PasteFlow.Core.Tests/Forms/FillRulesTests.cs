@@ -51,4 +51,29 @@ public sealed class FillRulesTests
     {
         Assert.False(FillRules.IsSearchBox(TestFields.Text("field", label)));
     }
+
+    [Fact]
+    public void CanReplace_WithTextFieldFilledByUser_ReturnsTrue()
+    {
+        Assert.True(FillRules.CanReplace(TestFields.Text("1", "Title (required)", hasValue: true)));
+    }
+
+    [Fact]
+    public void CanReplace_WithEmptyField_ReturnsFalse()
+    {
+        Assert.False(FillRules.CanReplace(TestFields.Text("1", "Nom")));
+    }
+
+    [Fact]
+    public void CanReplace_WithFilledSearchBox_ReturnsFalse()
+    {
+        Assert.False(FillRules.CanReplace(TestFields.Text("1", "Search across your channel", hasValue: true)));
+    }
+
+    [Fact]
+    public void CanReplace_WithChoiceOrPassword_ReturnsFalse()
+    {
+        Assert.False(FillRules.CanReplace(TestFields.Choice("1", "Pays", hasValue: true)));
+        Assert.False(FillRules.CanReplace(TestFields.Password("2", "Mot de passe")));
+    }
 }

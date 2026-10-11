@@ -40,6 +40,22 @@ public sealed class UndoReportTests
             Report(emptied: 0, changed: 0, failed: 2).Describe());
     }
 
+    [Fact]
+    public void Describe_WithValuesPutBack_SaysSo()
+    {
+        Assert.Equal(
+            "Annulé : 1 champ vidé, 2 remis comme avant.",
+            (Report(emptied: 1, changed: 0, failed: 0) with { RestoredCount = 2 }).Describe());
+    }
+
+    [Fact]
+    public void Describe_WithOnlyValuesPutBack_DoesNotSayTheFormWasClosed()
+    {
+        Assert.Equal(
+            "Annulé : 1 remis comme avant.",
+            (Report(emptied: 0, changed: 0, failed: 0) with { RestoredCount = 1 }).Describe());
+    }
+
     private static UndoReport Report(int emptied, int changed, int failed)
     {
         return new UndoReport { EmptiedCount = emptied, ChangedCount = changed, FailedCount = failed };

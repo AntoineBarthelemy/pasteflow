@@ -11,6 +11,11 @@ public sealed record UndoReport
     public required int EmptiedCount { get; init; }
 
     /// <summary>
+    /// Gets the number of fields whose value was replaced by the fill and is now put back.
+    /// </summary>
+    public int RestoredCount { get; init; }
+
+    /// <summary>
     /// Gets the number of fields left as they are because the user changed them since the fill.
     /// </summary>
     public required int ChangedCount { get; init; }
@@ -23,13 +28,20 @@ public sealed record UndoReport
     /// <summary>
     /// Describes the result in a short French message.
     /// </summary>
-    /// <returns>A message such as "Annulé : 3 champs vidés, 1 laissé car modifié depuis.".</returns>
+    /// <returns>
+    /// A message such as "Annulé : 3 champs vidés, 1 remis comme avant, 1 laissé car modifié depuis.".
+    /// </returns>
     public string Describe()
     {
-        var parts = new List<string>(capacity: 3);
+        var parts = new List<string>(capacity: 4);
         if (EmptiedCount > 0)
         {
             parts.Add(Count(EmptiedCount, "champ vidé", "champs vidés"));
+        }
+
+        if (RestoredCount > 0)
+        {
+            parts.Add(Count(RestoredCount, "remis comme avant", "remis comme avant"));
         }
 
         if (ChangedCount > 0)
@@ -48,7 +60,7 @@ public sealed record UndoReport
         }
 
         var message = $"Annulé : {string.Join(", ", parts)}.";
-        return EmptiedCount == 0 && ChangedCount == 0
+        return EmptiedCount == 0 && RestoredCount == 0 && ChangedCount == 0
             ? $"{message}\nLe formulaire a sans doute été fermé."
             : message;
     }

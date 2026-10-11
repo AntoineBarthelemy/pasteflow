@@ -186,6 +186,38 @@ public sealed class FillReportTests
         return new SourceSummary { Name = name, CandidateCount = candidateCount };
     }
 
+    [Fact]
+    public void Describe_WithFieldsLeftIntact_TellsHowToReplaceThem()
+    {
+        var report = Report(filled: 0, alreadyFilled: 2, failed: 0) with { ReplaceHotkey = Hotkey.Default };
+
+        Assert.Equal("Ctrl+Alt+V à nouveau pour remplacer les champs déjà remplis", report.DescribeReplaceHint());
+        Assert.Contains("\nCtrl+Alt+V à nouveau pour remplacer les champs déjà remplis.", report.Describe(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DescribeReplaceHint_WithoutFieldLeftIntactOrWhenNotOffered_ReturnsNull()
+    {
+        Assert.Null((Report(filled: 1, alreadyFilled: 0, failed: 0) with { ReplaceHotkey = Hotkey.Default }).DescribeReplaceHint());
+        Assert.Null(Report(filled: 0, alreadyFilled: 2, failed: 0).DescribeReplaceHint());
+    }
+
+    [Fact]
+    public void Summary_CountsReplacedFields()
+    {
+        var report = Report(filled: 1, alreadyFilled: 1, failed: 0) with { ReplacedCount = 2 };
+
+        Assert.Equal("1 champ rempli, 2 champs remplacés, 1 déjà rempli laissé intact", report.Summary());
+    }
+
+    [Fact]
+    public void Describe_AfterReplacingOnly_OffersToUndo()
+    {
+        var report = Report(filled: 0, alreadyFilled: 0, failed: 0) with { ReplacedCount = 1, UndoHotkey = Hotkey.DefaultUndo };
+
+        Assert.Contains("Ctrl+Alt+Z pour tout annuler.", report.Describe(), StringComparison.Ordinal);
+    }
+
     private static FillReport Report(int filled, int alreadyFilled, int failed, IReadOnlyList<SourceSummary>? sources = null)
     {
         return new FillReport

@@ -29,6 +29,19 @@ public static class FillRules
     }
 
     /// <summary>
+    /// Determines whether a field already filled may receive another value when the user asks to replace values,
+    /// by pressing the shortcut a second time: text fields only, never a password or a search box.
+    /// </summary>
+    /// <param name="field">The field to check.</param>
+    /// <returns><see langword="true"/> if the value of the field may be replaced; otherwise <see langword="false"/>.</returns>
+    public static bool CanReplace(FormField field)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+
+        return field.Kind == FieldKind.Text && field.HasValue && !IsSearchBox(field);
+    }
+
+    /// <summary>
     /// Determines whether a field is a search box, such as "Search across your channel" or "Rechercher".
     /// </summary>
     /// <param name="field">The field to check.</param>

@@ -16,4 +16,9 @@ public sealed record WrittenField
     /// Gets the value written.
     /// </summary>
     public required string Value { get; init; }
+
+    /// <summary>
+    /// Gets the value the field held before, put back when the fill is undone; empty for a field that was empty.
+    /// </summary>
+    public string PreviousValue { get; init; } = string.Empty;
 }

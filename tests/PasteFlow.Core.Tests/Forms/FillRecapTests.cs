@@ -138,6 +138,24 @@ public sealed class FillRecapTests
         Assert.Equal(new[] { "Lu à l'écran : Gmail (12).", "Ignoré : 2 exemples." }, recap.Details);
     }
 
+    [Fact]
+    public void From_WithFieldsLeftIntact_PutsTheReplaceHintFirstInDetails()
+    {
+        var report = Report() with { AlreadyFilledCount = 1, ReplaceHotkey = Hotkey.Default };
+
+        var recap = FillRecap.From(report);
+
+        Assert.Equal("Ctrl+Alt+V à nouveau pour remplacer les champs déjà remplis", recap.Details[0]);
+    }
+
+    [Fact]
+    public void From_AfterReplacingOnly_OffersToUndo()
+    {
+        var report = Report() with { ReplacedCount = 1, UndoHotkey = Hotkey.DefaultUndo };
+
+        Assert.Equal("Ctrl+Alt+Z pour tout annuler", FillRecap.From(report).UndoHint);
+    }
+
     private static FillReport Report()
     {
         return new FillReport

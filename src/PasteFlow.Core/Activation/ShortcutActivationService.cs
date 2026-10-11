@@ -17,9 +17,18 @@ namespace PasteFlow.Core.Activation;
 /// Example values and placeholders are set aside (<see cref="SampleValues"/>), then each field allowed by
 /// <see cref="FillRules"/> receives the value chosen by <see cref="FormMatcher"/>, only when the matcher is sure
 /// enough and the value is not already given to another field; the other fields are left to the user and highlighted.
+/// <para>Fields already filled are left intact. Pressing the shortcut again on the same form within
+/// <see cref="ReplaceDelay"/> also replaces their values, only with values sure enough, and only when their current
+/// value can be read so that undoing puts it back.</para>
 /// </remarks>
 public sealed class ShortcutActivationService : IDisposable
 {
+    /// <summary>
+    /// The longest time between two presses on the same form for the second one to replace the values already there.
+    /// </summary>
+    public static readonly TimeSpan ReplaceDelay = TimeSpan.FromSeconds(8);
+
+    private readonly object _pressGate = new();
     private readonly IHotkeyListener _listener;
     private readonly IFormReader _formReader;
     private readonly IFieldWriter _fieldWriter;
@@ -27,6 +36,8 @@ public sealed class ShortcutActivationService : IDisposable
     private readonly IUserNotifier _notifier;
     private readonly FillMemory _fillMemory;
     private readonly IFieldHighlighter _highlighter;
+    private DateTimeOffset? _lastPressTime;
+    private string? _lastFormSignature;
     private bool _isDisposed;
 
     /// <summary>
@@ -101,6 +112,11 @@ public sealed class ShortcutActivationService : IDisposable
     public MatchingOptions Options { get; set; } = MatchingOptions.Balanced;
 
     /// <summary>
+    /// Gets or sets the clock that tells whether two presses are close enough for the second one to replace values.
+    /// </summary>
+    public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
+
+    /// <summary>
     /// Starts listening to the given shortcut.
     /// </summary>
     /// <param name="hotkey">The shortcut to listen to.</param>
@@ -153,6 +169,16 @@ public sealed class ShortcutActivationService : IDisposable
             .ToList();
     }
 
+    /// <summary>
+    /// Describes a form by its fields, whatever their values, to recognize it when the shortcut is pressed again.
+    /// </summary>
+    /// <param name="fields">The fields of the form.</param>
+    /// <returns>The labels and technical names of the fields, in order.</returns>
+    private static string SignatureOf(IReadOnlyList<FormField> fields)
+    {
+        return string.Join('\n', fields.Select(field => $"{field.Kind}|{field.Label}|{field.TechnicalName}"));
+    }
+
     private static Dictionary<CandidateKind, int> CountRecognized(IEnumerable<Candidate> candidates)
     {
         return candidates
@@ -178,11 +204,16 @@ public sealed class ShortcutActivationService : IDisposable
     private async Task<FillReport> FillActiveFormAsync(CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
+        var pressTime = TimeProvider.GetUtcNow();
 
         // Sources are read while the form is being read
         var candidatesTask = GetAllCandidatesAsync(cancellationToken);
         var fields = await _formReader.ReadActiveFormAsync(cancellationToken);
         var allCandidates = await candidatesTask;
+
+        // Safety net: values are replaced only when they can be put back by undoing
+        var valueReader = IsSecondPress(fields, pressTime) ? _fieldWriter as IFieldValueReader : null;
+        var isReplacing = valueReader is not null;
 
         // Safety net: example values and placeholders are never pasted
         var hints = fields.Select(field => field.Hint).Where(hint => hint.Length > 0).ToList();
@@ -201,13 +232,33 @@ public sealed class ShortcutActivationService : IDisposable
         var failedCount = 0;
         var fieldsToCheck = new List<FieldToCheck>();
         var failedFields = new List<FormField>();
+        var replacedCount = 0;
 
         // Safety net: the values are chosen for the whole form at once, so one value never fills two fields
-        var fillableFields = fields.Where(FillRules.CanFill).ToList();
+        var fillableFields = fields
+            .Where(field => FillRules.CanFill(field) || (isReplacing && FillRules.CanReplace(field)))
+            .ToList();
         var textFields = fields.Where(field => field.Kind == FieldKind.Text).ToList();
         foreach (var match in FormMatcher.MatchAll(fillableFields, candidates, ReferenceData.Shared, Options, textFields))
         {
             var field = match.Field;
+            if (field.HasValue)
+            {
+                if (await TryReplaceAsync(match, valueReader!, cancellationToken) is { } replaced)
+                {
+                    replacedCount++;
+                    filledValues.Add(new FilledValue
+                    {
+                        FieldLabel = field.Label,
+                        Value = replaced.Value,
+                        SourceName = match.Candidate!.SourceName,
+                    });
+                    writtenFields.Add(replaced);
+                }
+
+                continue;
+            }
+
             if (!match.IsConfident || match.Candidate is null)
             {
                 uncertainCount++;
@@ -252,9 +303,10 @@ public sealed class ShortcutActivationService : IDisposable
 
         return new FillReport
         {
-            FilledCount = filledValues.Count,
+            FilledCount = filledValues.Count - replacedCount,
             UncertainCount = uncertainCount,
-            AlreadyFilledCount = fields.Count(field => field.Kind == FieldKind.Text && field.HasValue),
+            AlreadyFilledCount = fields.Count(FillRules.CanReplace) - replacedCount,
+            ReplacedCount = replacedCount,
             FailedCount = failedCount,
             FilledValues = filledValues,
             Sources = Summarize(allCandidates.Where(candidate => !candidate.IsFromHistory)),
@@ -264,7 +316,58 @@ public sealed class ShortcutActivationService : IDisposable
             FieldsToCheck = fieldsToCheck,
             FailedFields = failedFields,
             UndoHotkey = UndoHotkey,
+            ReplaceHotkey = isReplacing ? null : ActiveHotkey,
         };
+    }
+
+    /// <summary>
+    /// Tells whether the shortcut was just pressed on the same form, and remembers this press.
+    /// </summary>
+    /// <param name="fields">The fields of the form.</param>
+    /// <param name="pressTime">When the shortcut was pressed.</param>
+    /// <returns><see langword="true"/> if the user asks to replace the values already there; otherwise <see langword="false"/>.</returns>
+    private bool IsSecondPress(IReadOnlyList<FormField> fields, DateTimeOffset pressTime)
+    {
+        var signature = fields.Count > 0 ? SignatureOf(fields) : null;
+        lock (_pressGate)
+        {
+            var isSecondPress = signature is not null
+                && string.Equals(signature, _lastFormSignature, StringComparison.Ordinal)
+                && _lastPressTime is { } lastPressTime
+                && pressTime - lastPressTime <= ReplaceDelay;
+            _lastPressTime = pressTime;
+            _lastFormSignature = signature;
+            return isSecondPress;
+        }
+    }
+
+    /// <summary>
+    /// Replaces the value of a field already filled with a value sure enough, keeping the previous one to undo.
+    /// </summary>
+    /// <param name="match">The value chosen for the field.</param>
+    /// <param name="valueReader">The component that reads the value the field holds.</param>
+    /// <param name="cancellationToken">A token to cancel the writing.</param>
+    /// <returns>The value written, or <see langword="null"/> if the field is left as it is.</returns>
+    private async Task<WrittenField?> TryReplaceAsync(FieldMatch match, IFieldValueReader valueReader, CancellationToken cancellationToken)
+    {
+        if (!match.IsConfident || match.Candidate is null)
+        {
+            // In doubt, the value of the user stays
+            return null;
+        }
+
+        var field = match.Field;
+        var value = ValueFormatter.Adapt(match.Candidate.Value, match.Candidate.Kind, field);
+        var previousValue = await valueReader.TryReadValueAsync(field, cancellationToken);
+        if (previousValue is null || UndoRules.IsStillWritten(value, previousValue))
+        {
+            // Unreadable, it could not be put back; already the same value, nothing to replace
+            return null;
+        }
+
+        return await _fieldWriter.TryWriteAsync(field, value, cancellationToken)
+            ? new WrittenField { Field = field, Value = value, PreviousValue = previousValue }
+            : null;
     }
 
     private async Task<List<Candidate>> GetAllCandidatesAsync(CancellationToken cancellationToken)

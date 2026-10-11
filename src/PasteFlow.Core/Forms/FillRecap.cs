@@ -50,7 +50,8 @@ public sealed record FillRecap
     public string? UndoHint { get; init; }
 
     /// <summary>
-    /// Gets secondary information: the windows read and the example values set aside.
+    /// Gets secondary information: how to replace the values left intact, the windows read and the example values
+    /// set aside.
     /// </summary>
     public required IReadOnlyList<string> Details { get; init; }
 
@@ -74,7 +75,13 @@ public sealed record FillRecap
             }))
             .ToList();
 
-        var details = new List<string>(capacity: 2) { report.DescribeSources() };
+        var details = new List<string>(capacity: 3);
+        if (report.DescribeReplaceHint() is { } replaceHint)
+        {
+            details.Add(replaceHint);
+        }
+
+        details.Add(report.DescribeSources());
         if (report.DescribeIgnoredSamples() is { } ignored)
         {
             details.Add(ignored);
@@ -86,7 +93,7 @@ public sealed record FillRecap
             Duration = string.Create(CultureInfo.InvariantCulture, $"{Math.Round(report.Elapsed.TotalMilliseconds)} ms"),
             Lines = lines.Take(MaxLines).ToList(),
             HiddenLineCount = Math.Max(lines.Count - MaxLines, 0),
-            UndoHint = report.FilledCount > 0 && report.UndoHotkey is not null
+            UndoHint = report.FilledCount + report.ReplacedCount > 0 && report.UndoHotkey is not null
                 ? $"{report.UndoHotkey} pour tout annuler"
                 : null,
             Details = details,

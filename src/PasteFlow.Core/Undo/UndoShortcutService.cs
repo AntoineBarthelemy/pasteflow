@@ -8,8 +8,9 @@ namespace PasteFlow.Core.Undo;
 /// Connects the undo shortcut to the emptying of the fields written by the last fill.
 /// </summary>
 /// <remarks>
-/// Only the fields the application wrote are emptied, and only if they still hold the value written:
+/// Only the fields the application wrote are undone, and only if they still hold the value written:
 /// a field the user changed since the fill is left as it is, so that the user's own work is never erased.
+/// A field that was empty is emptied again; a field whose value was replaced gets its previous value back.
 /// </remarks>
 public sealed class UndoShortcutService : IDisposable
 {
@@ -110,7 +111,8 @@ public sealed class UndoShortcutService : IDisposable
 
     private async Task<UndoReport> UndoLastFillAsync(CancellationToken cancellationToken)
     {
-        var emptied = new List<WrittenField>();
+        var undone = new List<WrittenField>();
+        var restoredCount = 0;
         var changedCount = 0;
         var failedCount = 0;
         foreach (var written in _fillMemory.TakeLastFill())
@@ -124,9 +126,13 @@ public sealed class UndoShortcutService : IDisposable
             {
                 changedCount++;
             }
-            else if (await _fieldWriter.TryWriteAsync(written.Field, string.Empty, cancellationToken))
+            else if (await _fieldWriter.TryWriteAsync(written.Field, written.PreviousValue, cancellationToken))
             {
-                emptied.Add(written);
+                undone.Add(written);
+                if (written.PreviousValue.Length > 0)
+                {
+                    restoredCount++;
+                }
             }
             else
             {
@@ -135,7 +141,13 @@ public sealed class UndoShortcutService : IDisposable
         }
 
         // The values undone were wrong: the history forgets them
-        _fillMemory.ReportUndone(emptied);
-        return new UndoReport { EmptiedCount = emptied.Count, ChangedCount = changedCount, FailedCount = failedCount };
+        _fillMemory.ReportUndone(undone);
+        return new UndoReport
+        {
+            EmptiedCount = undone.Count - restoredCount,
+            RestoredCount = restoredCount,
+            ChangedCount = changedCount,
+            FailedCount = failedCount,
+        };
     }
 }

@@ -45,6 +45,11 @@ public sealed record FillReport
     public required int AlreadyFilledCount { get; init; }
 
     /// <summary>
+    /// Gets the number of fields already filled whose value was replaced, after a second press of the shortcut.
+    /// </summary>
+    public int ReplacedCount { get; init; }
+
+    /// <summary>
     /// Gets the number of fields that could not be written.
     /// </summary>
     public required int FailedCount { get; init; }
@@ -90,6 +95,12 @@ public sealed record FillReport
     public Hotkey? UndoHotkey { get; init; }
 
     /// <summary>
+    /// Gets the shortcut to press again to replace the values of the fields already filled, announced when some
+    /// were left intact; <see langword="null"/> when replacing is not offered, such as right after replacing.
+    /// </summary>
+    public Hotkey? ReplaceHotkey { get; init; }
+
+    /// <summary>
     /// Describes the result in a short French message.
     /// </summary>
     /// <returns>
@@ -107,9 +118,14 @@ public sealed record FillReport
             message += $"\n{DescribeFilledValue(filled)}";
         }
 
-        if (FilledCount > 0 && UndoHotkey is not null)
+        if (FilledCount + ReplacedCount > 0 && UndoHotkey is not null)
         {
             message += $"\n{UndoHotkey} pour tout annuler.";
+        }
+
+        if (DescribeReplaceHint() is { } replaceHint)
+        {
+            message += $"\n{replaceHint}.";
         }
 
         message = $"{message}\n{DescribeSources()}";
@@ -147,6 +163,11 @@ public sealed record FillReport
             parts.Add(Count(FilledCount, "champ rempli", "champs remplis"));
         }
 
+        if (ReplacedCount > 0)
+        {
+            parts.Add(Count(ReplacedCount, "champ remplacé", "champs remplacés"));
+        }
+
         if (UncertainCount > 0)
         {
             parts.Add(Count(UncertainCount, "à vérifier", "à vérifier"));
@@ -163,6 +184,20 @@ public sealed record FillReport
         }
 
         return parts.Count > 0 ? string.Join(", ", parts) : "Aucun champ à remplir dans cette fenêtre";
+    }
+
+    /// <summary>
+    /// Tells how to replace the values of the fields left intact because already filled.
+    /// </summary>
+    /// <returns>
+    /// A hint such as "Ctrl+Alt+V à nouveau pour remplacer les champs déjà remplis", or <see langword="null"/> when
+    /// no field was left intact or replacing is not offered.
+    /// </returns>
+    public string? DescribeReplaceHint()
+    {
+        return AlreadyFilledCount > 0 && ReplaceHotkey is not null
+            ? $"{ReplaceHotkey} à nouveau pour remplacer les champs déjà remplis"
+            : null;
     }
 
     /// <summary>
