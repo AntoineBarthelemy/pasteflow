@@ -158,6 +158,88 @@ public sealed class RealScreenScenarioTests : IDisposable
         _listener.Dispose();
     }
 
+    [Fact]
+    public void Fill_CopiesAFormIntoAnotherUnderTheSameLabels()
+    {
+        const string Description = "Dans cette vidéo, je montre PasteFlow.\n\nLe code : https://github.com/AntoineBarthelemy/pasteflow\nContact : antoine@exemple.fr";
+        var source = new WindowText
+        {
+            Title = "Détails de la vidéo - YouTube Studio",
+            Text = "Détails de la vidéo\nTitle (required)\nMon tuto PasteFlow\nDescription\n" + Description + "\nVisibilité\nPublique",
+            Rank = 1,
+            Fields = new[]
+            {
+                new FieldText { Label = "Search across your channel", Value = "tuto" },
+                new FieldText { Label = "Title (required)", Value = "Mon tuto PasteFlow" },
+                new FieldText { Label = "Description", Value = Description },
+            },
+        };
+        var form = new[]
+        {
+            TestFields.Text("search", "Search across your channel"),
+            TestFields.Text("title", "Title (required)"),
+            TestFields.Text("description", "Description"),
+        };
+
+        Fill(form, source);
+
+        Assert.Equal("Mon tuto PasteFlow", _fields.WrittenValues["title"]);
+        Assert.Equal(Description, _fields.WrittenValues["description"]);
+        Assert.False(_fields.WrittenValues.ContainsKey("search"));
+    }
+
+    [Fact]
+    public void Fill_FromAFilledContactForm_FillsTheSameFieldsOfAnotherForm()
+    {
+        var source = new WindowText
+        {
+            Title = "Ancienne commande",
+            Text = "Vos coordonnées",
+            Rank = 1,
+            Fields = new[]
+            {
+                new FieldText { Label = "Prénom", Value = "Marie" },
+                new FieldText { Label = "Nom", Value = "Lefèvre" },
+                new FieldText { Label = "Adresse e-mail", Value = "marie.lefevre@boulangerie-martin.fr" },
+                new FieldText { Label = "Ville", Value = "Reims" },
+            },
+        };
+        var form = new[]
+        {
+            TestFields.Text("first", "First name"),
+            TestFields.Text("last", "Last name"),
+            TestFields.Text("email", "Email"),
+            TestFields.Text("city", "City"),
+        };
+
+        Fill(form, source);
+
+        Assert.Equal("Marie", _fields.WrittenValues["first"]);
+        Assert.Equal("Lefèvre", _fields.WrittenValues["last"]);
+        Assert.Equal("marie.lefevre@boulangerie-martin.fr", _fields.WrittenValues["email"]);
+        Assert.Equal("Reims", _fields.WrittenValues["city"]);
+    }
+
+    [Fact]
+    public void Fill_FromAnotherForm_LeavesFieldsWithoutAMatchingLabelEmpty()
+    {
+        var source = new WindowText
+        {
+            Title = "Studio",
+            Text = string.Empty,
+            Rank = 1,
+            Fields = new[]
+            {
+                new FieldText { Label = "Title (required)", Value = "Mon tuto PasteFlow" },
+                new FieldText { Label = "Description", Value = "Une description" },
+            },
+        };
+
+        Fill(new[] { TestFields.Text("message", "Votre message"), TestFields.Text("company", "Société") }, source);
+
+        Assert.Empty(_fields.WrittenValues);
+    }
+
     private void FillLearning(IReadOnlyList<FormField> form, string screen, FillHistory history, FillMemory memory)
     {
         var reader = new FakeWindowTextReader
@@ -180,10 +262,12 @@ public sealed class RealScreenScenarioTests : IDisposable
 
     private void Fill(IReadOnlyList<FormField> form, string screen)
     {
-        var reader = new FakeWindowTextReader
-        {
-            Windows = new[] { new WindowText { Title = "Gmail", Text = screen, Rank = 1 } },
-        };
+        Fill(form, new WindowText { Title = "Gmail", Text = screen, Rank = 1 });
+    }
+
+    private void Fill(IReadOnlyList<FormField> form, WindowText screen)
+    {
+        var reader = new FakeWindowTextReader { Windows = new[] { screen } };
         using var service = new ShortcutActivationService(
             _listener,
             new FakeFormReader { Fields = form },

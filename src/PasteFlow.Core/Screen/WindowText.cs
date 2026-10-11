@@ -25,4 +25,9 @@ public sealed record WindowText
     /// no text: it may hold misread characters.
     /// </summary>
     public bool IsReadFromImage { get; init; }
+
+    /// <summary>
+    /// Gets the filled fields of the window, each with its label; empty for the form being filled.
+    /// </summary>
+    public IReadOnlyList<FieldText> Fields { get; init; } = Array.Empty<FieldText>();
 }

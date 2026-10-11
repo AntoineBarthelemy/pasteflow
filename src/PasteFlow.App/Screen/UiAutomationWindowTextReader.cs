@@ -1,6 +1,8 @@
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Automation;
+using PasteFlow.App.Forms;
+using PasteFlow.Core.Forms;
 using PasteFlow.Core.Screen;
 
 namespace PasteFlow.App.Screen;
@@ -10,6 +12,8 @@ namespace PasteFlow.App.Screen;
 /// </summary>
 /// <remarks>
 /// <para>Windows are read in parallel; a window that does not answer in time is skipped so the whole reading stays fast.</para>
+/// <para>The filled fields of the windows behind the form are also read, each with its label, so that a form can be
+/// copied into another one; password fields are never read.</para>
 /// <para>A window behind the form that gives little or no text, such as a picture, a scanned PDF or a remote desktop,
 /// is read from its image with the character recognition of Windows (OCR), when available and allowed.</para>
 /// </remarks>
@@ -20,7 +24,13 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
     /// </summary>
     internal const int MinAccessibleTextLength = 30;
 
+    /// <summary>
+    /// The longest value read from a field of another form; a longer text is not a value to copy.
+    /// </summary>
+    internal const int MaxFieldValueLength = 5000;
+
     private const int MaxWindows = 4;
+    private const int MaxFilledFields = 100;
     private const int MaxDocumentLength = 100_000;
     private const string UntitledWindow = "Fenêtre sans texte";
 
@@ -79,7 +89,10 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
         {
             var window = AutomationElement.FromHandle(handle);
             var text = ReadDocuments(window) ?? ReadTextElements(window);
-            return new WindowText { Title = window.Current.Name, Text = text, Rank = rank };
+
+            // The fields of the form being filled are its own, only the forms behind it give values
+            var fields = rank == 0 ? Array.Empty<FieldText>() : ReadFilledFields(window);
+            return new WindowText { Title = window.Current.Name, Text = text, Rank = rank, Fields = fields };
         }
         catch (ElementNotAvailableException)
         {
@@ -182,5 +195,90 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
             .Select(element => element.Current.Name);
 
         return string.Join('\n', labels);
+    }
+
+    /// <summary>
+    /// Reads the filled fields of a form behind, each with its label, so that a form can be copied into another.
+    /// Password fields, search boxes and address bars are never read.
+    /// </summary>
+    /// <param name="window">The window to read.</param>
+    /// <returns>The filled fields, in reading order.</returns>
+    private static List<FieldText> ReadFilledFields(AutomationElement window)
+    {
+        var fields = new List<FieldText>();
+        foreach (AutomationElement element in window.FindAll(TreeScope.Descendants, UiAutomationFormAccess.FieldCondition))
+        {
+            if (fields.Count == MaxFilledFields)
+            {
+                break;
+            }
+
+            var field = TryReadFilledField(element);
+            if (field is not null)
+            {
+                fields.Add(field);
+            }
+        }
+
+        return fields;
+    }
+
+    private static FieldText? TryReadFilledField(AutomationElement element)
+    {
+        try
+        {
+            var current = element.Current;
+            if (current.IsPassword || UiAutomationFormAccess.IsInsideComboBox(element))
+            {
+                return null;
+            }
+
+            var label = UiAutomationFormAccess.ReadLabel(current);
+            var field = new FormField
+            {
+                Id = string.Empty,
+                Label = label,
+                TechnicalName = current.AutomationId ?? string.Empty,
+                Hint = current.HelpText ?? string.Empty,
+                Kind = FieldKind.Text,
+                HasValue = true,
+            };
+
+            // What was typed in a search box or an address bar is not a value of the form
+            if (label.Length == 0 || FillRules.IsSearchBox(field))
+            {
+                return null;
+            }
+
+            var value = ReadValue(element)?.Trim();
+            var isUsable = !string.IsNullOrEmpty(value)
+                && !string.IsNullOrEmpty(value)
+                && value.Length <= MaxFieldValueLength
+                && !string.Equals(value, label, StringComparison.OrdinalIgnoreCase);
+            return isUsable ? new FieldText { Label = label, Value = value! } : null;
+        }
+        catch (ElementNotAvailableException)
+        {
+            // The field disappeared while being read
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Reads the whole value of a field, line breaks included: its value, else its text for rich text boxes.
+    /// </summary>
+    /// <param name="element">The field.</param>
+    /// <returns>The value, or <see langword="null"/> if the field gives none.</returns>
+    private static string? ReadValue(AutomationElement element)
+    {
+        if (element.TryGetCurrentPattern(ValuePattern.Pattern, out var valuePattern) && valuePattern is ValuePattern value
+            && !string.IsNullOrWhiteSpace(value.Current.Value))
+        {
+            return value.Current.Value;
+        }
+
+        return element.TryGetCurrentPattern(TextPattern.Pattern, out var textPattern) && textPattern is TextPattern text
+            ? text.DocumentRange.GetText(MaxFieldValueLength + 1)
+            : null;
     }
 }

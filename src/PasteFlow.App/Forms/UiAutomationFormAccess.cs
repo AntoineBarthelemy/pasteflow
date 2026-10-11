@@ -24,14 +24,17 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
 
     private const int MaxReadAttempts = 2;
 
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(100);
-
-    private static readonly Condition FieldCondition = new AndCondition(
+    /// <summary>
+    /// Finds the fields of a window: text boxes and combo boxes, enabled and visible.
+    /// </summary>
+    internal static readonly Condition FieldCondition = new AndCondition(
         new OrCondition(
             new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
             new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox)),
         new PropertyCondition(AutomationElement.IsEnabledProperty, true),
         new PropertyCondition(AutomationElement.IsOffscreenProperty, false));
+
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(100);
 
     private readonly object _gate = new();
     private readonly Dictionary<string, RememberedField> _rememberedFields = new(StringComparer.Ordinal);
@@ -75,6 +78,47 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
 
         AutomationElement target = element;
         return Task.Run(() => TryReadValue(target), cancellationToken);
+    }
+
+    /// <summary>
+    /// Determines whether a text box belongs to a combo box, which stands for it.
+    /// </summary>
+    /// <param name="element">The text box.</param>
+    /// <returns><see langword="true"/> if it is the text box of a combo box; otherwise <see langword="false"/>.</returns>
+    internal static bool IsInsideComboBox(AutomationElement element)
+    {
+        try
+        {
+            return element.Current.ControlType == ControlType.Edit
+                && TreeWalker.ControlViewWalker.GetParent(element) is { } parent
+                && parent.Current.ControlType == ControlType.ComboBox;
+        }
+        catch (ElementNotAvailableException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Reads the label of a field: its name, else the element that labels it, else its help text.
+    /// </summary>
+    /// <param name="current">The properties of the field.</param>
+    /// <returns>The label, or an empty string.</returns>
+    internal static string ReadLabel(AutomationElement.AutomationElementInformation current)
+    {
+        if (!string.IsNullOrWhiteSpace(current.Name))
+        {
+            return current.Name.Trim();
+        }
+
+        var labelElement = current.LabeledBy;
+        if (labelElement is not null && !string.IsNullOrWhiteSpace(labelElement.Current.Name))
+        {
+            return labelElement.Current.Name.Trim();
+        }
+
+        // Web pages often expose the placeholder as help text
+        return current.HelpText?.Trim() ?? string.Empty;
     }
 
     /// <summary>
@@ -185,37 +229,6 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             && pattern is ValuePattern valuePattern
             && !valuePattern.Current.IsReadOnly;
         return isEditable ? FieldKind.Text : FieldKind.Choice;
-    }
-
-    private static bool IsInsideComboBox(AutomationElement element)
-    {
-        try
-        {
-            return element.Current.ControlType == ControlType.Edit
-                && TreeWalker.ControlViewWalker.GetParent(element) is { } parent
-                && parent.Current.ControlType == ControlType.ComboBox;
-        }
-        catch (ElementNotAvailableException)
-        {
-            return false;
-        }
-    }
-
-    private static string ReadLabel(AutomationElement.AutomationElementInformation current)
-    {
-        if (!string.IsNullOrWhiteSpace(current.Name))
-        {
-            return current.Name.Trim();
-        }
-
-        var labelElement = current.LabeledBy;
-        if (labelElement is not null && !string.IsNullOrWhiteSpace(labelElement.Current.Name))
-        {
-            return labelElement.Current.Name.Trim();
-        }
-
-        // Web pages often expose the placeholder as help text
-        return current.HelpText?.Trim() ?? string.Empty;
     }
 
     private static bool HasValue(AutomationElement element)

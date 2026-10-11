@@ -47,6 +47,65 @@ public sealed class UiAutomationWindowTextReaderTests : IDisposable
         Assert.Null(windowText);
     }
 
+    [Fact]
+    public void ReadWindow_BehindTheForm_ReadsFilledFieldsWithTheirLabel()
+    {
+        var windowText = UiAutomationWindowTextReader.ReadWindow(_host.Handle, rank: 1);
+
+        Assert.NotNull(windowText);
+        var email = Assert.Single(windowText.Fields);
+        Assert.Equal("Email", email.Label);
+        Assert.Equal("antoine@example.com", email.Value);
+    }
+
+    [Fact]
+    public void ReadWindow_BehindTheForm_KeepsLineBreaksOfValues()
+    {
+        const string Description = "Première ligne\nDeuxième ligne";
+        _ = _host.Invoke(window =>
+        {
+            window.NameBox.AcceptsReturn = true;
+            window.NameBox.Text = Description;
+            return true;
+        });
+
+        var windowText = UiAutomationWindowTextReader.ReadWindow(_host.Handle, rank: 1);
+
+        Assert.NotNull(windowText);
+        var name = Assert.Single(windowText.Fields, field => field.Label == "Nom");
+        Assert.Equal(Description, name.Value.ReplaceLineEndings("\n"));
+    }
+
+    [Fact]
+    public void ReadWindow_BehindTheForm_NeverReadsSearchBoxes()
+    {
+        _ = _host.Invoke(window => window.SearchBox.Text = "Taissy");
+
+        var windowText = UiAutomationWindowTextReader.ReadWindow(_host.Handle, rank: 1);
+
+        Assert.NotNull(windowText);
+        Assert.DoesNotContain(windowText.Fields, field => field.Value == "Taissy");
+    }
+
+    [Fact]
+    public void ReadWindow_BehindTheForm_NeverReadsPasswordFields()
+    {
+        var windowText = UiAutomationWindowTextReader.ReadWindow(_host.Handle, rank: 1);
+
+        Assert.NotNull(windowText);
+        Assert.DoesNotContain(windowText.Fields, field => field.Value.Contains(ContactFormWindow.PasswordValue, StringComparison.Ordinal));
+        Assert.DoesNotContain(windowText.Fields, field => field.Label == "Mot de passe");
+    }
+
+    [Fact]
+    public void ReadWindow_OfTheFormItself_ReadsNoFields()
+    {
+        var windowText = UiAutomationWindowTextReader.ReadWindow(_host.Handle, rank: 0);
+
+        Assert.NotNull(windowText);
+        Assert.Empty(windowText.Fields);
+    }
+
     public void Dispose()
     {
         _host.Dispose();
