@@ -1,0 +1,292 @@
+<title>Terrain d'essai PasteFlow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a slim control bar, then the scenario as two panes (what is read, what gets filled) that stack on phones */
+  :root {
+    --bg: #f3f4f1;
+    --surface: #ffffff;
+    --sunk: #eceee9;
+    --fg: #1c211d;
+    --muted: #5c645e;
+    --line: #d5d9d2;
+    --accent: #c2410c;
+    --accent-soft: #fbe9df;
+    --ok: #1f7a46;
+    --ok-soft: #e1f2e7;
+    --ko: #b42318;
+    --ko-soft: #fbe4e1;
+    --focus: #2563eb;
+    --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151816; --surface: #1d211e; --sunk: #232824; --fg: #e8ebe6; --muted: #a2aaa3; --line: #343b35;
+      --accent: #fb8a4c; --accent-soft: #3a261b; --ok: #5fcf8d; --ok-soft: #1b3324; --ko: #ff8a80; --ko-soft: #3d1f1c;
+      --focus: #7aa7ff; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151816; --surface: #1d211e; --sunk: #232824; --fg: #e8ebe6; --muted: #a2aaa3; --line: #343b35;
+    --accent: #fb8a4c; --accent-soft: #3a261b; --ok: #5fcf8d; --ok-soft: #1b3324; --ko: #ff8a80; --ko-soft: #3d1f1c;
+    --focus: #7aa7ff; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; margin: 0; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-inline: 16px; padding-block: 16px 48px; display: grid; gap: 16px; }
+  .bar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 20px; padding-block: 8px; border-bottom: 1px solid var(--line); }
+  .brand { font-weight: 600; font-size: 1.05rem; margin: 0; margin-right: auto; }
+  .brand small { display: block; font-weight: 400; font-size: 0.8rem; color: var(--muted); }
+  .control { display: grid; gap: 4px; min-width: 0; }
+  .control > span { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+  select, input, textarea { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; width: 100%; }
+  textarea { min-height: 96px; resize: vertical; }
+  #scenario { min-width: 0; max-width: 100%; }
+  .modes { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+  .modes button { font: inherit; font-size: 0.9rem; border: 0; background: var(--surface); color: var(--fg); padding: 7px 12px; cursor: pointer; }
+  .modes button + button { border-left: 1px solid var(--line); }
+  .modes button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  h1 { font-size: 1.35rem; margin: 0; text-wrap: balance; }
+  .head { display: grid; gap: 6px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: var(--sunk); color: var(--muted); }
+  .tag.warn { background: var(--accent-soft); color: var(--accent); }
+  details { font-size: 0.9rem; color: var(--muted); }
+  details summary { cursor: pointer; color: var(--fg); }
+  .panes { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+  .pane { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+  .pane-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0; }
+  .source-name { font-weight: 600; margin: 0; }
+  .text { font-family: var(--font-mono); font-size: 0.88rem; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--sunk); border-radius: 6px; padding: 12px; margin: 0; }
+  .scan { max-width: 100%; border-radius: 6px; border: 1px solid var(--line); }
+  .message { background: var(--sunk); border-radius: 6px; padding: 12px; white-space: pre-wrap; margin: 0; }
+  form { display: grid; gap: 12px; }
+  .field { display: grid; gap: 4px; min-width: 0; }
+  .field label { font-size: 0.9rem; font-weight: 500; }
+  .verdict { font-size: 0.82rem; padding: 4px 8px; border-radius: 5px; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .verdict.ok { background: var(--ok-soft); color: var(--ok); }
+  .verdict.ko { background: var(--ko-soft); color: var(--ko); }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .actions button { font: inherit; font-size: 0.9rem; padding: 8px 14px; border-radius: 7px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
+  .actions .primary { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+  .summary { font-weight: 600; margin: 0; }
+  ol, ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+  .note { font-size: 0.88rem; color: var(--muted); margin: 0; }
+  kbd { font-family: var(--font-mono); font-size: 0.8rem; background: var(--sunk); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; }
+  @media (prefers-reduced-motion: no-preference) { .verdict { animation: appear 160ms ease-out; } }
+  @keyframes appear { from { opacity: 0.4; } to { opacity: 1; } }
+</style>
+
+<div class="wrap">
+  <div class="bar">
+    <p class="brand">Terrain d'essai PasteFlow<small>Un scénario à la fois, pour ne pas mélanger les textes lus</small></p>
+    <label class="control" for="scenario"><span>Scénario</span><select id="scenario"></select></label>
+    <div class="control"><span>Cette fenêtre montre</span>
+      <div class="modes" role="group" aria-label="Ce que montre cette fenêtre">
+        <button type="button" data-mode="all">Tout</button>
+        <button type="button" data-mode="source">La source</button>
+        <button type="button" data-mode="form">Le formulaire</button>
+      </div>
+    </div>
+  </div>
+
+  <section class="head" aria-live="polite">
+    <h1 id="title"></h1>
+    <div class="tags" id="tags"></div>
+    <details id="about"><summary>Ce que ce scénario vérifie</summary><p id="checks"></p></details>
+  </section>
+
+  <div class="panes">
+    <section class="pane" id="source-pane" aria-labelledby="source-label">
+      <p class="pane-title" id="source-label">Ce que l'outil lit</p>
+      <div id="sources"></div>
+    </section>
+    <section class="pane" id="form-pane" aria-labelledby="form-label">
+      <p class="pane-title" id="form-label">À remplir avec Ctrl+Alt+V</p>
+      <ol id="steps"></ol>
+      <pre class="message" id="page" hidden></pre>
+      <form id="form" autocomplete="off" novalidate></form>
+      <div class="actions">
+        <button type="button" class="primary" id="check1">Vérifier</button>
+        <button type="button" id="check2" hidden>Vérifier après le 2e appui</button>
+        <button type="button" id="reset">Tout remettre à zéro</button>
+      </div>
+      <p class="summary" id="summary" hidden></p>
+      <div id="after-block" hidden><p class="note">Ensuite :</p><ul id="after"></ul></div>
+    </section>
+  </div>
+</div>
+
+<script type="application/json" id="data">/*SCENARIOS*/</script>
+<script>
+  const SCAN = "__SCAN__";
+  const scenarios = JSON.parse(document.getElementById("data").textContent).scenarios;
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(key) { try { return localStorage.getItem(key); } catch { return null; } },
+    set(key, value) { try { localStorage.setItem(key, value); } catch { /* storage unavailable */ } },
+  };
+  let current = scenarios[0];
+  let mode = store.get("pf-mode") || "all";
+
+  function el(tag, props = {}, children = []) {
+    const node = document.createElement(tag);
+    Object.entries(props).forEach(([key, value]) => {
+      if (key === "text") node.textContent = value;
+      else if (key in node) node[key] = value;
+      else node.setAttribute(key, value);
+    });
+    children.forEach((child) => node.append(child));
+    return node;
+  }
+
+  function buildSelect() {
+    const groups = new Map();
+    scenarios.forEach((scenario) => {
+      if (!groups.has(scenario.group)) groups.set(scenario.group, el("optgroup", { label: scenario.group }));
+      groups.get(scenario.group).append(el("option", { value: scenario.id, text: scenario.title }));
+    });
+    groups.forEach((group) => $("scenario").append(group));
+  }
+
+  function fieldControl(field, idPrefix) {
+    const id = `${idPrefix}-${field.id}`;
+    let control;
+    if (field.kind === "textarea") control = el("textarea", { id, name: field.id });
+    else if (field.kind === "choice") {
+      control = el("select", { id, name: field.id }, [el("option", { value: "", text: "Choisir…" })]);
+      (field.options || []).forEach((option) => control.append(el("option", { value: option, text: option })));
+    } else {
+      const type = field.kind === "password" ? "password" : field.kind === "search" ? "search" : "text";
+      control = el("input", { id, name: field.id, type });
+    }
+    if (field.hint) control.placeholder = field.hint;
+    control.value = field.value || "";
+    control.dataset.initial = field.value || "";
+    const wrapper = el("div", { className: "field" }, [el("label", { htmlFor: id, text: field.label }), control]);
+    return { wrapper, control };
+  }
+
+  function renderSources() {
+    const box = $("sources");
+    box.replaceChildren();
+    if (current.sources.length === 0) {
+      box.append(el("p", { className: "note", text: "Aucune source : la valeur doit venir de la mémoire de l'outil." }));
+      return;
+    }
+    current.sources.forEach((source) => {
+      const block = el("div", { className: "pane", style: "padding:12px;gap:8px" }, [el("p", { className: "source-name", text: source.title })]);
+      if (source.image) {
+        block.append(el("img", { className: "scan", src: SCAN, alt: "Bon de commande scanné" }));
+        block.append(el("p", { className: "note", text: "Pour ce test, ouvre le fichier bon-de-commande.png (dossier terrain-essai du projet) dans l'application Photos, derrière le formulaire. Dans le navigateur, la page contient trop de texte pour que l'outil passe à l'image." }));
+      } else if (source.fields) {
+        const form = el("form", { autocomplete: "off" });
+        source.fields.forEach((field) => form.append(fieldControl(field, "src").wrapper));
+        block.append(form);
+      } else {
+        block.append(el("pre", { className: "text", text: source.text }));
+      }
+      box.append(block);
+    });
+  }
+
+  function renderForm() {
+    const form = $("form");
+    form.replaceChildren();
+    current.form.forEach((field) => {
+      const { wrapper, control } = fieldControl(field, "f");
+      wrapper.append(el("div", { className: "verdict", id: `v-${field.id}`, hidden: true }));
+      control.addEventListener("input", () => { $(`v-${field.id}`).hidden = true; $("summary").hidden = true; });
+      form.append(wrapper);
+    });
+    $("page").hidden = !current.page;
+    $("page").textContent = current.page || "";
+  }
+
+  function stepsFor() {
+    if (current.steps) return current.steps;
+    const steps = [];
+    if (current.twoWindows) steps.push("Ouvre cette page dans une 2e fenêtre (pas un onglet) réglée sur « La source », et laisse-la juste derrière celle-ci.");
+    else steps.push("Laisse la source visible, dans cette fenêtre (« Tout ») ou dans une 2e fenêtre derrière.");
+    steps.push("Clique dans le premier champ, puis appuie sur Ctrl+Alt+V.");
+    if (current.secondPress) steps.push("Clique sur Vérifier, puis rappuie sur Ctrl+Alt+V dans les 8 secondes et clique sur « Vérifier après le 2e appui ».");
+    else steps.push("Clique sur Vérifier.");
+    return steps;
+  }
+
+  function render() {
+    $("title").textContent = current.title;
+    $("checks").textContent = current.checks;
+    $("about").open = false;
+    const tags = $("tags");
+    tags.replaceChildren(el("span", { className: "tag", text: current.group }));
+    if (current.twoWindows) tags.append(el("span", { className: "tag warn", text: "Deux fenêtres" }));
+    if (current.secondPress) tags.append(el("span", { className: "tag warn", text: "Deux appuis" }));
+    if (current.manual) tags.append(el("span", { className: "tag warn", text: "À la main" }));
+    renderSources();
+    renderForm();
+    $("steps").replaceChildren(...stepsFor().map((step) => el("li", { text: step })));
+    $("check2").hidden = !current.secondPress;
+    $("summary").hidden = true;
+    const after = current.after || [];
+    $("after-block").hidden = after.length === 0;
+    $("after").replaceChildren(...after.map((step) => el("li", { text: step })));
+    applyMode();
+  }
+
+  function applyMode() {
+    document.querySelectorAll(".modes button").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.mode === mode)));
+    $("source-pane").hidden = mode === "form";
+    $("form-pane").hidden = mode === "source";
+  }
+
+  const normalize = (value) => (value || "").replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").trim();
+
+  function check(expected) {
+    let good = 0;
+    current.form.forEach((field) => {
+      const control = $(`f-${field.id}`);
+      const want = normalize(expected[field.id]);
+      const got = normalize(control.value);
+      const verdict = $(`v-${field.id}`);
+      const same = want === got;
+      if (same) good++;
+      verdict.className = `verdict ${same ? "ok" : "ko"}`;
+      verdict.textContent = same
+        ? (want ? "Conforme" : "Conforme : laissé vide")
+        : `Attendu : ${want || "(vide)"}`;
+      verdict.hidden = false;
+    });
+    const summary = $("summary");
+    summary.textContent = `${good} champ${good > 1 ? "s" : ""} conforme${good > 1 ? "s" : ""} sur ${current.form.length}.`;
+    summary.hidden = false;
+  }
+
+  function reset() {
+    $("form").querySelectorAll("input, textarea, select").forEach((control) => { control.value = control.dataset.initial || ""; });
+    document.querySelectorAll(".verdict").forEach((verdict) => { verdict.hidden = true; });
+    $("summary").hidden = true;
+  }
+
+  function select(id) {
+    current = scenarios.find((scenario) => scenario.id === id) || scenarios[0];
+    $("scenario").value = current.id;
+    if (location.hash.slice(1) !== current.id) history.replaceState(null, "", `#${current.id}`);
+    render();
+  }
+
+  buildSelect();
+  $("scenario").addEventListener("change", (event) => select(event.target.value));
+  document.querySelectorAll(".modes button").forEach((button) => button.addEventListener("click", () => {
+    mode = button.dataset.mode;
+    store.set("pf-mode", mode);
+    applyMode();
+  }));
+  $("check1").addEventListener("click", () => check(current.expected));
+  $("check2").addEventListener("click", () => check(current.secondPress));
+  $("reset").addEventListener("click", reset);
+  window.addEventListener("hashchange", () => select(location.hash.slice(1)));
+  select(location.hash.slice(1));
+</script>

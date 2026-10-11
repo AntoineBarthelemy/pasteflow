@@ -460,7 +460,7 @@
     {
       "id": "destinataire",
       "group": "Deux fenêtres",
-      "title": "Destinataire désigné par « Bonjour Léa »",
+      "title": "Destinataire désigné par la salutation",
       "twoWindows": true,
       "checks": "Deux adresses dans la réponse de Claude, mais le message commence par « Bonjour Léa » : « À » reçoit l'adresse de Léa, « Cc » reste vide.",
       "sources": [

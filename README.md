@@ -83,6 +83,10 @@ Raccourcis :
 
 Clic droit sur l'icône près de l'horloge : « Paramètres… » (prudence, apprentissage, démarrage avec Windows), « Effacer l'historique », « Quitter ».
 
+## Terrain d'essai
+
+`terrain-essai/index.html` rassemble tous les cas à tester à la main (formulaires, formats, noms, pièges, champs protégés, deux fenêtres, image, mémoire). Ouvre-le dans le navigateur, choisis un scénario, appuie sur Ctrl+Alt+V puis sur Vérifier. Les mêmes scénarios (`terrain-essai/scenarios.json`) sont rejoués par les tests automatiques. Après un changement de scénario : `python terrain-essai/build.py`.
+
 ## Structure
 
 | Dossier | Rôle |
