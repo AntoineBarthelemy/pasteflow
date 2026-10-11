@@ -37,6 +37,12 @@ public sealed record Candidate
     public bool IsFromHistory { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether the value was typed in a field of another form: a whole value someone
+    /// entered, which may contain words such as "votre" or "exemple" without being an example text.
+    /// </summary>
+    public bool IsTypedInField { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether the value was read from the image of a window (OCR): a character may be misread,
     /// so such a value is only proposed, never written without the user.
     /// </summary>

@@ -68,6 +68,28 @@ public sealed class SampleValuesTests
         Assert.False(SampleValues.AppearsInHints("antoine.b@orange.fr", Array.Empty<string>()));
     }
 
+    [Theory]
+    [InlineData("Boostez votre carrière en 5 étapes", "Title (required)")]
+    [InlineData("Par exemple, je montre comment remplir un formulaire.", "Description")]
+    [InlineData("AAAA-0042", "Format de la référence")]
+    public void IsSample_WithValueTypedInAnotherForm_IgnoresGuidingWords(string value, string label)
+    {
+        var candidate = Candidate(value, CandidateKind.Text, label) with { IsTypedInField = true };
+
+        Assert.False(SampleValues.IsSample(candidate));
+    }
+
+    [Theory]
+    [InlineData("jean.dupont@exemple.fr", CandidateKind.Email)]
+    [InlineData("06 00 00 00 00", CandidateKind.Phone)]
+    [InlineData("JJ/MM/AAAA", CandidateKind.Text)]
+    public void IsSample_WithExampleTypedInAnotherForm_StillRecognizesIt(string value, CandidateKind kind)
+    {
+        var candidate = Candidate(value, kind, "Champ") with { IsTypedInField = true };
+
+        Assert.True(SampleValues.IsSample(candidate));
+    }
+
     private static Candidate Candidate(string value, CandidateKind kind, string label)
     {
         return new Candidate { Value = value, Kind = kind, Label = label, SourceName = "Formulaire", SourceRank = 0 };

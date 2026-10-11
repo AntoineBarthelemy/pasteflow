@@ -45,13 +45,15 @@ public static partial class SampleValues
     {
         ArgumentNullException.ThrowIfNull(candidate);
 
-        if (SampleLabelRegex().IsMatch(Normalize(candidate.Label)))
+        // A value typed in another form is never a guiding text: only its own shape can make it an example
+        if (!candidate.IsTypedInField && SampleLabelRegex().IsMatch(Normalize(candidate.Label)))
         {
             return true;
         }
 
         var value = Normalize(candidate.Value);
-        if (SampleWords.Any(word => value.Contains(word, StringComparison.Ordinal)) || SampleTexts.Contains(value))
+        var hasSampleWord = !candidate.IsTypedInField && SampleWords.Any(word => value.Contains(word, StringComparison.Ordinal));
+        if (hasSampleWord || SampleTexts.Contains(value))
         {
             return true;
         }

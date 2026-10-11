@@ -72,6 +72,7 @@ public sealed class ScreenCandidateSource : ICandidateSource
             Label = field.Label.Trim(),
             SourceName = window.Title,
             SourceRank = window.Rank,
+            IsTypedInField = true,
         };
     }
 }

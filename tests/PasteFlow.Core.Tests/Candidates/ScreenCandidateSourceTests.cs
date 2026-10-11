@@ -94,10 +94,10 @@ public sealed class ScreenCandidateSourceTests
         Assert.Collection(
             candidates,
             candidate => Assert.Equal(
-                new Candidate { Value = "Mon tuto PasteFlow", Label = "Title (required)", SourceName = "Studio", SourceRank = 1 },
+                new Candidate { Value = "Mon tuto PasteFlow", Label = "Title (required)", SourceName = "Studio", SourceRank = 1, IsTypedInField = true },
                 candidate),
             candidate => Assert.Equal(
-                new Candidate { Value = Description, Label = "Description", SourceName = "Studio", SourceRank = 1 },
+                new Candidate { Value = Description, Label = "Description", SourceName = "Studio", SourceRank = 1, IsTypedInField = true },
                 candidate));
     }
 

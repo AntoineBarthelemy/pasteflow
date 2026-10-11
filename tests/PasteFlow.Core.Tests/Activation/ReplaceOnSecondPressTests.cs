@@ -169,13 +169,13 @@ public sealed class ReplaceOnSecondPressTests : IDisposable
     {
         _formReader.Fields = StudioForm.Append(TestFields.Text("email", "Email")).ToArray();
         _candidateSource.Candidates = _candidateSource.Candidates
-            .Append(new Candidate { Value = "antoine@exemple.fr", Kind = CandidateKind.Email, Label = "Email", SourceName = "Gmail", SourceRank = 1 })
+            .Append(new Candidate { Value = "antoine.b@orange.fr", Kind = CandidateKind.Email, Label = "Email", SourceName = "Gmail", SourceRank = 1 })
             .ToArray();
         using var service = CreateService();
 
         PressTwice(TimeSpan.FromSeconds(2));
 
-        Assert.Equal("antoine@exemple.fr", _fieldWriter.CurrentValues["email"]);
+        Assert.Equal("antoine.b@orange.fr", _fieldWriter.CurrentValues["email"]);
         Assert.Equal("Mon tuto PasteFlow", _fieldWriter.CurrentValues["title"]);
     }
 
@@ -217,7 +217,7 @@ public sealed class ReplaceOnSecondPressTests : IDisposable
 
     private static Candidate FromField(string value, string label)
     {
-        return new Candidate { Value = value, Label = label, SourceName = "YouTube Studio", SourceRank = 1 };
+        return new Candidate { Value = value, Label = label, SourceName = "YouTube Studio", SourceRank = 1, IsTypedInField = true };
     }
 
     private void PressTwice(TimeSpan interval)
