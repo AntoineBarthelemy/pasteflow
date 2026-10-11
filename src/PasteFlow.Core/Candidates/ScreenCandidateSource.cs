@@ -16,6 +16,7 @@ public sealed class ScreenCandidateSource : ICandidateSource
     private const int MaxLinesFromOwner = 8;
 
     private static readonly char[] LineBreaks = { '\r', '\n' };
+    private static readonly char[] NameSeparators = { ' ', ',', ';', ':', '(', ')' };
 
     private static readonly HashSet<CandidateKind> OwnerKinds = new()
     {
@@ -60,6 +61,7 @@ public sealed class ScreenCandidateSource : ICandidateSource
             .Select((piece, index) => (piece.Kind, Line: pieceLines[index]))
             .Where(located => OwnerKinds.Contains(located.Kind) && located.Line >= 0)
             .Select(located => located.Line)
+            .Concat(Enumerable.Range(0, lines.Length).Where(line => StartsWithPersonName(lines[line])))
             .ToHashSet();
 
         return pieces.Select((piece, index) => new Candidate
@@ -97,6 +99,23 @@ public sealed class ScreenCandidateSource : ICandidateSource
         }
 
         return located;
+    }
+
+    /// <summary>
+    /// Determines whether a line starts with what looks like the name of a person, such as "Léa Martin, responsable
+    /// communication": a known first name then a capitalized word. Even when the name is too ambiguous to be offered
+    /// as a value ("Martin" is also a first name), it tells whose values follow.
+    /// </summary>
+    /// <param name="line">The line.</param>
+    /// <returns><see langword="true"/> if the line starts with a name; otherwise <see langword="false"/>.</returns>
+    private static bool StartsWithPersonName(string line)
+    {
+        var words = line.Split(NameSeparators, 3, StringSplitOptions.RemoveEmptyEntries);
+        return words.Length >= 2
+            && char.IsUpper(words[0][0])
+            && char.IsUpper(words[1][0])
+            && words[1].Length > 1
+            && ReferenceData.Shared.IsFirstName(words[0]);
     }
 
     private static int FindLine(string value, string[] lines, int start)
