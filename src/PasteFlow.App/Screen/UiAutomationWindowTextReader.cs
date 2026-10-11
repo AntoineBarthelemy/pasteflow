@@ -91,7 +91,7 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
             var text = ReadDocuments(window) ?? ReadTextElements(window);
 
             // The fields of the form being filled are its own, only the forms behind it give values
-            var fields = rank == 0 ? Array.Empty<FieldText>() : ReadFilledFields(window);
+            IReadOnlyList<FieldText> fields = rank == 0 ? Array.Empty<FieldText>() : ReadFilledFields(window);
             return new WindowText { Title = window.Current.Name, Text = text, Rank = rank, Fields = fields };
         }
         catch (ElementNotAvailableException)
