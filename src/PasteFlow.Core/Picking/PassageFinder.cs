@@ -24,6 +24,8 @@ public sealed partial class PassageFinder
     private const int MaxBlocks = 5000;
     private const int RegexTimeoutMilliseconds = 1000;
 
+    private static readonly char[] LineBreaks = { '\r', '\n' };
+
     private readonly List<Block> _blocks;
 
     /// <summary>
@@ -242,9 +244,9 @@ public sealed partial class PassageFinder
         return string.Join(' ', Fold(query).Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
-    private static IEnumerable<string> Lines(string text)
+    private static string[] Lines(string text)
     {
-        return text.Split(new[] { '\r', '\n' }, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        return text.Split(LineBreaks, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
     }
 
     private static List<(int Start, int End)> ValueSpans(string line, List<string> values)
