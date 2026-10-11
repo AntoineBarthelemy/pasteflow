@@ -24,22 +24,22 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
 
     private const int MaxReadAttempts = 2;
 
-    /// <summary>
-    /// Finds the fields of a window: text boxes and combo boxes, enabled and visible.
-    /// </summary>
-    internal static readonly Condition FieldCondition = new AndCondition(
-        new OrCondition(
-            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
-            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox)),
-        new PropertyCondition(AutomationElement.IsEnabledProperty, true),
-        new PropertyCondition(AutomationElement.IsOffscreenProperty, false));
-
     private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(100);
 
     private readonly object _gate = new();
     private readonly Dictionary<string, RememberedField> _rememberedFields = new(StringComparer.Ordinal);
     private readonly Queue<string[]> _readingIds = new();
     private int _readingCount;
+
+    /// <summary>
+    /// Gets the condition that finds the fields of a window: text boxes and combo boxes, enabled and visible.
+    /// </summary>
+    internal static Condition FieldCondition { get; } = new AndCondition(
+        new OrCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox)),
+        new PropertyCondition(AutomationElement.IsEnabledProperty, true),
+        new PropertyCondition(AutomationElement.IsOffscreenProperty, false));
 
     /// <inheritdoc/>
     public Task<IReadOnlyList<FormField>> ReadActiveFormAsync(CancellationToken cancellationToken)

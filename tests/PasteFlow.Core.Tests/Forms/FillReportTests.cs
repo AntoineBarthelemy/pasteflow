@@ -181,11 +181,6 @@ public sealed class FillReportTests
         Assert.DoesNotContain("annuler", report.Describe(), StringComparison.Ordinal);
     }
 
-    private static SourceSummary Source(string name, int candidateCount)
-    {
-        return new SourceSummary { Name = name, CandidateCount = candidateCount };
-    }
-
     [Fact]
     public void Describe_WithFieldsLeftIntact_TellsHowToReplaceThem()
     {
@@ -216,6 +211,11 @@ public sealed class FillReportTests
         var report = Report(filled: 0, alreadyFilled: 0, failed: 0) with { ReplacedCount = 1, UndoHotkey = Hotkey.DefaultUndo };
 
         Assert.Contains("Ctrl+Alt+Z pour tout annuler.", report.Describe(), StringComparison.Ordinal);
+    }
+
+    private static SourceSummary Source(string name, int candidateCount)
+    {
+        return new SourceSummary { Name = name, CandidateCount = candidateCount };
     }
 
     private static FillReport Report(int filled, int alreadyFilled, int failed, IReadOnlyList<SourceSummary>? sources = null)
