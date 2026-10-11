@@ -49,7 +49,7 @@ public sealed class TestBenchScenarioTests
     public void Scenario_FirstPress_GivesTheAnnouncedValues(string id)
     {
         var scenario = AllScenarios.Value.Single(item => item.Id == id);
-        var bench = new Bench(scenario);
+        using var bench = new Bench(scenario);
 
         bench.Press();
 
@@ -61,7 +61,7 @@ public sealed class TestBenchScenarioTests
     public void Scenario_SecondPress_GivesTheAnnouncedValues(string id)
     {
         var scenario = AllScenarios.Value.Single(item => item.Id == id);
-        var bench = new Bench(scenario);
+        using var bench = new Bench(scenario);
 
         bench.Press();
         bench.Clock.Now += TimeSpan.FromSeconds(2);
@@ -92,7 +92,7 @@ public sealed class TestBenchScenarioTests
     /// <summary>
     /// The screen of a scenario: the page of the form in front, the sources behind it.
     /// </summary>
-    private sealed class Bench
+    private sealed class Bench : IDisposable
     {
         private readonly FakeHotkeyListener _listener = new();
         private readonly ShortcutActivationService _service;
@@ -143,6 +143,12 @@ public sealed class TestBenchScenarioTests
         public void Press()
         {
             _listener.SimulatePress();
+        }
+
+        public void Dispose()
+        {
+            _service.Dispose();
+            _listener.Dispose();
         }
 
         private static FormField ToFormField(BenchField field)
