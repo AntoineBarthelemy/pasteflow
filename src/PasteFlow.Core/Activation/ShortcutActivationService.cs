@@ -4,7 +4,9 @@ using PasteFlow.Core.Forms;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Matching;
 using PasteFlow.Core.Notifications;
+using PasteFlow.Core.Picking;
 using PasteFlow.Core.Reference;
+using PasteFlow.Core.Screen;
 using PasteFlow.Core.Undo;
 
 namespace PasteFlow.Core.Activation;
@@ -23,10 +25,8 @@ namespace PasteFlow.Core.Activation;
 /// </remarks>
 public sealed class ShortcutActivationService : IDisposable
 {
-    /// <summary>
-    /// The longest time between two presses on the same form for the second one to replace the values already there.
-    /// </summary>
-    public static readonly TimeSpan ReplaceDelay = TimeSpan.FromSeconds(8);
+    private const int MaxNotifiedLength = 60;
+    private const string CannotPasteMessage = "Impossible d'écrire à cet endroit.";
 
     private readonly object _pressGate = new();
     private readonly IHotkeyListener _listener;
@@ -96,6 +96,11 @@ public sealed class ShortcutActivationService : IDisposable
     }
 
     /// <summary>
+    /// Gets the longest time between two presses on the same form for the second one to replace the values already there.
+    /// </summary>
+    public static TimeSpan ReplaceDelay { get; } = TimeSpan.FromSeconds(8);
+
+    /// <summary>
     /// Gets the shortcut currently listened to, or <see langword="null"/> if the service is not started.
     /// </summary>
     public Hotkey? ActiveHotkey { get; private set; }
@@ -115,6 +120,22 @@ public sealed class ShortcutActivationService : IDisposable
     /// Gets or sets the clock that tells whether two presses are close enough for the second one to replace values.
     /// </summary>
     public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
+
+    /// <summary>
+    /// Gets or sets the component that tells where the text cursor is; with <see cref="Picker"/> and
+    /// <see cref="Inserter"/>, it lets the shortcut paste in a text written alone, such as a message or a document.
+    /// </summary>
+    public ICaretReader? CaretReader { get; set; }
+
+    /// <summary>
+    /// Gets or sets the list shown at the cursor when nothing is sure.
+    /// </summary>
+    public IPastePicker? Picker { get; set; }
+
+    /// <summary>
+    /// Gets or sets the component that writes at the cursor.
+    /// </summary>
+    public ITextInserter? Inserter { get; set; }
 
     /// <summary>
     /// Starts listening to the given shortcut.
@@ -191,8 +212,9 @@ public sealed class ShortcutActivationService : IDisposable
     private async void OnHotkeyPressed(object? sender, EventArgs e)
     {
         var report = await FillActiveFormAsync(CancellationToken.None);
-        if (_isDisposed)
+        if (_isDisposed || report is null)
         {
+            // Pasted at the cursor, or stopped: there is no form to report on
             return;
         }
 
@@ -201,7 +223,7 @@ public sealed class ShortcutActivationService : IDisposable
         _notifier.NotifyFill(report);
     }
 
-    private async Task<FillReport> FillActiveFormAsync(CancellationToken cancellationToken)
+    private async Task<FillReport?> FillActiveFormAsync(CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
         var pressTime = TimeProvider.GetUtcNow();
@@ -225,6 +247,12 @@ public sealed class ShortcutActivationService : IDisposable
             .Select(candidate => candidate.Value)
             .Distinct(StringComparer.Ordinal)
             .Count();
+
+        // A text written alone, such as a message or a document, is filled at the cursor rather than as a form
+        if (await TryPasteAtCaretAsync(fields, candidates, cancellationToken))
+        {
+            return null;
+        }
 
         var filledValues = new List<FilledValue>();
         var writtenFields = new List<WrittenField>();
@@ -318,6 +346,60 @@ public sealed class ShortcutActivationService : IDisposable
             UndoHotkey = UndoHotkey,
             ReplaceHotkey = isReplacing ? null : ActiveHotkey,
         };
+    }
+
+    /// <summary>
+    /// Pastes at the cursor when it is in a text written alone: the value asked by the words before the cursor when
+    /// it is sure, else the choice of the user among the likely values and the text of the windows.
+    /// </summary>
+    /// <param name="fields">The fields of the active window.</param>
+    /// <param name="candidates">The values found, examples set aside.</param>
+    /// <param name="cancellationToken">A token to cancel the paste.</param>
+    /// <returns><see langword="true"/> if the cursor was in a text written alone; <see langword="false"/> to fill the form.</returns>
+    private async Task<bool> TryPasteAtCaretAsync(IReadOnlyList<FormField> fields, List<Candidate> candidates, CancellationToken cancellationToken)
+    {
+        if (CaretReader is null || Picker is null || Inserter is null)
+        {
+            return false;
+        }
+
+        var caret = await CaretReader.ReadCaretAsync(cancellationToken);
+        if (caret is null || !FreePaste.IsFreeText(fields, caret))
+        {
+            return false;
+        }
+
+        // The frames of a previous fill have nothing to do with this text
+        _highlighter.Highlight(Array.Empty<FieldToCheck>());
+
+        var field = FreePaste.TargetField(caret);
+        var match = FormMatcher.MatchAll(new[] { field }, candidates, ReferenceData.Shared, Options, new[] { field })[0];
+        if (match is { IsConfident: true, Candidate: { } sure })
+        {
+            var value = ValueFormatter.Adapt(sure.Value, sure.Kind, field);
+            var isPasted = await Inserter.InsertAsync(value, cancellationToken);
+            _notifier.Notify(isPasted ? $"Collé : {FillReport.Shorten(value, MaxNotifiedLength)} ({sure.SourceName})" : CannotPasteMessage);
+            return true;
+        }
+
+        var screenCandidates = candidates.Where(candidate => !candidate.IsFromHistory).ToList();
+        var windows = _candidateSources.OfType<IScreenTextSource>().SelectMany(source => source.LastWindows).ToList();
+        var request = new PickRequest
+        {
+            Suggestions = FieldMatcher.Rank(
+                FieldClues.Of(field),
+                screenCandidates,
+                ScreenContext.From(screenCandidates),
+                PassageFinder.MaxResults),
+            Finder = new PassageFinder(windows, screenCandidates),
+        };
+        var chosen = await Picker.PickAsync(request, cancellationToken);
+        if (chosen is not null && !await Inserter.InsertAsync(chosen, cancellationToken))
+        {
+            _notifier.Notify(CannotPasteMessage);
+        }
+
+        return true;
     }
 
     /// <summary>

@@ -8,7 +8,7 @@ namespace PasteFlow.Core.Candidates;
 /// Offers the pieces of text displayed in the active window and in the windows just behind it, and the values of
 /// the filled fields of the windows behind.
 /// </summary>
-public sealed class ScreenCandidateSource : ICandidateSource
+public sealed class ScreenCandidateSource : ICandidateSource, IScreenTextSource
 {
     /// <summary>
     /// The farthest a value can be below the name of its owner, as the email at the bottom of a signature.
@@ -24,6 +24,7 @@ public sealed class ScreenCandidateSource : ICandidateSource
     };
 
     private readonly IWindowTextReader _reader;
+    private IReadOnlyList<WindowText> _lastWindows = Array.Empty<WindowText>();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ScreenCandidateSource"/> class.
@@ -37,9 +38,13 @@ public sealed class ScreenCandidateSource : ICandidateSource
     }
 
     /// <inheritdoc/>
+    public IReadOnlyList<WindowText> LastWindows => Volatile.Read(ref _lastWindows);
+
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<Candidate>> GetCandidatesAsync(CancellationToken cancellationToken)
     {
         var windows = await _reader.ReadWindowsAsync(cancellationToken).ConfigureAwait(false);
+        Volatile.Write(ref _lastWindows, windows.OrderBy(window => window.Rank).ToList());
 
         return windows
             .OrderBy(window => window.Rank)

@@ -138,25 +138,7 @@ public static class FieldMatcher
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(context);
 
-        // Only the values the field can accept compete, so "the only value of its kind" means the only acceptable one
-        var eligible = candidates.Where(candidate => IsEligible(candidate, clues)).ToList();
-        var distinctValuesByKind = eligible
-            .GroupBy(candidate => candidate.Kind)
-            .ToDictionary(group => group.Key, group => group.Select(candidate => candidate.Value).Distinct(StringComparer.Ordinal).Count());
-
-        // Among several values of the expected kind, the one the window being filled points to stands out
-        var pointedValues = clues.ExpectedKinds.Count > 0
-            ? context.ChooseAmong(eligible)
-            : new HashSet<string>(StringComparer.Ordinal);
-
-        // A value found several times keeps its best score: it is one choice, not several
-        var ranked = eligible
-            .Select(candidate => (Candidate: candidate, Score: Score(candidate, clues, distinctValuesByKind, pointedValues)))
-            .Where(scored => scored.Score > 0 && !takenValues.Contains(scored.Candidate.Value))
-            .GroupBy(scored => scored.Candidate.Value, StringComparer.Ordinal)
-            .Select(group => group.MaxBy(scored => scored.Score))
-            .OrderByDescending(scored => scored.Score)
-            .ToList();
+        var ranked = RankAll(clues, candidates, takenValues, context);
 
         if (ranked.Count == 0)
         {
@@ -178,6 +160,53 @@ public static class FieldMatcher
                 .Select(scored => scored.Candidate)
                 .ToList(),
         };
+    }
+
+    /// <summary>
+    /// Ranks the values a field could take, best first, however unsure: the choices to show when nothing is sure.
+    /// </summary>
+    /// <param name="clues">What the field tells about the value it expects; no clue at all ranks every recognized value.</param>
+    /// <param name="candidates">The values found in the sources.</param>
+    /// <param name="context">What the window being filled says.</param>
+    /// <param name="maxCount">The maximum number of values to return.</param>
+    /// <returns>The distinct values, best first; between equal scores, the closest window and the first seen.</returns>
+    public static IReadOnlyList<Candidate> Rank(FieldClues clues, IReadOnlyList<Candidate> candidates, ScreenContext context, int maxCount)
+    {
+        ArgumentNullException.ThrowIfNull(clues);
+        ArgumentNullException.ThrowIfNull(candidates);
+        ArgumentNullException.ThrowIfNull(context);
+
+        return RankAll(clues, candidates, new HashSet<string>(StringComparer.Ordinal), context)
+            .Take(maxCount)
+            .Select(scored => scored.Candidate)
+            .ToList();
+    }
+
+    private static List<(Candidate Candidate, double Score)> RankAll(
+        FieldClues clues,
+        IReadOnlyList<Candidate> candidates,
+        IReadOnlySet<string> takenValues,
+        ScreenContext context)
+    {
+        // Only the values the field can accept compete, so "the only value of its kind" means the only acceptable one
+        var eligible = candidates.Where(candidate => IsEligible(candidate, clues)).ToList();
+        var distinctValuesByKind = eligible
+            .GroupBy(candidate => candidate.Kind)
+            .ToDictionary(group => group.Key, group => group.Select(candidate => candidate.Value).Distinct(StringComparer.Ordinal).Count());
+
+        // Among several values of the expected kind, the one the window being filled points to stands out
+        var pointedValues = clues.ExpectedKinds.Count > 0
+            ? context.ChooseAmong(eligible)
+            : new HashSet<string>(StringComparer.Ordinal);
+
+        // A value found several times keeps its best score: it is one choice, not several
+        return eligible
+            .Select(candidate => (Candidate: candidate, Score: Score(candidate, clues, distinctValuesByKind, pointedValues)))
+            .Where(scored => scored.Score > 0 && !takenValues.Contains(scored.Candidate.Value))
+            .GroupBy(scored => scored.Candidate.Value, StringComparer.Ordinal)
+            .Select(group => group.MaxBy(scored => scored.Score))
+            .OrderByDescending(scored => scored.Score)
+            .ToList();
     }
 
     /// <summary>
