@@ -164,4 +164,23 @@ public sealed class LabelConceptsTests
 
         Assert.Equal(expected, similarity, precision: 6);
     }
+
+    [Theory]
+    [InlineData("À")]
+    [InlineData("Cc")]
+    [InlineData("Cci")]
+    [InlineData("To")]
+    [InlineData("Destinataires")]
+    public void From_WithRecipientLabel_TalksAboutAnEmail(string label)
+    {
+        Assert.Equal(new[] { LabelConcepts.Email }, LabelConcepts.From(label));
+    }
+
+    [Theory]
+    [InlineData("Nom du destinataire")]
+    [InlineData("Adresse du destinataire")]
+    public void From_WithRecipientInALongerLabel_DoesNotTalkAboutAnEmail(string label)
+    {
+        Assert.DoesNotContain(LabelConcepts.Email, LabelConcepts.From(label));
+    }
 }

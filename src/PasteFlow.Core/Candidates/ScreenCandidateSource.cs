@@ -10,6 +10,18 @@ namespace PasteFlow.Core.Candidates;
 /// </summary>
 public sealed class ScreenCandidateSource : ICandidateSource
 {
+    /// <summary>
+    /// The farthest a value can be below the name of its owner, as the email at the bottom of a signature.
+    /// </summary>
+    private const int MaxLinesFromOwner = 8;
+
+    private static readonly char[] LineBreaks = { '\r', '\n' };
+
+    private static readonly HashSet<CandidateKind> OwnerKinds = new()
+    {
+        CandidateKind.FullName, CandidateKind.FirstName, CandidateKind.LastName, CandidateKind.Company,
+    };
+
     private readonly IWindowTextReader _reader;
 
     /// <summary>
@@ -30,16 +42,100 @@ public sealed class ScreenCandidateSource : ICandidateSource
 
         return windows
             .OrderBy(window => window.Rank)
-            .SelectMany(window => TextSegmenter.Segment(window.Text).Select(piece => new Candidate
-            {
-                Value = piece.Value,
-                Kind = piece.Kind,
-                Label = piece.Label,
-                SourceName = window.Title,
-                SourceRank = window.Rank,
-                IsReadFromImage = window.IsReadFromImage,
-            }).Concat(window.Fields.Where(IsFormValue).Select(field => FromField(field, window))))
+            .SelectMany(window => FromText(window).Concat(FromFields(window)))
             .ToList();
+    }
+
+    /// <summary>
+    /// Cuts the text of a window into values, each tied to the person or company it belongs to.
+    /// </summary>
+    /// <param name="window">The window read.</param>
+    /// <returns>The values of the text.</returns>
+    private static IEnumerable<Candidate> FromText(WindowText window)
+    {
+        var pieces = TextSegmenter.Segment(window.Text);
+        var lines = window.Text.Split(LineBreaks, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var pieceLines = LocateLines(pieces, lines);
+        var ownerLines = pieces
+            .Select((piece, index) => (piece.Kind, Line: pieceLines[index]))
+            .Where(located => OwnerKinds.Contains(located.Kind) && located.Line >= 0)
+            .Select(located => located.Line)
+            .ToHashSet();
+
+        return pieces.Select((piece, index) => new Candidate
+        {
+            Value = piece.Value,
+            Kind = piece.Kind,
+            Label = piece.Label,
+            SourceName = window.Title,
+            SourceRank = window.Rank,
+            IsReadFromImage = window.IsReadFromImage,
+            Context = OwnerLine(pieceLines[index], ownerLines, lines),
+        });
+    }
+
+    /// <summary>
+    /// Finds the line of each piece, in order: the pieces come in their order of appearance.
+    /// </summary>
+    /// <param name="pieces">The pieces of the text.</param>
+    /// <param name="lines">The lines of the text.</param>
+    /// <returns>The index of the line of each piece, or -1 when it cannot be found.</returns>
+    private static int[] LocateLines(IReadOnlyList<TextPiece> pieces, string[] lines)
+    {
+        var located = new int[pieces.Count];
+        var cursor = 0;
+        for (var index = 0; index < pieces.Count; index++)
+        {
+            var line = FindLine(pieces[index].Value, lines, cursor);
+            if (line < 0)
+            {
+                line = FindLine(pieces[index].Value, lines, 0);
+            }
+
+            located[index] = line;
+            cursor = Math.Max(line, cursor);
+        }
+
+        return located;
+    }
+
+    private static int FindLine(string value, string[] lines, int start)
+    {
+        for (var line = start; line < lines.Length; line++)
+        {
+            if (lines[line].Contains(value, StringComparison.OrdinalIgnoreCase))
+            {
+                return line;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Finds the person or company a value belongs to: the closest line naming one, on the line of the value or just
+    /// above it, as in a signature or a list of contacts where the name comes first.
+    /// </summary>
+    /// <param name="line">The line of the value.</param>
+    /// <param name="ownerLines">The lines naming a person or a company.</param>
+    /// <param name="lines">The lines of the text.</param>
+    /// <returns>The line of the owner, or an empty string when none is close enough.</returns>
+    private static string OwnerLine(int line, HashSet<int> ownerLines, string[] lines)
+    {
+        for (var candidate = line; candidate >= 0 && line - candidate <= MaxLinesFromOwner; candidate--)
+        {
+            if (ownerLines.Contains(candidate))
+            {
+                return lines[candidate];
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static IEnumerable<Candidate> FromFields(WindowText window)
+    {
+        return window.Fields.Where(IsFormValue).Select(field => FromField(field, window));
     }
 
     /// <summary>

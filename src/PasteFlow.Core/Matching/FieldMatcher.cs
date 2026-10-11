@@ -13,7 +13,8 @@ namespace PasteFlow.Core.Matching;
 /// a value of another recognized kind is excluded;</description></item>
 /// <item><description>the labels: the more the label of the value talks about the same thing as the field
 /// (its label, technical name or help text, see <see cref="FieldClues"/>), the higher;</description></item>
-/// <item><description>uniqueness: the only value of the expected kind on screen is very likely the right one;</description></item>
+/// <item><description>uniqueness: the only value of the expected kind on screen is very likely the right one;
+/// among several, the only one the window being filled points to (see <see cref="ScreenContext"/>) is too;</description></item>
 /// <item><description>closeness: values of farther windows score slightly lower.</description></item>
 /// </list>
 /// <para>The field is filled only when the best value reaches <see cref="ConfidenceThreshold"/> and is ahead of
@@ -46,6 +47,7 @@ public static class FieldMatcher
     private const double TextKindScore = 0.2;
     private const double LabelWeight = 0.5;
     private const double UniqueKindBonus = 0.2;
+    private const double ContextBonus = 0.2;
     private const double RankPenalty = 0.03;
 
     /// <summary>
@@ -105,11 +107,36 @@ public static class FieldMatcher
         IReadOnlySet<string> takenValues,
         MatchingOptions options)
     {
+        return Match(field, clues, candidates, takenValues, options, ScreenContext.Empty);
+    }
+
+    /// <summary>
+    /// Finds the best value for a field, telling apart values of the same kind with what the window being filled says.
+    /// </summary>
+    /// <param name="field">The field to fill.</param>
+    /// <param name="clues">What the field tells about the value it expects, knowing the rest of the form.</param>
+    /// <param name="candidates">The values found in the sources.</param>
+    /// <param name="takenValues">The values already given to other fields, see <see cref="Match(FormField, IReadOnlyList{Candidate}, IReadOnlySet{string})"/>.</param>
+    /// <param name="options">The thresholds that decide whether the best value is sure enough.</param>
+    /// <param name="context">
+    /// What the window being filled says: among several values of the expected kind, the only one it points to
+    /// scores as high as the only value of its kind would.
+    /// </param>
+    /// <returns>The best candidate and whether it is confident enough.</returns>
+    public static FieldMatch Match(
+        FormField field,
+        FieldClues clues,
+        IReadOnlyList<Candidate> candidates,
+        IReadOnlySet<string> takenValues,
+        MatchingOptions options,
+        ScreenContext context)
+    {
         ArgumentNullException.ThrowIfNull(field);
         ArgumentNullException.ThrowIfNull(clues);
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(takenValues);
         ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(context);
 
         // Only the values the field can accept compete, so "the only value of its kind" means the only acceptable one
         var eligible = candidates.Where(candidate => IsEligible(candidate, clues)).ToList();
@@ -117,9 +144,14 @@ public static class FieldMatcher
             .GroupBy(candidate => candidate.Kind)
             .ToDictionary(group => group.Key, group => group.Select(candidate => candidate.Value).Distinct(StringComparer.Ordinal).Count());
 
+        // Among several values of the expected kind, the one the window being filled points to stands out
+        var pointedValues = clues.ExpectedKinds.Count > 0
+            ? context.ChooseAmong(eligible)
+            : new HashSet<string>(StringComparer.Ordinal);
+
         // A value found several times keeps its best score: it is one choice, not several
         var ranked = eligible
-            .Select(candidate => (Candidate: candidate, Score: Score(candidate, clues, distinctValuesByKind)))
+            .Select(candidate => (Candidate: candidate, Score: Score(candidate, clues, distinctValuesByKind, pointedValues)))
             .Where(scored => scored.Score > 0 && !takenValues.Contains(scored.Candidate.Value))
             .GroupBy(scored => scored.Candidate.Value, StringComparer.Ordinal)
             .Select(group => group.MaxBy(scored => scored.Score))
@@ -179,7 +211,8 @@ public static class FieldMatcher
     private static double Score(
         Candidate candidate,
         FieldClues clues,
-        Dictionary<CandidateKind, int> distinctValuesByKind)
+        Dictionary<CandidateKind, int> distinctValuesByKind,
+        IReadOnlySet<string> pointedValues)
     {
         double score;
         if (clues.ExpectedKinds.Count == 0 || candidate.Kind == CandidateKind.Text)
@@ -193,6 +226,10 @@ public static class FieldMatcher
             if (distinctValuesByKind[candidate.Kind] == 1)
             {
                 score += UniqueKindBonus;
+            }
+            else if (pointedValues.Contains(candidate.Value))
+            {
+                score += ContextBonus;
             }
         }
 

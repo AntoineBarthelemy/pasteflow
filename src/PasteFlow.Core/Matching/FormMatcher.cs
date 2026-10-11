@@ -94,7 +94,10 @@ public static class FormMatcher
         var screenCandidates = candidates.Where(candidate => !candidate.IsFromHistory).ToList();
         var historyCandidates = candidates.Where(candidate => candidate.IsFromHistory).ToList();
         var noTakenValue = new HashSet<string>(StringComparer.Ordinal);
-        var firstMatches = fields.Select((field, index) => FieldMatcher.Match(field, clues[index], screenCandidates, noTakenValue, options)).ToArray();
+        var context = ScreenContext.From(screenCandidates);
+        var firstMatches = fields
+            .Select((field, index) => FieldMatcher.Match(field, clues[index], screenCandidates, noTakenValue, options, context))
+            .ToArray();
         var matches = new FieldMatch[fields.Count];
         var takenValues = new HashSet<string>(StringComparer.Ordinal);
 
@@ -113,7 +116,7 @@ public static class FormMatcher
 
             var match = takenValues.Count == 0
                 ? firstMatches[index]
-                : FieldMatcher.Match(fields[index], clues[index], screenCandidates, takenValues, options);
+                : FieldMatcher.Match(fields[index], clues[index], screenCandidates, takenValues, options, context);
             if (match is { IsConfident: true, Candidate: not null })
             {
                 _ = takenValues.Add(match.Candidate.Value);

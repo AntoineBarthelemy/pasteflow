@@ -127,6 +127,13 @@ public static class LabelConcepts
         [FullName] = new[] { "fullname", "complet" },
     });
 
+    // Alone, these words name the recipients of a message: "À", "Cc", "Destinataires"; in a longer label, such as
+    // "Nom du destinataire", they do not mean an email
+    private static readonly HashSet<string> RecipientWords = new(StringComparer.Ordinal)
+    {
+        "a", "to", "pour", "cc", "cci", "bcc", "destinataire", "destinataires", "recipient", "recipients",
+    };
+
     private static readonly HashSet<string> StopWords = new(StringComparer.Ordinal)
     {
         "de", "du", "des", "la", "le", "les", "l", "d", "un", "une", "a", "au", "aux", "en", "et", "ou", "par", "pour",
@@ -219,6 +226,11 @@ public static class LabelConcepts
         ArgumentNullException.ThrowIfNull(label);
 
         var words = Words(label);
+        if (words.Count > 0 && words.TrueForAll(RecipientWords.Contains))
+        {
+            return new HashSet<string>(StringComparer.Ordinal) { Email };
+        }
+
         var isConfirmation = IsConfirmation(words);
         var concepts = new HashSet<string>(StringComparer.Ordinal);
         foreach (var word in words.Where(item => !AddressWords.Contains(item) && !(isConfirmation && IsConfirmationWord(item))))

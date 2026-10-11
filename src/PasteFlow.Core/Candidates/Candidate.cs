@@ -43,6 +43,12 @@ public sealed record Candidate
     public bool IsTypedInField { get; init; }
 
     /// <summary>
+    /// Gets the line of the person or company the value belongs to where it was found, such as "Léa Martin,
+    /// responsable communication" for the email written under it, or an empty string if none is known.
+    /// </summary>
+    public string Context { get; init; } = string.Empty;
+
+    /// <summary>
     /// Gets a value indicating whether the value was read from the image of a window (OCR): a character may be misread,
     /// so such a value is only proposed, never written without the user.
     /// </summary>

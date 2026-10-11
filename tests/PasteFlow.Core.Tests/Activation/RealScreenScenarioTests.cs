@@ -240,6 +240,51 @@ public sealed class RealScreenScenarioTests : IDisposable
         Assert.Empty(_fields.WrittenValues);
     }
 
+    [Theory]
+    [InlineData("Bonjour Léa,\nJe prépare une interview et j'aimerais beaucoup recevoir Hugo.", "lea.martin@atelier-nova.fr")]
+    [InlineData("Salut Hugo,\nLéa m'a dit de t'écrire directement.", "hugo@atelier-nova.fr")]
+    public void Fill_ChoosesTheEmailOfThePersonTheMessageIsFor(string body, string expected)
+    {
+        Fill(new[] { TestFields.Text("to", "À") }, Gmail(body), ClaudeContacts());
+
+        Assert.Equal(expected, _fields.WrittenValues["to"]);
+    }
+
+    [Theory]
+    [InlineData("Bonjour à tous,\nPetit point sur l'interview.")]
+    [InlineData("Bonjour Léa et Hugo,\nPetit point sur l'interview.")]
+    public void Fill_WhenTheMessageDoesNotSayWhoItIsFor_LeavesTheRecipientToTheUser(string body)
+    {
+        Fill(new[] { TestFields.Text("to", "À") }, Gmail(body), ClaudeContacts());
+
+        Assert.Empty(_fields.WrittenValues);
+    }
+
+    private static WindowText Gmail(string body)
+    {
+        return new WindowText { Title = "Nouveau message", Text = $"Objet\nInterview Success Story\n{body}", Rank = 0 };
+    }
+
+    private static WindowText ClaudeContacts()
+    {
+        return new WindowText
+        {
+            Title = "Claude",
+            Rank = 1,
+            Text = """
+                Voici les contacts que j'ai trouvés :
+                Léa Martin, responsable communication
+                lea.martin@atelier-nova.fr
+                06 12 48 30 77
+
+                Hugo Bernard, fondateur
+                hugo@atelier-nova.fr
+
+                Le mieux est d'écrire d'abord à Léa. Elle gère l'agenda d'Hugo.
+                """,
+        };
+    }
+
     private void FillLearning(IReadOnlyList<FormField> form, string screen, FillHistory history, FillMemory memory)
     {
         var reader = new FakeWindowTextReader
@@ -265,9 +310,9 @@ public sealed class RealScreenScenarioTests : IDisposable
         Fill(form, new WindowText { Title = "Gmail", Text = screen, Rank = 1 });
     }
 
-    private void Fill(IReadOnlyList<FormField> form, WindowText screen)
+    private void Fill(IReadOnlyList<FormField> form, params WindowText[] screen)
     {
-        var reader = new FakeWindowTextReader { Windows = new[] { screen } };
+        var reader = new FakeWindowTextReader { Windows = screen };
         using var service = new ShortcutActivationService(
             _listener,
             new FakeFormReader { Fields = form },

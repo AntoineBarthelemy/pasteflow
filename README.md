@@ -10,7 +10,7 @@ Outil Windows de remplissage de formulaires sans souris : on se place dans un fo
 
 ## État d'avancement
 
-Prototype complet (étapes 1 à 12) : l'application tourne en arrière-plan (icône près de l'horloge). Ctrl+Alt+V lit les champs du formulaire de la fenêtre active et le texte des fenêtres visibles (active et 3 juste derrière). Il y reconnaît les valeurs utiles (e-mails, téléphones, dates, montants, IBAN, références, noms, villes, pays, entreprises), puis remplit les champs dont la valeur est sûre, au format attendu par le champ. Les champs incertains sont encadrés en orange, avec des propositions. Les champs remplis d'un formulaire ouvert derrière sont repris sous la même étiquette (copie de formulaire à formulaire). Les champs déjà remplis sont laissés intacts, sauf si l'on appuie une 2e fois sur Ctrl+Alt+V dans les 8 secondes. Les mots de passe ne sont jamais touchés, et Ctrl+Alt+Z annule le remplissage.
+Prototype complet (étapes 1 à 13) : l'application tourne en arrière-plan (icône près de l'horloge). Ctrl+Alt+V lit les champs du formulaire de la fenêtre active et le texte des fenêtres visibles (active et 3 juste derrière). Il y reconnaît les valeurs utiles (e-mails, téléphones, dates, montants, IBAN, références, noms, villes, pays, entreprises), puis remplit les champs dont la valeur est sûre, au format attendu par le champ. Les champs incertains sont encadrés en orange, avec des propositions. Les champs remplis d'un formulaire ouvert derrière sont repris sous la même étiquette (copie de formulaire à formulaire). Les champs déjà remplis sont laissés intacts, sauf si l'on appuie une 2e fois sur Ctrl+Alt+V dans les 8 secondes. Les mots de passe ne sont jamais touchés, et Ctrl+Alt+Z annule le remplissage.
 
 Feuille de route :
 
@@ -26,7 +26,8 @@ Feuille de route :
 10. [x] Finitions : valeurs écrites au format du champ (dates, téléphones, IBAN, montants), paramètres (prudence, apprentissage, démarrage avec Windows)
 11. [x] OCR de secours : une fenêtre qui ne donne pas son texte (image, PDF scanné, bureau à distance) est lue à l'image, ses valeurs sont seulement proposées
 12. [x] Copie de formulaire à formulaire (champs remplis des fenêtres derrière, avec leur étiquette) et 2e appui qui remplace les valeurs déjà présentes
-13. [ ] Plus tard : extension Chrome pour lire les autres onglets, envoi optionnel vers l'historique Win+V, choix des raccourcis
+13. [x] Liens entre les valeurs : chaque valeur est rattachée à la personne ou l'entreprise qu'elle concerne, et ce qui est déjà écrit dans la fenêtre remplie départage les valeurs du même type (« Bonjour Léa » : l'e-mail de Léa). Les champs « À », « Cc » et « Destinataires » attendent un e-mail
+14. [ ] Plus tard : extension Chrome pour lire les autres onglets, envoi optionnel vers l'historique Win+V, choix des raccourcis
 
 Les informations à coller viennent de **sources** interchangeables (interface commune posée à l'étape 4). Sources prévues :
 

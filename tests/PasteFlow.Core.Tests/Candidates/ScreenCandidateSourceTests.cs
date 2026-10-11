@@ -135,6 +135,40 @@ public sealed class ScreenCandidateSourceTests
     }
 
     [Fact]
+    public async Task GetCandidatesAsync_TiesEachValueToThePersonAboveIt()
+    {
+        const string Reply = """
+            Voici les contacts que j'ai trouvés :
+            Léa Martin, responsable communication
+            lea.martin@atelier-nova.fr
+            06 12 48 30 77
+            Hugo Bernard, fondateur
+            hugo@atelier-nova.fr
+            """;
+        var reader = new FakeWindowTextReader { Windows = new[] { Window("Claude", rank: 1, Reply) } };
+
+        var candidates = await new ScreenCandidateSource(reader).GetCandidatesAsync(CancellationToken.None);
+
+        Assert.Equal("Léa Martin, responsable communication", Single(candidates, "lea.martin@atelier-nova.fr").Context);
+        Assert.Equal("Léa Martin, responsable communication", Single(candidates, "06 12 48 30 77").Context);
+        Assert.Equal("Hugo Bernard, fondateur", Single(candidates, "hugo@atelier-nova.fr").Context);
+    }
+
+    [Fact]
+    public async Task GetCandidatesAsync_WithoutPersonCloseAbove_LeavesTheContextEmpty()
+    {
+        var lines = string.Join('\n', Enumerable.Range(1, 10).Select(index => $"Ligne {index} sans nom"));
+        var reader = new FakeWindowTextReader
+        {
+            Windows = new[] { Window("Notes", rank: 1, $"Léa Martin\n{lines}\nlea.martin@atelier-nova.fr") },
+        };
+
+        var candidates = await new ScreenCandidateSource(reader).GetCandidatesAsync(CancellationToken.None);
+
+        Assert.Equal(string.Empty, Single(candidates, "lea.martin@atelier-nova.fr").Context);
+    }
+
+    [Fact]
     public async Task GetCandidatesAsync_WithoutReadableWindow_ReturnsNothing()
     {
         var source = new ScreenCandidateSource(new FakeWindowTextReader());
@@ -142,6 +176,11 @@ public sealed class ScreenCandidateSourceTests
         var candidates = await source.GetCandidatesAsync(CancellationToken.None);
 
         Assert.Empty(candidates);
+    }
+
+    private static Candidate Single(IEnumerable<Candidate> candidates, string value)
+    {
+        return Assert.Single(candidates, candidate => candidate.Value == value);
     }
 
     private static WindowText Window(string title, int rank, string text)
