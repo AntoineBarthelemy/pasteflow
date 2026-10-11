@@ -177,7 +177,7 @@ internal sealed class PastePickerWindow : Window
         }
     }
 
-    private static Brush Frozen(Color color)
+    private static SolidColorBrush Frozen(Color color)
     {
         var brush = new SolidColorBrush(color);
         brush.Freeze();
