@@ -182,12 +182,12 @@ public sealed class BrowserBenchTests
         private readonly SemaphoreSlim _fills = new(0);
         private int _fillCount;
 
+        public List<FillReport> Reports { get; } = new();
+
         public void Notify(string message)
         {
             // Only the end of a fill matters to the tester
         }
-
-        public List<FillReport> Reports { get; } = new();
 
         public void NotifyFill(FillReport report)
         {
