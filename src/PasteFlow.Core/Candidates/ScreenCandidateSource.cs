@@ -88,7 +88,7 @@ public sealed class ScreenCandidateSource : ICandidateSource, IScreenTextSource
     /// <param name="pieces">The pieces of the text.</param>
     /// <param name="lines">The lines of the text.</param>
     /// <returns>The index of the line of each piece, or -1 when it cannot be found.</returns>
-    private static int[] LocateLines(IReadOnlyList<TextPiece> pieces, string[] lines)
+    private static int[] LocateLines(List<TextPiece> pieces, string[] lines)
     {
         var located = new int[pieces.Count];
         var cursor = 0;
