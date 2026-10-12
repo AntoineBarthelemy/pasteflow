@@ -25,6 +25,7 @@ public sealed class BrowserBenchTests
 {
     private static readonly TimeSpan FillTimeout = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan SourceTimeout = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan ValueSettleTimeout = TimeSpan.FromSeconds(3);
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
     private static readonly Lazy<List<Scenario>> Scenarios = new(Load);
 
@@ -137,14 +138,26 @@ public sealed class BrowserBenchTests
 
     private static void AssertValues(Scenario scenario, Dictionary<string, string> expected, BrowserWindow form, string screen)
     {
-        var mismatches = scenario.Form
+        // A browser shows a value written through UI Automation a moment later: the values are read again for a while
+        var deadline = DateTime.UtcNow + ValueSettleTimeout;
+        var mismatches = Mismatches(scenario, expected, form);
+        while (mismatches.Count > 0 && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(200);
+            mismatches = Mismatches(scenario, expected, form);
+        }
+
+        Assert.True(mismatches.Count == 0, $"Scénario {scenario.Id} dans le navigateur :\n{string.Join('\n', mismatches)}\nÉcran lu :\n{screen}");
+    }
+
+    private static List<string> Mismatches(Scenario scenario, Dictionary<string, string> expected, BrowserWindow form)
+    {
+        return scenario.Form
             .Where(field => field.Kind is not ("password" or "choice"))
             .Select(field => (field.Label, Expected: expected[field.Id].ReplaceLineEndings("\n"), Actual: form.ValueOf(field.Label).TrimEnd()))
             .Where(result => !string.Equals(result.Expected, result.Actual, StringComparison.Ordinal))
             .Select(result => $"« {result.Label} » : attendu « {result.Expected} », obtenu « {result.Actual} »")
             .ToList();
-
-        Assert.True(mismatches.Count == 0, $"Scénario {scenario.Id} dans le navigateur :\n{string.Join('\n', mismatches)}\nÉcran lu :\n{screen}");
     }
 
     private static List<Scenario> Load()
