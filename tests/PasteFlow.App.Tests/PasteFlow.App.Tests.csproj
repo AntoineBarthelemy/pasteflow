@@ -20,6 +20,12 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <!-- The test bench, opened in a real browser by the automatic tester -->
+  <ItemGroup>
+    <None Include="..\..\terrain-essai\index.html" Link="Bench\index.html" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\terrain-essai\scenarios.json" Link="Bench\scenarios.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\..\src\PasteFlow.App\PasteFlow.App.csproj" />
   </ItemGroup>

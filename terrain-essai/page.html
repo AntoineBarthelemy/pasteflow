@@ -130,7 +130,10 @@
     set(key, value) { try { localStorage.setItem(key, value); } catch { /* storage unavailable */ } },
   };
   let current = scenarios[0];
-  let mode = store.get("pf-mode") || "all";
+  // "?mode=source" or "?mode=form" opens a window on one side, as the automatic tester does
+  const modes = ["all", "source", "form"];
+  const askedMode = new URLSearchParams(location.search).get("mode");
+  let mode = modes.includes(askedMode) ? askedMode : store.get("pf-mode") || "all";
 
   function el(tag, props = {}, children = []) {
     const node = document.createElement(tag);
