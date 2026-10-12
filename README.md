@@ -87,7 +87,7 @@ Clic droit sur l'icône près de l'horloge : « Paramètres… » (prudence, app
 
 ## Terrain d'essai
 
-`terrain-essai/index.html` rassemble tous les cas à tester à la main (formulaires, formats, noms, pièges, champs protégés, deux fenêtres, image, mémoire). Ouvre-le dans le navigateur, choisis un scénario, appuie sur Ctrl+Alt+V puis sur Vérifier. Les mêmes scénarios (`terrain-essai/scenarios.json`) sont rejoués par les tests automatiques. Après un changement de scénario : `python terrain-essai/build.py`.
+`terrain-essai/index.html` rassemble tous les cas (formulaires, formats, noms, pièges, champs protégés, deux fenêtres, image, mémoire, coller n'importe où). Ouvre-le dans le navigateur, choisis un scénario, appuie sur Ctrl+Alt+V puis sur Vérifier. Les mêmes scénarios (`terrain-essai/scenarios.json`) sont tous rejoués automatiquement à chaque push : par le cœur (`TestBenchScenarioTests`) et dans un vrai navigateur Edge (`BrowserBenchTests`), avec la vraie lecture de l'écran, l'OCR pour l'image et l'écriture dans les champs. Seule la frappe au clavier réelle n'y est pas jouée (pas d'écran actif sur la machine de test) : elle est couverte par les tests unitaires. Après un changement de scénario : `python terrain-essai/build.py`.
 
 ## Structure
 
