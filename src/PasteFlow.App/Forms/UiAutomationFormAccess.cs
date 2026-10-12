@@ -35,14 +35,14 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
     private int _readingCount;
 
     /// <summary>
-    /// Gets the condition that finds the fields of a window: text boxes and combo boxes, enabled and visible.
+    /// Gets the condition that finds the fields of a window: text boxes and combo boxes, enabled. Fields out of view
+    /// further down a long form are kept; see <see cref="IsInPage"/> for those hidden on purpose.
     /// </summary>
     internal static Condition FieldCondition { get; } = new AndCondition(
         new OrCondition(
             new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
             new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox)),
-        new PropertyCondition(AutomationElement.IsEnabledProperty, true),
-        new PropertyCondition(AutomationElement.IsOffscreenProperty, false));
+        new PropertyCondition(AutomationElement.IsEnabledProperty, true));
 
     /// <inheritdoc/>
     public Task<IReadOnlyList<FormField>> ReadActiveFormAsync(CancellationToken cancellationToken)
@@ -154,6 +154,23 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
         }
 
         return string.Empty;
+    }
+
+    /// <summary>
+    /// Determines whether a field is part of the page a user can see, if need be by scrolling: a field without size,
+    /// or moved beside the window, is hidden on purpose, often a trap for robots that a person must never fill.
+    /// </summary>
+    /// <param name="element">The field.</param>
+    /// <param name="window">The position of its window, in screen pixels.</param>
+    /// <returns><see langword="true"/> if the user can reach the field; otherwise <see langword="false"/>.</returns>
+    internal static bool IsInPage(AutomationElement element, System.Windows.Rect window)
+    {
+        var bounds = element.Current.BoundingRectangle;
+        const double MinSize = 2;
+        return !bounds.IsEmpty
+            && bounds.Width >= MinSize
+            && bounds.Height >= MinSize
+            && (window.IsEmpty || (bounds.Right > window.Left && bounds.Left < window.Right && bounds.Bottom > window.Top));
     }
 
     /// <summary>
@@ -429,12 +446,14 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             try
             {
                 var window = AutomationElement.FromHandle(windowHandle);
+                var windowBounds = window.Current.BoundingRectangle;
                 foreach (AutomationElement element in window.FindAll(TreeScope.Descendants, FieldCondition))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    // The text box inside a combo box where the user can type is the combo box itself, read once
-                    if (IsInsideComboBox(element))
+                    // The text box inside a combo box where the user can type is the combo box itself, read once;
+                    // a field hidden on purpose is never filled
+                    if (IsInsideComboBox(element) || !IsInPage(element, windowBounds))
                     {
                         continue;
                     }

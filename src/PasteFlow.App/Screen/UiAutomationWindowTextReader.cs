@@ -208,11 +208,17 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
     private static List<FieldText> ReadFilledFields(AutomationElement window)
     {
         var fields = new List<FieldText>();
+        var windowBounds = window.Current.BoundingRectangle;
         foreach (AutomationElement element in window.FindAll(TreeScope.Descendants, UiAutomationFormAccess.FieldCondition))
         {
             if (fields.Count == MaxFilledFields)
             {
                 break;
+            }
+
+            if (!UiAutomationFormAccess.IsInPage(element, windowBounds))
+            {
+                continue;
             }
 
             var field = TryReadFilledField(element);
