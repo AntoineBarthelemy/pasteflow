@@ -3,8 +3,8 @@ using System.Windows;
 using PasteFlow.App.Forms;
 using PasteFlow.App.Highlights;
 using PasteFlow.App.History;
-using PasteFlow.App.Logins;
 using PasteFlow.App.Hotkeys;
+using PasteFlow.App.Logins;
 using PasteFlow.App.Notifications;
 using PasteFlow.App.Picking;
 using PasteFlow.App.Profile;
@@ -160,7 +160,7 @@ internal static class Program
 
             if (!bitwarden.IsInstalled)
             {
-                notifier.Notify("Bitwarden en ligne de commande n'est pas installé. Dans un terminal : winget install Bitwarden.CLI, puis bw login.");
+                notifier.Notify("Bitwarden en ligne de commande n'est pas installé. Dans un terminal : winget install Bitwarden.CLI (ou npm install -g @bitwarden/cli), puis bw login.");
                 return;
             }
 

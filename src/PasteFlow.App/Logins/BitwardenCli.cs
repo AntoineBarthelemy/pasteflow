@@ -233,6 +233,9 @@ internal sealed partial class BitwardenCli : IPasswordManager
             start.ArgumentList.Add(argument);
         }
 
+        // Never a question asked in a hidden window: bw answers at once, or fails
+        start.ArgumentList.Add("--nointeraction");
+
         start.Environment["BW_NOINTERACTION"] = "true";
         foreach (var (name, value) in environment)
         {

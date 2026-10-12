@@ -28,7 +28,7 @@ Feuille de route :
 12. [x] Copie de formulaire à formulaire (champs remplis des fenêtres derrière, avec leur étiquette) et 2e appui qui remplace les valeurs déjà présentes
 13. [x] Liens entre les valeurs : chaque valeur est rattachée à la personne ou l'entreprise qu'elle concerne, et ce qui est déjà écrit dans la fenêtre remplie départage les valeurs du même type (« Bonjour Léa » : l'e-mail de Léa). Les champs « À », « Cc » et « Destinataires » attendent un e-mail
 14. [x] Coller n'importe où : hors formulaire (message, document, discussion), Ctrl+Alt+V colle au curseur la valeur désignée par les mots juste avant (« son téléphone : »), sinon ouvre une liste sous le curseur avec les 5 valeurs les plus probables et une recherche dans les fenêtres, coupée au bout des mots (Tab : phrase, ligne ; Ctrl+Maj+flèches : mot par mot)
-15. [ ] Fiche perso et connexions (en cours) : une fiche unique, chiffrée sur le PC, avec les infos de l'utilisateur ; le sensible (IBAN, n° de sécu…) reconnu à son format, jamais affiché en entier, protégé par Windows Hello ; mots de passe jamais stockés, demandés à Bitwarden. Fait : le socle de la fiche (fenêtre « Ma fiche… », valeurs multiples, cartes bancaires refusées, export/import protégé par mot de passe)
+15. [x] Fiche perso et connexions : une fiche unique, chiffrée sur le PC (« Ma fiche… » dans le menu de l'icône), qui remplit les champs qui parlent de l'utilisateur (« Votre e-mail », page « Créer un compte ») et jamais ceux d'un autre (« E-mail du contact », page « Nouveau client ») ; en cas de doute avec l'écran, champ vide et les deux valeurs proposées. Plusieurs e-mails : celui utilisé sur le site, sinon le plus utilisé. Le sensible (IBAN, n° de sécu…) est reconnu à sa clé, jamais affiché en entier, et protégé par Windows Hello (30 min, reverrouillé au verrouillage du PC). La fiche apprend de ce que l'utilisateur remplit (deux fois, avec « Annuler »), démarre avec le compte Windows et l'identité Bitwarden, s'exporte avec un mot de passe. Pages de connexion : identifiant et mot de passe demandés à Bitwarden (même site que la barre d'adresse, liste de choix dans les applications), jamais stockés
 16. [ ] Plus tard : extension Chrome pour lire les autres onglets, envoi optionnel vers l'historique Win+V, choix des raccourcis
 
 Les informations à coller viennent de **sources** interchangeables (interface commune posée à l'étape 4). Sources prévues :
@@ -84,7 +84,9 @@ Raccourcis :
 | Ctrl+Alt+Z | Annule le dernier remplissage : vide les champs remplis par l'outil et remet les valeurs remplacées, sauf les champs modifiés depuis |
 | Ctrl+Maj+1, 2, 3 | Dans un champ encadré en orange, choisit une des valeurs proposées (actif seulement quand la bulle est affichée) |
 
-Clic droit sur l'icône près de l'horloge : « Ma fiche… » (voir, corriger, exporter ou importer ses infos), « Paramètres… » (prudence, apprentissage, démarrage avec Windows), « Effacer l'historique », « Quitter ».
+Clic droit sur l'icône près de l'horloge : « Ma fiche… » (voir, corriger, exporter ou importer ses infos), « Déverrouiller Bitwarden… », « Paramètres… » (prudence, apprentissage, démarrage avec Windows), « Effacer l'historique », « Quitter ».
+
+Pages de connexion avec Bitwarden (facultatif) : installer une fois l'outil en ligne de commande (`winget install Bitwarden.CLI`, ou `npm install -g @bitwarden/cli`), puis `bw login` dans un terminal. Au lancement, PasteFlow demande le mot de passe maître (il va directement à Bitwarden et n'est jamais gardé) ; ensuite Windows Hello est demandé avant chaque mot de passe, une fois par demi-heure.
 
 ## Terrain d'essai
 
