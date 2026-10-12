@@ -5,6 +5,7 @@ using PasteFlow.App.History;
 using PasteFlow.App.Hotkeys;
 using PasteFlow.App.Notifications;
 using PasteFlow.App.Picking;
+using PasteFlow.App.Profile;
 using PasteFlow.App.Screen;
 using PasteFlow.App.Settings;
 using PasteFlow.App.Tray;
@@ -14,6 +15,7 @@ using PasteFlow.Core.Forms;
 using PasteFlow.Core.History;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Matching;
+using PasteFlow.Core.Profile;
 using PasteFlow.Core.Reference;
 using PasteFlow.Core.Settings;
 using PasteFlow.Core.Undo;
@@ -48,6 +50,9 @@ internal static class Program
         using var history = new FillHistory(new ProtectedFileHistoryStore(ProtectedFileHistoryStore.DefaultPath));
         var fillMemory = new FillMemory();
         history.Observe(fillMemory);
+
+        // What the user keeps about themselves, encrypted on this computer
+        using var profile = new ProfileBook(new ProtectedFileProfileStore(ProtectedFileProfileStore.DefaultPath));
 
         // Reading and writing forms, frames and suggestions
         var formAccess = new UiAutomationFormAccess();
@@ -108,8 +113,21 @@ internal static class Program
             settingsWindow.Show();
         }
 
+        ProfileWindow? profileWindow = null;
+        void OpenProfile()
+        {
+            if (profileWindow is { IsVisible: true })
+            {
+                _ = profileWindow.Activate();
+                return;
+            }
+
+            profileWindow = new ProfileWindow(profile, owner => new WindowsProfileTransferPrompts(owner));
+            profileWindow.Show();
+        }
+
         Apply(settings);
-        using var trayIcon = new TrayIcon(application.Shutdown, () => _ = ClearHistoryAsync(history, notifier), OpenSettings);
+        using var trayIcon = new TrayIcon(application.Shutdown, () => _ = ClearHistoryAsync(history, notifier), OpenSettings, OpenProfile);
 
         // Without its own shortcut, undoing is simply not announced: filling still works
         var undoHotkey = Hotkey.DefaultUndo;

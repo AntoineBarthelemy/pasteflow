@@ -28,16 +28,17 @@ Feuille de route :
 12. [x] Copie de formulaire à formulaire (champs remplis des fenêtres derrière, avec leur étiquette) et 2e appui qui remplace les valeurs déjà présentes
 13. [x] Liens entre les valeurs : chaque valeur est rattachée à la personne ou l'entreprise qu'elle concerne, et ce qui est déjà écrit dans la fenêtre remplie départage les valeurs du même type (« Bonjour Léa » : l'e-mail de Léa). Les champs « À », « Cc » et « Destinataires » attendent un e-mail
 14. [x] Coller n'importe où : hors formulaire (message, document, discussion), Ctrl+Alt+V colle au curseur la valeur désignée par les mots juste avant (« son téléphone : »), sinon ouvre une liste sous le curseur avec les 5 valeurs les plus probables et une recherche dans les fenêtres, coupée au bout des mots (Tab : phrase, ligne ; Ctrl+Maj+flèches : mot par mot)
-15. [ ] Plus tard : coffre pour les infos sensibles et mots de passe (Windows Hello, Bitwarden), extension Chrome pour lire les autres onglets, envoi optionnel vers l'historique Win+V, choix des raccourcis
+15. [ ] Fiche perso et connexions (en cours) : une fiche unique, chiffrée sur le PC, avec les infos de l'utilisateur ; le sensible (IBAN, n° de sécu…) reconnu à son format, jamais affiché en entier, protégé par Windows Hello ; mots de passe jamais stockés, demandés à Bitwarden. Fait : le socle de la fiche (fenêtre « Ma fiche… », valeurs multiples, cartes bancaires refusées, export/import protégé par mot de passe)
+16. [ ] Plus tard : extension Chrome pour lire les autres onglets, envoi optionnel vers l'historique Win+V, choix des raccourcis
 
 Les informations à coller viennent de **sources** interchangeables (interface commune posée à l'étape 4). Sources prévues :
 
 | Source | Quand |
 |---|---|
 | Texte affiché à l'écran | Étape 4 |
-| Profil de l'utilisateur (identité, adresse, liens, études) | Après l'étape 6 |
+| Fiche de l'utilisateur (identité, adresse, liens, études, infos sensibles) | Étape 15 |
 | Historique des remplissages (chiffré, effaçable depuis le menu de l'icône) | Étape 9 |
-| Gestionnaire de mots de passe (Bitwarden, via son CLI) | Après la V1, avec le volet confidentialité |
+| Gestionnaire de mots de passe (Bitwarden, via son CLI) | Étape 15 |
 
 L'auto-remplissage de Chrome n'est pas une source envisagée : ses données sont chiffrées pour qu'aucun logiciel extérieur ne puisse les lire.
 
@@ -83,7 +84,7 @@ Raccourcis :
 | Ctrl+Alt+Z | Annule le dernier remplissage : vide les champs remplis par l'outil et remet les valeurs remplacées, sauf les champs modifiés depuis |
 | Ctrl+Maj+1, 2, 3 | Dans un champ encadré en orange, choisit une des valeurs proposées (actif seulement quand la bulle est affichée) |
 
-Clic droit sur l'icône près de l'horloge : « Paramètres… » (prudence, apprentissage, démarrage avec Windows), « Effacer l'historique », « Quitter ».
+Clic droit sur l'icône près de l'horloge : « Ma fiche… » (voir, corriger, exporter ou importer ses infos), « Paramètres… » (prudence, apprentissage, démarrage avec Windows), « Effacer l'historique », « Quitter ».
 
 ## Terrain d'essai
 

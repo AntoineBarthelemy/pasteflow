@@ -1,7 +1,4 @@
 using System.IO;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using PasteFlow.Core.History;
 
 namespace PasteFlow.App.History;
@@ -15,10 +12,7 @@ namespace PasteFlow.App.History;
 /// </remarks>
 internal sealed class ProtectedFileHistoryStore : IHistoryStore
 {
-    // Extra secret mixed into the encryption, so that another application of the same user cannot read the file by chance
-    private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("PasteFlow.History.v1");
-
-    private readonly string _path;
+    private readonly ProtectedJsonFile<HistoryEntry> _file;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ProtectedFileHistoryStore"/> class.
@@ -26,9 +20,7 @@ internal sealed class ProtectedFileHistoryStore : IHistoryStore
     /// <param name="path">The path of the encrypted file.</param>
     public ProtectedFileHistoryStore(string path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-
-        _path = path;
+        _file = new ProtectedJsonFile<HistoryEntry>(path, "PasteFlow.History.v1");
     }
 
     /// <summary>
@@ -40,58 +32,14 @@ internal sealed class ProtectedFileHistoryStore : IHistoryStore
         "history.dat");
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<HistoryEntry>> LoadAsync(CancellationToken cancellationToken)
+    public Task<IReadOnlyList<HistoryEntry>> LoadAsync(CancellationToken cancellationToken)
     {
-        if (!File.Exists(_path))
-        {
-            return Array.Empty<HistoryEntry>();
-        }
-
-        try
-        {
-            var encrypted = await File.ReadAllBytesAsync(_path, cancellationToken);
-            var json = ProtectedData.Unprotect(encrypted, Entropy, DataProtectionScope.CurrentUser);
-            return JsonSerializer.Deserialize<List<HistoryEntry>>(json) ?? new List<HistoryEntry>();
-        }
-        catch (Exception exception) when (exception is CryptographicException or JsonException or IOException or UnauthorizedAccessException)
-        {
-            SetAside();
-            return Array.Empty<HistoryEntry>();
-        }
+        return _file.LoadAsync(cancellationToken);
     }
 
     /// <inheritdoc/>
-    public async Task<bool> TrySaveAsync(IReadOnlyList<HistoryEntry> entries, CancellationToken cancellationToken)
+    public Task<bool> TrySaveAsync(IReadOnlyList<HistoryEntry> entries, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(entries);
-
-        try
-        {
-            _ = Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            var json = JsonSerializer.SerializeToUtf8Bytes(entries);
-            var encrypted = ProtectedData.Protect(json, Entropy, DataProtectionScope.CurrentUser);
-
-            // Written aside then swapped, so that a crash never leaves half a file
-            var temporaryPath = _path + ".tmp";
-            await File.WriteAllBytesAsync(temporaryPath, encrypted, cancellationToken);
-            File.Move(temporaryPath, _path, overwrite: true);
-            return true;
-        }
-        catch (Exception exception) when (exception is CryptographicException or IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
-    }
-
-    private void SetAside()
-    {
-        try
-        {
-            File.Move(_path, _path + ".unreadable", overwrite: true);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            // Nothing more can be done: the next save will replace it
-        }
+        return _file.TrySaveAsync(entries, cancellationToken);
     }
 }
