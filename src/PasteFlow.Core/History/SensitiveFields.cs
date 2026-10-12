@@ -50,7 +50,7 @@ public static partial class SensitiveFields
         return CamelCaseRegex().Replace(technicalName, " ").Replace('_', ' ').Replace('-', ' ');
     }
 
-    [GeneratedRegex(@"\b(?:CARTE|CB|CVV|CVC|CSC|CRYPTOGRAMME|CC|CARD|PIN|OTP|SMS|IBAN|BIC|RIB|NIR|SSN|PASSWORD|PASSE|MDP|SECURITE|SECURITY|VERIFICATION|CODE ONE TIME|ONE TIME|TOTP|2FA|EXPIRATION|EXPIRY)\b", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    [GeneratedRegex(@"\b(?:CARTE|CB|CVV|CVC|CSC|CRYPTOGRAMME|CC|CARD|PIN|OTP|SMS|IBAN|BIC|RIB|NIR|SSN|PASSWORD|PASSE|MDP|SECURITE|SECURITY|VERIFICATION|CODE ONE TIME|ONE TIME|TOTP|2FA|EXPIRATION|EXPIRY|PASSEPORT|PASSPORT|PERMIS|LICENCE|LICENSE|SECU)\b", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex SensitiveWordsRegex();
 
     // 13 to 19 digits, possibly grouped: the length of payment card numbers

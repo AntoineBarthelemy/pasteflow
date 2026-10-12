@@ -93,7 +93,9 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
 
             // The fields of the form being filled are its own, only the forms behind it give values
             IReadOnlyList<FieldText> fields = rank == 0 ? Array.Empty<FieldText>() : ReadFilledFields(window);
-            return new WindowText { Title = window.Current.Name, Text = text, Rank = rank, Fields = fields };
+            // The site matters for the window being filled only: it tells which of the user's values goes there
+            var address = rank == 0 ? BrowserAddress.TryRead(window) : string.Empty;
+            return new WindowText { Title = window.Current.Name, Text = text, Rank = rank, Fields = fields, Address = address };
         }
         catch (ElementNotAvailableException)
         {

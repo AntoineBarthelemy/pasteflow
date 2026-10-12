@@ -10,7 +10,9 @@ using PasteFlow.Core.History;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Notifications;
 using PasteFlow.Core.Picking;
+using PasteFlow.Core.Profile;
 using PasteFlow.Core.Screen;
+using PasteFlow.Core.Security;
 using PasteFlow.Core.Undo;
 
 namespace PasteFlow.App.Tests.Bench;
@@ -75,7 +77,7 @@ public sealed class BrowserBenchTests
         using var source = OpenSource(scenario);
         using var form = BrowserWindow.Open(PageUrl(scenario.Id, "form"), scenario.Form[0].Label);
         var isImage = scenario.Sources.Exists(item => item.Image);
-        var reader = new BenchWindows(form.Handle, source?.Handle, isImage ? new UiAutomationWindowTextReader(ocr) : null);
+        var reader = new BenchWindows(form.Handle, source?.Handle, isImage ? new UiAutomationWindowTextReader(ocr) : null, scenario.Address);
         await WaitForSourceAsync(reader, scenario);
 
         var formAccess = new UiAutomationFormAccess();
@@ -83,14 +85,19 @@ public sealed class BrowserBenchTests
         history.Observe(memory);
         using var notifier = new WaitingNotifier();
         using var listener = new FakeHotkeyListener();
+        using var profile = new ProfileBook(new InMemoryProfileStore(scenario.Profile.Select(value => value.ToProfileValue()).ToArray()));
+        using var gate = new SensitiveGate(new FakePresenceCheck());
         using var service = new ShortcutActivationService(
             listener,
             new FormOfWindow(formAccess, form.Handle),
             formAccess,
-            new ICandidateSource[] { new ScreenCandidateSource(reader), history },
+            new ICandidateSource[] { new ScreenCandidateSource(reader), new ProfileCandidateSource(profile), history },
             notifier,
             memory,
-            new NoHighlight());
+            new NoHighlight())
+        {
+            SensitiveGate = gate,
+        };
         var caret = scenario.Caret is { } caretId
             ? new BrowserCaret(formAccess, form, scenario.Form.Single(field => field.Id == caretId).Label, scenario.Pick)
             : null;
@@ -269,14 +276,15 @@ public sealed class BrowserBenchTests
     /// <param name="form">The window of the form.</param>
     /// <param name="source">The window of the source, if the scenario has one.</param>
     /// <param name="imageReader">The reader that turns to the picture of the source when it has too little text.</param>
-    private sealed class BenchWindows(IntPtr form, IntPtr? source, UiAutomationWindowTextReader? imageReader) : IWindowTextReader
+    /// <param name="address">The address the scenario pretends the page has, since the bench is a local file.</param>
+    private sealed class BenchWindows(IntPtr form, IntPtr? source, UiAutomationWindowTextReader? imageReader, string? address) : IWindowTextReader
     {
         public async Task<IReadOnlyList<WindowText>> ReadWindowsAsync(CancellationToken cancellationToken)
         {
             var windows = new List<WindowText>();
             if (await Task.Run(() => UiAutomationWindowTextReader.ReadWindow(form, 0), cancellationToken) is { } formText)
             {
-                windows.Add(formText);
+                windows.Add(address is null ? formText : formText with { Address = address });
             }
 
             if (source is { } handle)
@@ -436,6 +444,10 @@ public sealed class BrowserBenchTests
 
         public List<string> LearnFrom { get; init; } = new();
 
+        public string? Address { get; init; }
+
+        public List<ProfileItem> Profile { get; init; } = new();
+
         public Dictionary<string, List<string>> Suggested { get; init; } = new(StringComparer.Ordinal);
 
         public List<Source> Sources { get; init; } = new();
@@ -445,6 +457,22 @@ public sealed class BrowserBenchTests
         public Dictionary<string, string> Expected { get; init; } = new(StringComparer.Ordinal);
 
         public Dictionary<string, string>? SecondPress { get; init; }
+    }
+
+    private sealed record ProfileItem
+    {
+        public required ProfileTopic Topic { get; init; }
+
+        public required string Value { get; init; }
+
+        public int Uses { get; init; }
+
+        public string Sites { get; init; } = string.Empty;
+
+        public ProfileValue ToProfileValue()
+        {
+            return new ProfileValue { Topic = Topic, Value = Value, UseCount = Uses, Sites = Sites };
+        }
     }
 
     private sealed record Pick

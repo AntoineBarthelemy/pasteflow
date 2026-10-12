@@ -55,7 +55,7 @@ public sealed partial class ScreenContext
         ArgumentNullException.ThrowIfNull(candidates);
 
         var rawTexts = candidates
-            .Where(candidate => candidate.SourceRank == 0 && !candidate.IsFromHistory)
+            .Where(candidate => candidate.SourceRank == 0 && !candidate.IsFromHistory && !candidate.IsFromProfile)
             .Select(candidate => $"{candidate.Label} {candidate.Value}")
             .ToList();
         var texts = rawTexts

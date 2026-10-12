@@ -32,6 +32,10 @@ internal sealed record BenchScenario
     /// </summary>
     public List<string> LearnFrom { get; init; } = new();
 
+    public string? Address { get; init; }
+
+    public List<BenchProfileValue> Profile { get; init; } = new();
+
     public List<BenchSource> Sources { get; init; } = new();
 
     public List<BenchField> Form { get; init; } = new();

@@ -74,7 +74,7 @@ internal static class Program
         using var hotkeyListener = new Win32HotkeyListener();
         using var undoHotkeyListener = new Win32HotkeyListener();
         var windowReader = new UiAutomationWindowTextReader(OcrTextRecognizer.TryCreate());
-        var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(windowReader), history };
+        var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(windowReader), new ProfileCandidateSource(profile), history };
         using var activation = new ShortcutActivationService(
             hotkeyListener,
             formAccess,
@@ -86,6 +86,7 @@ internal static class Program
         using var undo = new UndoShortcutService(undoHotkeyListener, fillMemory, formAccess, formAccess, notifier);
 
         // Outside a form, the shortcut pastes at the cursor, or lets the user choose
+        activation.SensitiveGate = sensitiveGate;
         activation.CaretReader = formAccess;
         activation.Picker = new PastePicker();
         activation.Inserter = new KeyboardTextInserter();

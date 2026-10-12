@@ -701,6 +701,195 @@
         "widen": 1,
         "shrinkEnd": 3
       }
+    },
+    {
+      "id": "fiche-inscription",
+      "group": "Ma fiche",
+      "title": "Créer un compte sur un site d'offres",
+      "checks": "Avec une fiche contenant Antoine Barthélémy, son e-mail et son téléphone : sur une page « Créer un compte », la fiche passe avant l'écran, même si le mail de la recruteuse montre d'autres valeurs.",
+      "profile": [
+        {
+          "topic": "FirstName",
+          "value": "Antoine"
+        },
+        {
+          "topic": "LastName",
+          "value": "Barthélémy"
+        },
+        {
+          "topic": "Email",
+          "value": "antoine.b@orange.fr"
+        },
+        {
+          "topic": "Phone",
+          "value": "0647218539"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Mail de Clara Moreau",
+          "text": "Bonjour Antoine,\n\nMerci pour ton intérêt ! Crée ton compte pour suivre ta candidature.\n\nClara Moreau\nChargée de recrutement\nclara.moreau@jobteaser.com\nTél. 0326123456"
+        }
+      ],
+      "form": [
+        {
+          "id": "prenom",
+          "label": "Prénom"
+        },
+        {
+          "id": "nom",
+          "label": "Nom"
+        },
+        {
+          "id": "email",
+          "label": "E-mail"
+        },
+        {
+          "id": "tel",
+          "label": "Téléphone"
+        }
+      ],
+      "expected": {
+        "prenom": "Antoine",
+        "nom": "Barthélémy",
+        "email": "antoine.b@orange.fr",
+        "tel": "0647218539"
+      }
+    },
+    {
+      "id": "fiche-nouveau-client",
+      "group": "Ma fiche",
+      "title": "Nouveau client dans le logiciel de facturation",
+      "checks": "Avec la même fiche : sur une page « Nouveau client », le formulaire parle de quelqu'un d'autre. La fiche est laissée de côté, les valeurs viennent de la signature.",
+      "profile": [
+        {
+          "topic": "FirstName",
+          "value": "Antoine"
+        },
+        {
+          "topic": "LastName",
+          "value": "Barthélémy"
+        },
+        {
+          "topic": "Email",
+          "value": "antoine.b@orange.fr"
+        },
+        {
+          "topic": "Phone",
+          "value": "0647218539"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Mail de Marie Lefèvre",
+          "text": "Bonjour,\n\nVoici mes coordonnées pour la facture.\n\nCordialement,\nMarie Lefèvre\nResponsable achats\nmarie.lefevre@boulangerie-martin.fr"
+        }
+      ],
+      "form": [
+        {
+          "id": "prenom",
+          "label": "Prénom"
+        },
+        {
+          "id": "nom",
+          "label": "Nom"
+        },
+        {
+          "id": "email",
+          "label": "E-mail"
+        }
+      ],
+      "expected": {
+        "prenom": "Marie",
+        "nom": "Lefèvre",
+        "email": "marie.lefevre@boulangerie-martin.fr"
+      }
+    },
+    {
+      "id": "fiche-hesitation",
+      "group": "Ma fiche",
+      "title": "Demande de rappel",
+      "checks": "Avec un e-mail dans la fiche : rien ne dit si le champ parle de l'utilisateur, et l'écran montre un autre e-mail. Pas de pari : le champ reste vide, les deux adresses sont proposées.",
+      "profile": [
+        {
+          "topic": "Email",
+          "value": "antoine.b@orange.fr"
+        }
+      ],
+      "sources": [
+        {
+          "title": "Mail de Clara Moreau",
+          "text": "Bonjour Antoine,\n\nMerci pour ton intérêt ! Crée ton compte pour suivre ta candidature.\n\nClara Moreau\nChargée de recrutement\nclara.moreau@jobteaser.com\nTél. 0326123456"
+        }
+      ],
+      "form": [
+        {
+          "id": "email",
+          "label": "E-mail"
+        }
+      ],
+      "expected": {
+        "email": ""
+      },
+      "suggested": {
+        "email": [
+          "antoine.b@orange.fr",
+          "clara.moreau@jobteaser.com"
+        ]
+      }
+    },
+    {
+      "id": "fiche-deux-emails",
+      "group": "Ma fiche",
+      "title": "Connexion à l'espace numérique de l'université",
+      "checks": "Avec deux e-mails dans la fiche, sur ent.univ-reims.fr : PasteFlow choisit l'e-mail de l'université, celui que l'utilisateur écrit sur ce site.",
+      "address": "ent.univ-reims.fr",
+      "profile": [
+        {
+          "topic": "Email",
+          "value": "antoine.b@orange.fr",
+          "uses": 9,
+          "sites": "github.com=5 linkedin.com=4"
+        },
+        {
+          "topic": "Email",
+          "value": "antoine.barthelemy@etudiant.univ-reims.fr",
+          "uses": 3,
+          "sites": "univ-reims.fr=3"
+        }
+      ],
+      "sources": [],
+      "form": [
+        {
+          "id": "email",
+          "label": "Adresse e-mail"
+        }
+      ],
+      "expected": {
+        "email": "antoine.barthelemy@etudiant.univ-reims.fr"
+      }
+    },
+    {
+      "id": "fiche-iban",
+      "group": "Ma fiche",
+      "title": "Mon compte : coordonnées bancaires",
+      "checks": "Avec un IBAN dans la fiche : sur une page « Mon compte », l'IBAN est rempli après Windows Hello. Sur une facture (« IBAN » seul, scénario Facture), il ne l'est jamais.",
+      "profile": [
+        {
+          "topic": "Iban",
+          "value": "FR76 3000 6000 0112 3456 7890 189"
+        }
+      ],
+      "sources": [],
+      "form": [
+        {
+          "id": "iban",
+          "label": "IBAN"
+        }
+      ],
+      "expected": {
+        "iban": "FR76 3000 6000 0112 3456 7890 189"
+      }
     }
   ]
 }

@@ -56,6 +56,7 @@ public static class FreePaste
         var label = WithoutColon(target.Label);
         return candidate.SourceRank == 0
             && !candidate.IsFromHistory
+            && !candidate.IsFromProfile
             && label.Length > 0
             && string.Equals(WithoutColon(candidate.Label), label, StringComparison.OrdinalIgnoreCase);
     }

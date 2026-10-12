@@ -4,7 +4,9 @@ using PasteFlow.Core.Forms;
 using PasteFlow.Core.History;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Picking;
+using PasteFlow.Core.Profile;
 using PasteFlow.Core.Screen;
+using PasteFlow.Core.Security;
 using PasteFlow.Core.Tests.Fakes;
 using PasteFlow.Core.Undo;
 
@@ -128,6 +130,8 @@ public sealed class TestBenchScenarioTests
     {
         private readonly FakeHotkeyListener _listener = new();
         private readonly ShortcutActivationService _service;
+        private readonly ProfileBook _profile;
+        private readonly SensitiveGate _gate = new(new FakePresenceCheck());
 
         public Bench(BenchScenario scenario, FillHistory history)
         {
@@ -143,6 +147,7 @@ public sealed class TestBenchScenarioTests
                 Title = scenario.Title,
                 Rank = 0,
                 Text = string.Join('\n', new[] { scenario.Title, scenario.Page ?? string.Empty }.Concat(scenario.Form.Select(field => field.Label))),
+                Address = scenario.Address ?? string.Empty,
             };
             var sources = scenario.Sources.Select((source, index) => new WindowText
             {
@@ -156,16 +161,20 @@ public sealed class TestBenchScenarioTests
                     .ToList(),
             });
             var reader = new FakeWindowTextReader { Windows = sources.Prepend(page).ToList() };
+            var profileStore = new FakeProfileStore();
+            profileStore.Preload(scenario.Profile.Select(value => value.ToProfileValue()).ToArray());
+            _profile = new ProfileBook(profileStore);
             _service = new ShortcutActivationService(
                 _listener,
                 new FakeFormReader { Fields = scenario.Form.Select(ToFormField).ToList() },
                 Fields,
-                new ICandidateSource[] { new ScreenCandidateSource(reader), history },
+                new ICandidateSource[] { new ScreenCandidateSource(reader), new ProfileCandidateSource(_profile), history },
                 Notifier,
                 memory,
                 new FakeFieldHighlighter())
             {
                 TimeProvider = Clock,
+                SensitiveGate = _gate,
             };
 
             if (scenario.Caret is { } caretId)
@@ -195,6 +204,8 @@ public sealed class TestBenchScenarioTests
         {
             _service.Dispose();
             _listener.Dispose();
+            _profile.Dispose();
+            _gate.Dispose();
         }
 
         private static FormField ToFormField(BenchField field)

@@ -37,6 +37,29 @@ public sealed record Candidate
     public bool IsFromHistory { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether the value comes from the profile of the user rather than from the screen:
+    /// it fills the fields that talk about the user, never the ones that talk about someone else.
+    /// </summary>
+    public bool IsFromProfile { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the value is sensitive, such as an IBAN: it is only shown or written once the
+    /// user proved it is them with Windows Hello.
+    /// </summary>
+    public bool IsSensitive { get; init; }
+
+    /// <summary>
+    /// Gets, for a value of the profile, the sites where the user wrote it, such as "univ-reims.fr=3 github.com=1";
+    /// empty for other values.
+    /// </summary>
+    public string ProfileSites { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets, for a value of the profile, the number of times the user wrote it; 0 for other values.
+    /// </summary>
+    public int ProfileUseCount { get; init; }
+
+    /// <summary>
     /// Gets a value indicating whether the value was typed in a field of another form: a whole value someone
     /// entered, which may contain words such as "votre" or "exemple" without being an example text.
     /// </summary>

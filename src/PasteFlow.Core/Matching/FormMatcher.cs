@@ -13,8 +13,9 @@ namespace PasteFlow.Core.Matching;
 /// value is taken may still get another value, only if that value fits it on its own merits.</para>
 /// <para>A confirmation field, such as "Confirmez votre email", is the exception: it is meant to receive the same
 /// value as the field it confirms.</para>
-/// <para>The values of the screen come first. The values of the history only fill the fields the screen offers
-/// nothing plausible for; elsewhere they are only proposed.</para>
+/// <para>The values of the screen come first. The values of the profile of the user then fill the fields that are
+/// about the user, see <see cref="ProfileArbiter"/>. The values of the history only fill the fields still left with
+/// nothing plausible; elsewhere they are only proposed.</para>
 /// <para>A value read from the image of a window (OCR) is only proposed, never written without the user.</para>
 /// <para>Last safety net: a postal code and a commune that do not go together according to La Poste are both left
 /// to the user.</para>
@@ -80,6 +81,31 @@ public static class FormMatcher
         MatchingOptions options,
         IReadOnlyList<FormField> formFields)
     {
+        return MatchAll(fields, candidates, data, options, formFields, PageContext.Empty);
+    }
+
+    /// <summary>
+    /// Finds the values of some fields of a form, knowing all its fields and the page that shows it.
+    /// </summary>
+    /// <param name="fields">The fields to fill, in the order of the form.</param>
+    /// <param name="candidates">The values found in the sources.</param>
+    /// <param name="data">The official lists used to check that a postal code and a commune go together.</param>
+    /// <param name="options">The thresholds that decide whether a value is sure enough, set by the prudence chosen.</param>
+    /// <param name="formFields">All the fields of the form, including those already filled.</param>
+    /// <param name="page">
+    /// What the window being filled tells: whether the form is about the user ("Créer un compte") or someone else
+    /// ("Nouveau client"), and on which site, to choose among several values of the profile.
+    /// </param>
+    /// <returns>A match for each field to fill, in the order of the form.</returns>
+    public static IReadOnlyList<FieldMatch> MatchAll(
+        IReadOnlyList<FormField> fields,
+        IReadOnlyList<Candidate> candidates,
+        ReferenceData data,
+        MatchingOptions options,
+        IReadOnlyList<FormField> formFields,
+        PageContext page)
+    {
+        ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(fields);
         ArgumentNullException.ThrowIfNull(candidates);
         ArgumentNullException.ThrowIfNull(data);
@@ -90,8 +116,9 @@ public static class FormMatcher
         var firstNameAskedApart = formFields.Concat(fields).Any(field => AsksFirstNameOnly(FieldClues.Of(field)));
         var clues = fields.Select(field => FieldClues.Of(field, firstNameAskedApart)).ToArray();
 
-        // The screen comes first: the history only fills the fields the screen says nothing about
-        var screenCandidates = candidates.Where(candidate => !candidate.IsFromHistory).ToList();
+        // The screen comes first, then the profile for the fields about the user; the history only fills the gaps left
+        var screenCandidates = candidates.Where(candidate => !candidate.IsFromHistory && !candidate.IsFromProfile).ToList();
+        var profileCandidates = candidates.Where(candidate => candidate.IsFromProfile).ToList();
         var historyCandidates = candidates.Where(candidate => candidate.IsFromHistory).ToList();
         var noTakenValue = new HashSet<string>(StringComparer.Ordinal);
         var context = ScreenContext.From(screenCandidates);
@@ -123,6 +150,11 @@ public static class FormMatcher
             }
 
             matches[index] = match;
+        }
+
+        if (profileCandidates.Count > 0)
+        {
+            ProfileArbiter.Apply(fields, clues, matches, profileCandidates, takenValues, options, page);
         }
 
         if (historyCandidates.Count > 0)

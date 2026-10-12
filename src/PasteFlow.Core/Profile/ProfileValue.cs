@@ -41,6 +41,16 @@ public sealed record ProfileValue
     public DateTimeOffset AddedAt { get; init; }
 
     /// <summary>
+    /// Gets the number of times PasteFlow or the user wrote the value into a field.
+    /// </summary>
+    public int UseCount { get; init; }
+
+    /// <summary>
+    /// Gets the sites where the value was written, see <see cref="SiteUses"/>.
+    /// </summary>
+    public string Sites { get; init; } = string.Empty;
+
+    /// <summary>
     /// Gets a value indicating whether the value is sensitive, by its topic or by its format: an IBAN typed as
     /// "Autre" is sensitive all the same.
     /// </summary>

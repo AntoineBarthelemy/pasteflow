@@ -105,6 +105,16 @@ public static class LabelConcepts
     /// </summary>
     public const string FamilyName = "famille";
 
+    /// <summary>
+    /// A school or university.
+    /// </summary>
+    public const string School = "school";
+
+    /// <summary>
+    /// A job title.
+    /// </summary>
+    public const string JobTitle = "jobtitle";
+
     private static readonly Dictionary<string, string> Synonyms = BuildSynonyms(new Dictionary<string, string[]>
     {
         [Email] = new[] { "email", "mail", "courriel", "emails", "electronique" },
@@ -125,6 +135,8 @@ public static class LabelConcepts
         [BankAccount] = new[] { "iban", "rib" },
         [Website] = new[] { "site", "website", "url", "web", "lien", "link", "linkedin", "github", "portfolio" },
         [FullName] = new[] { "fullname", "complet" },
+        [School] = new[] { "ecole", "etablissement", "universite", "university", "school", "iut", "college" },
+        [JobTitle] = new[] { "poste", "fonction", "metier", "job", "profession", "jobtitle" },
     });
 
     // Alone, these words name the recipients of a message: "À", "Cc", "Destinataires"; in a longer label, such as

@@ -7,6 +7,7 @@ using PasteFlow.Core.Notifications;
 using PasteFlow.Core.Picking;
 using PasteFlow.Core.Reference;
 using PasteFlow.Core.Screen;
+using PasteFlow.Core.Security;
 using PasteFlow.Core.Undo;
 
 namespace PasteFlow.Core.Activation;
@@ -27,6 +28,7 @@ public sealed class ShortcutActivationService : IDisposable
 {
     private const int MaxNotifiedLength = 60;
     private const string CannotPasteMessage = "Impossible d'écrire à cet endroit.";
+    private const string SensitiveFillReason = "Remplir une info sensible de ta fiche PasteFlow (IBAN, n° de sécu…)";
 
     private readonly object _pressGate = new();
     private readonly IHotkeyListener _listener;
@@ -122,6 +124,12 @@ public sealed class ShortcutActivationService : IDisposable
     public TimeProvider TimeProvider { get; set; } = TimeProvider.System;
 
     /// <summary>
+    /// Gets or sets the gate that guards the sensitive values of the profile: they are written or proposed only once
+    /// the user proved it is them. Without a gate, they are never used.
+    /// </summary>
+    public SensitiveGate? SensitiveGate { get; set; }
+
+    /// <summary>
     /// Gets or sets the component that tells where the text cursor is; with <see cref="Picker"/> and
     /// <see cref="Inserter"/>, it lets the shortcut paste in a text written alone, such as a message or a document.
     /// </summary>
@@ -207,6 +215,22 @@ public sealed class ShortcutActivationService : IDisposable
             .DistinctBy(candidate => (candidate.Kind, candidate.Value))
             .GroupBy(candidate => candidate.Kind)
             .ToDictionary(group => group.Key, group => group.Count());
+    }
+
+    private static bool UsesSensitiveValue(FieldMatch match)
+    {
+        return match is { IsConfident: true, Candidate.IsSensitive: true } || match.Suggestions.Any(candidate => candidate.IsSensitive);
+    }
+
+    private static FieldMatch WithoutSensitiveValues(FieldMatch match)
+    {
+        var isSensitive = match.Candidate is { IsSensitive: true };
+        return match with
+        {
+            Candidate = isSensitive ? null : match.Candidate,
+            IsConfident = match.IsConfident && !isSensitive,
+            Suggestions = match.Suggestions.Where(candidate => !candidate.IsSensitive).ToList(),
+        };
     }
 
     /// <summary>
@@ -302,7 +326,11 @@ public sealed class ShortcutActivationService : IDisposable
             .Where(field => FillRules.CanFill(field) || (isReplacing && FillRules.CanReplace(field)))
             .ToList();
         var textFields = fields.Where(field => field.Kind == FieldKind.Text).ToList();
-        foreach (var match in FormMatcher.MatchAll(fillableFields, candidates, ReferenceData.Shared, Options, textFields))
+        var page = PageContext.From(_candidateSources.OfType<IScreenTextSource>()
+            .SelectMany(source => source.LastWindows)
+            .FirstOrDefault(window => window.Rank == 0));
+        var matches = FormMatcher.MatchAll(fillableFields, candidates, ReferenceData.Shared, Options, textFields, page);
+        foreach (var match in await GuardSensitiveValuesAsync(matches, cancellationToken))
         {
             var field = match.Field;
             if (field.HasValue)
@@ -372,8 +400,8 @@ public sealed class ShortcutActivationService : IDisposable
             ReplacedCount = replacedCount,
             FailedCount = failedCount,
             FilledValues = filledValues,
-            Sources = Summarize(allCandidates.Where(candidate => !candidate.IsFromHistory)),
-            RecognizedCounts = CountRecognized(candidates.Where(candidate => !candidate.IsFromHistory)),
+            Sources = Summarize(allCandidates.Where(candidate => !candidate.IsFromHistory && !candidate.IsFromProfile)),
+            RecognizedCounts = CountRecognized(candidates.Where(candidate => !candidate.IsFromHistory && !candidate.IsFromProfile)),
             IgnoredSampleCount = ignoredSampleCount,
             Elapsed = stopwatch.Elapsed,
             FieldsToCheck = fieldsToCheck,
@@ -408,7 +436,7 @@ public sealed class ShortcutActivationService : IDisposable
         _highlighter.Highlight(Array.Empty<FieldToCheck>());
 
         var field = FreePaste.TargetField(caret);
-        candidates = candidates.Where(candidate => !FreePaste.IsTypedText(candidate, field)).ToList();
+        candidates = candidates.Where(candidate => !FreePaste.IsTypedText(candidate, field) && !candidate.IsFromProfile).ToList();
         var match = FormMatcher.MatchAll(new[] { field }, candidates, ReferenceData.Shared, Options, new[] { field })[0];
         if (match is { IsConfident: true, Candidate: { } sure })
         {
@@ -418,7 +446,7 @@ public sealed class ShortcutActivationService : IDisposable
             return true;
         }
 
-        var screenCandidates = candidates.Where(candidate => !candidate.IsFromHistory).ToList();
+        var screenCandidates = candidates.Where(candidate => !candidate.IsFromHistory && !candidate.IsFromProfile).ToList();
         var windows = _candidateSources.OfType<IScreenTextSource>().SelectMany(source => source.LastWindows).ToList();
         var request = new PickRequest
         {
@@ -486,6 +514,28 @@ public sealed class ShortcutActivationService : IDisposable
         return await _fieldWriter.TryWriteAsync(field, value, cancellationToken)
             ? new WrittenField { Field = field, Value = value, PreviousValue = previousValue }
             : null;
+    }
+
+    /// <summary>
+    /// Safety net: a sensitive value of the profile, such as an IBAN, is written or proposed only once the user proved
+    /// it is them; otherwise it is left out, and the field is left to the user.
+    /// </summary>
+    /// <param name="matches">The matches of the form.</param>
+    /// <param name="cancellationToken">A token to cancel the check.</param>
+    /// <returns>The matches, without sensitive values if the user did not prove it is them.</returns>
+    private async Task<IReadOnlyList<FieldMatch>> GuardSensitiveValuesAsync(IReadOnlyList<FieldMatch> matches, CancellationToken cancellationToken)
+    {
+        if (!matches.Any(UsesSensitiveValue))
+        {
+            return matches;
+        }
+
+        if (SensitiveGate is { } gate && await gate.OpenAsync(SensitiveFillReason, cancellationToken) == PresenceResult.Verified)
+        {
+            return matches;
+        }
+
+        return matches.Select(WithoutSensitiveValues).ToList();
     }
 
     private async Task<List<Candidate>> GetAllCandidatesAsync(CancellationToken cancellationToken)

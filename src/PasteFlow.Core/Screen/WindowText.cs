@@ -30,4 +30,10 @@ public sealed record WindowText
     /// Gets the filled fields of the window, each with its label; empty for the form being filled.
     /// </summary>
     public IReadOnlyList<FieldText> Fields { get; init; } = Array.Empty<FieldText>();
+
+    /// <summary>
+    /// Gets the address shown in the address bar when the window is a browser, such as "github.com/login"; empty for
+    /// other windows. Only read for the active window.
+    /// </summary>
+    public string Address { get; init; } = string.Empty;
 }
