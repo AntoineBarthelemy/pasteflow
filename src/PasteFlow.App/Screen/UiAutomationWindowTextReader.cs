@@ -32,6 +32,7 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
     private const int MaxWindows = 4;
     private const int MaxFilledFields = 100;
     private const int MaxDocumentLength = 100_000;
+    private const char ObjectReplacementCharacter = '\uFFFC';
     private const string UntitledWindow = "Fenêtre sans texte";
 
     private static readonly TimeSpan WindowTimeout = TimeSpan.FromMilliseconds(600);
@@ -176,7 +177,8 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
         {
             if (document.TryGetCurrentPattern(TextPattern.Pattern, out var pattern) && pattern is TextPattern textPattern)
             {
-                builder.AppendLine(textPattern.DocumentRange.GetText(MaxDocumentLength));
+                // Browsers put a placeholder character where a field or an image sits in the text: it is a break, not a value
+                builder.AppendLine(textPattern.DocumentRange.GetText(MaxDocumentLength).Replace(ObjectReplacementCharacter, '\n'));
             }
         }
 

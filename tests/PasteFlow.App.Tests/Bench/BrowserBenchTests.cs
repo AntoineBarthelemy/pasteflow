@@ -65,15 +65,16 @@ public sealed class BrowserBenchTests
             new NoHighlight());
         _ = service.Start(Hotkey.Default);
 
+        var screen = Describe(await reader.ReadWindowsAsync(CancellationToken.None));
         listener.SimulatePress();
         await notifier.WaitForFillAsync(1);
-        AssertValues(scenario, scenario.Expected, form);
+        AssertValues(scenario, scenario.Expected, form, screen);
 
         if (scenario.SecondPress is { } secondPress)
         {
             listener.SimulatePress();
             await notifier.WaitForFillAsync(2);
-            AssertValues(scenario, secondPress, form);
+            AssertValues(scenario, secondPress, form, screen);
         }
     }
 
@@ -110,7 +111,18 @@ public sealed class BrowserBenchTests
         return text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? string.Empty;
     }
 
-    private static void AssertValues(Scenario scenario, Dictionary<string, string> expected, BrowserWindow form)
+    // Shows what was read on screen, to understand a failure: special characters made visible
+    private static string Describe(IReadOnlyList<WindowText> windows)
+    {
+        static string Visible(string text) => text.Replace("\uFFFC", "[OBJ]", StringComparison.Ordinal).Replace("\r", "\\r", StringComparison.Ordinal);
+
+        return string.Join(
+            "\n",
+            windows.Select(window => $"--- Fenêtre {window.Rank} « {window.Title} » :\n{Visible(window.Text)}"
+                + string.Concat(window.Fields.Select(field => $"\n[champ] {field.Label} = {Visible(field.Value)}"))));
+    }
+
+    private static void AssertValues(Scenario scenario, Dictionary<string, string> expected, BrowserWindow form, string screen)
     {
         var mismatches = scenario.Form
             .Where(field => field.Kind is not ("password" or "choice"))
@@ -119,7 +131,7 @@ public sealed class BrowserBenchTests
             .Select(result => $"« {result.Label} » : attendu « {result.Expected} », obtenu « {result.Actual} »")
             .ToList();
 
-        Assert.True(mismatches.Count == 0, $"Scénario {scenario.Id} dans le navigateur :\n{string.Join('\n', mismatches)}");
+        Assert.True(mismatches.Count == 0, $"Scénario {scenario.Id} dans le navigateur :\n{string.Join('\n', mismatches)}\nÉcran lu :\n{screen}");
     }
 
     private static List<Scenario> Load()

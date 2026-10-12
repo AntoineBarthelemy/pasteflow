@@ -59,7 +59,8 @@ public sealed class ScreenCandidateSource : ICandidateSource, IScreenTextSource
     /// <returns>The values of the text.</returns>
     private static IEnumerable<Candidate> FromText(WindowText window)
     {
-        var pieces = TextSegmenter.Segment(window.Text);
+        // Safety net: a piece without any letter or digit is a leftover of the page, never a value
+        var pieces = TextSegmenter.Segment(window.Text).Where(piece => piece.Value.Any(char.IsLetterOrDigit)).ToList();
         var lines = window.Text.Split(LineBreaks, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         var pieceLines = LocateLines(pieces, lines);
         var ownerLines = pieces
