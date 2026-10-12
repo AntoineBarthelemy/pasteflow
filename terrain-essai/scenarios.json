@@ -349,7 +349,13 @@
       "after": [
         "Clique dans le champ Email : la bulle de propositions apparaît.",
         "Ctrl+Maj+1 colle la première proposition."
-      ]
+      ],
+      "suggested": {
+        "email": [
+          "lea.martin@atelier-nova.fr",
+          "hugo@atelier-nova.fr"
+        ]
+      }
     },
     {
       "id": "intouchables",
@@ -535,13 +541,17 @@
       "expected": {
         "email": "",
         "commande": ""
+      },
+      "suggested": {
+        "commande": [
+          "CMD-77120"
+        ]
       }
     },
     {
       "id": "historique",
       "group": "Mémoire",
       "title": "Une valeur apprise",
-      "manual": true,
       "checks": "Une valeur utilisée deux fois dans le même type de champ est reprise quand l'écran ne dit rien.",
       "steps": [
         "Fais deux fois le scénario « Signature de mail » (Ctrl+Alt+V, puis Tout vider, puis Ctrl+Alt+V).",
@@ -556,13 +566,16 @@
       ],
       "expected": {
         "ville": "Reims"
-      }
+      },
+      "learnFrom": [
+        "signature",
+        "signature"
+      ]
     },
     {
       "id": "partout-sur",
       "group": "Coller n'importe où",
       "title": "Message : la valeur demandée juste avant le curseur",
-      "manual": true,
       "checks": "Hors formulaire, les mots juste avant le curseur disent quoi coller : « son téléphone : » appelle le téléphone, collé tout de suite au curseur.",
       "steps": [
         "Laisse la source visible (« Tout » ou une 2e fenêtre derrière).",
@@ -586,13 +599,13 @@
       ],
       "expected": {
         "msg": "Salut Paul, tu peux appeler Léa, son téléphone : 06 12 48 30 77"
-      }
+      },
+      "caret": "msg"
     },
     {
       "id": "partout-liste",
       "group": "Coller n'importe où",
       "title": "Aucun indice : la liste au curseur",
-      "manual": true,
       "checks": "Rien n'indique quoi coller : une liste s'ouvre sous le curseur avec les valeurs les plus probables, numérotées de 1 à 5.",
       "steps": [
         "Clique tout au bout du message, après « Tiens : ».",
@@ -616,13 +629,16 @@
       ],
       "expected": {
         "msg": "Tiens : hugo@atelier-nova.fr"
+      },
+      "caret": "msg",
+      "pick": {
+        "choose": "hugo@atelier-nova.fr"
       }
     },
     {
       "id": "partout-recherche",
       "group": "Coller n'importe où",
       "title": "Un bout de phrase, trouvé en tapant",
-      "manual": true,
       "checks": "Dans la liste, taper quelques lettres cherche dans les fenêtres et coupe au bout des mots : « l'agenda d'hu » donne « l'agenda d'Hugo ».",
       "steps": [
         "Clique tout au bout du message, après « Elle gère ».",
@@ -646,13 +662,16 @@
       ],
       "expected": {
         "msg": "Elle gère l'agenda d'Hugo"
+      },
+      "caret": "msg",
+      "pick": {
+        "query": "l'agenda d'hu"
       }
     },
     {
       "id": "partout-phrase",
       "group": "Coller n'importe où",
       "title": "La phrase entière, puis au mot près",
-      "manual": true,
       "checks": "Tab élargit à la phrase ; Ctrl+Maj+← enlève le dernier mot.",
       "steps": [
         "Clique dans le message vide.",
@@ -675,6 +694,12 @@
       ],
       "expected": {
         "msg": "Le mieux est d'écrire"
+      },
+      "caret": "msg",
+      "pick": {
+        "query": "le mieux",
+        "widen": 1,
+        "shrinkEnd": 3
       }
     }
   ]

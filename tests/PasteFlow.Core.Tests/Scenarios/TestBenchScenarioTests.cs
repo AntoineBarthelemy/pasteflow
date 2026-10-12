@@ -1,8 +1,9 @@
-using System.Text.Json;
 using PasteFlow.Core.Activation;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
+using PasteFlow.Core.History;
 using PasteFlow.Core.Hotkeys;
+using PasteFlow.Core.Picking;
 using PasteFlow.Core.Screen;
 using PasteFlow.Core.Tests.Fakes;
 using PasteFlow.Core.Undo;
@@ -15,19 +16,17 @@ namespace PasteFlow.Core.Tests.Scenarios;
 /// </summary>
 public sealed class TestBenchScenarioTests
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-
-    private static readonly Lazy<IReadOnlyList<BenchScenario>> AllScenarios = new(Load);
+    private static readonly Lazy<List<BenchScenario>> AllScenarios = new(
+        () => BenchScenario.Load(Path.Combine(AppContext.BaseDirectory, "Scenarios", "scenarios.json")));
 
     public static TheoryData<string> AutomaticScenarioIds()
     {
-        var data = new TheoryData<string>();
-        foreach (var scenario in AllScenarios.Value.Where(scenario => !scenario.Manual))
-        {
-            data.Add(scenario.Id);
-        }
+        return Ids(scenario => !scenario.Manual);
+    }
 
-        return data;
+    public static TheoryData<string> FormScenarioIds()
+    {
+        return Ids(scenario => !scenario.Manual && scenario.Caret is null && scenario.LearnFrom.Count == 0);
     }
 
     [Fact]
@@ -42,26 +41,36 @@ public sealed class TestBenchScenarioTests
         Assert.All(scenarios, scenario => Assert.True(
             scenario.Form.All(field => scenario.Expected.ContainsKey(field.Id)),
             $"Le scénario {scenario.Id} doit dire ce qu'il attend de chaque champ."));
+        Assert.All(scenarios.SelectMany(scenario => scenario.LearnFrom), id => Assert.Contains(scenarios, scenario => scenario.Id == id));
     }
 
     [Theory]
     [MemberData(nameof(AutomaticScenarioIds))]
     public void Scenario_FirstPress_GivesTheAnnouncedValues(string id)
     {
-        var scenario = AllScenarios.Value.Single(item => item.Id == id);
-        using var bench = new Bench(scenario);
+        var scenario = Find(id);
+        using var history = new FillHistory(new FakeHistoryStore());
+        foreach (var learnt in scenario.LearnFrom)
+        {
+            using var lesson = new Bench(Find(learnt), history);
+            lesson.Press();
+        }
+
+        using var bench = new Bench(scenario, history);
 
         bench.Press();
 
         AssertValues(scenario, scenario.Expected, bench.Fields.CurrentValues);
+        AssertSuggestions(scenario, bench.Notifier.Reports.LastOrDefault());
     }
 
     [Theory]
-    [MemberData(nameof(AutomaticScenarioIds))]
+    [MemberData(nameof(FormScenarioIds))]
     public void Scenario_SecondPress_GivesTheAnnouncedValues(string id)
     {
-        var scenario = AllScenarios.Value.Single(item => item.Id == id);
-        using var bench = new Bench(scenario);
+        var scenario = Find(id);
+        using var history = new FillHistory(new FakeHistoryStore());
+        using var bench = new Bench(scenario, history);
 
         bench.Press();
         bench.Clock.Now += TimeSpan.FromSeconds(2);
@@ -69,6 +78,22 @@ public sealed class TestBenchScenarioTests
 
         // Without a second press announced, pressing again changes nothing the first press did not
         AssertValues(scenario, scenario.SecondPress ?? scenario.Expected, bench.Fields.CurrentValues);
+    }
+
+    private static TheoryData<string> Ids(Func<BenchScenario, bool> keep)
+    {
+        var data = new TheoryData<string>();
+        foreach (var scenario in AllScenarios.Value.Where(keep))
+        {
+            data.Add(scenario.Id);
+        }
+
+        return data;
+    }
+
+    private static BenchScenario Find(string id)
+    {
+        return AllScenarios.Value.Single(item => item.Id == id);
     }
 
     private static void AssertValues(BenchScenario scenario, Dictionary<string, string> expected, IReadOnlyDictionary<string, string> actual)
@@ -82,28 +107,37 @@ public sealed class TestBenchScenarioTests
         }
     }
 
-    private static List<BenchScenario> Load()
+    private static void AssertSuggestions(BenchScenario scenario, FillReport? report)
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "Scenarios", "scenarios.json");
-        var bench = JsonSerializer.Deserialize<BenchFile>(File.ReadAllText(path), JsonOptions);
-        return bench?.Scenarios ?? new List<BenchScenario>();
+        foreach (var (fieldId, values) in scenario.Suggested)
+        {
+            var proposed = report?.FieldsToCheck.FirstOrDefault(toCheck => toCheck.Field.Id == fieldId)?.Suggestions
+                .Select(suggestion => suggestion.Value)
+                .ToList() ?? new List<string>();
+            Assert.True(
+                values.All(proposed.Contains),
+                $"Scénario {scenario.Id}, champ {fieldId} : propositions attendues « {string.Join(" / ", values)} », obtenues « {string.Join(" / ", proposed)} ».");
+        }
     }
 
     /// <summary>
-    /// The screen of a scenario: the page of the form in front, the sources behind it.
+    /// The screen of a scenario: the page of the form in front, the sources behind it, and the cursor where the
+    /// scenario puts it.
     /// </summary>
     private sealed class Bench : IDisposable
     {
         private readonly FakeHotkeyListener _listener = new();
         private readonly ShortcutActivationService _service;
 
-        public Bench(BenchScenario scenario)
+        public Bench(BenchScenario scenario, FillHistory history)
         {
             foreach (var field in scenario.Form.Where(field => !string.IsNullOrEmpty(field.Value)))
             {
                 Fields.SimulateUserTyping(field.Id, field.Value!);
             }
 
+            var memory = new FillMemory();
+            history.Observe(memory);
             var page = new WindowText
             {
                 Title = scenario.Title,
@@ -126,17 +160,29 @@ public sealed class TestBenchScenarioTests
                 _listener,
                 new FakeFormReader { Fields = scenario.Form.Select(ToFormField).ToList() },
                 Fields,
-                new ICandidateSource[] { new ScreenCandidateSource(reader) },
-                new FakeUserNotifier(),
-                new FillMemory(),
+                new ICandidateSource[] { new ScreenCandidateSource(reader), history },
+                Notifier,
+                memory,
                 new FakeFieldHighlighter())
             {
                 TimeProvider = Clock,
             };
+
+            if (scenario.Caret is { } caretId)
+            {
+                var field = scenario.Form.Single(item => item.Id == caretId);
+                var caret = new BenchCaret(Fields, field, scenario.Pick);
+                _service.CaretReader = caret;
+                _service.Picker = caret;
+                _service.Inserter = caret;
+            }
+
             _ = _service.Start(Hotkey.Default);
         }
 
         public FakeFieldWriter Fields { get; } = new();
+
+        public RecordingNotifier Notifier { get; } = new();
 
         public FakeTimeProvider Clock { get; } = new();
 
@@ -169,48 +215,31 @@ public sealed class TestBenchScenarioTests
         }
     }
 
-    private sealed record BenchFile(List<BenchScenario> Scenarios);
-
-    private sealed record BenchScenario
+    /// <summary>
+    /// The cursor at the end of a field: what is written goes after its text, and the list is played as the scenario says.
+    /// </summary>
+    private sealed class BenchCaret(FakeFieldWriter fields, BenchField field, BenchPick? pick) : ICaretReader, IPastePicker, ITextInserter
     {
-        public required string Id { get; init; }
+        public Task<CaretContext?> ReadCaretAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult<CaretContext?>(new CaretContext
+            {
+                IsEditable = true,
+                FocusedFieldId = field.Id,
+                FieldLabel = field.Label,
+                TextBefore = fields.CurrentValues.GetValueOrDefault(field.Id, string.Empty),
+            });
+        }
 
-        public required string Title { get; init; }
+        public Task<string?> PickAsync(PickRequest request, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(BenchPick.Play(request, pick));
+        }
 
-        public bool Manual { get; init; }
-
-        public string? Page { get; init; }
-
-        public List<BenchSource> Sources { get; init; } = new();
-
-        public List<BenchField> Form { get; init; } = new();
-
-        public Dictionary<string, string> Expected { get; init; } = new(StringComparer.Ordinal);
-
-        public Dictionary<string, string>? SecondPress { get; init; }
-    }
-
-    private sealed record BenchSource
-    {
-        public required string Title { get; init; }
-
-        public string Text { get; init; } = string.Empty;
-
-        public bool Image { get; init; }
-
-        public List<BenchField>? Fields { get; init; }
-    }
-
-    private sealed record BenchField
-    {
-        public required string Id { get; init; }
-
-        public required string Label { get; init; }
-
-        public string? Kind { get; init; }
-
-        public string? Hint { get; init; }
-
-        public string? Value { get; init; }
+        public Task<bool> InsertAsync(string text, CancellationToken cancellationToken)
+        {
+            fields.SimulateUserTyping(field.Id, fields.CurrentValues.GetValueOrDefault(field.Id, string.Empty) + text);
+            return Task.FromResult(true);
+        }
     }
 }
