@@ -61,7 +61,7 @@ public sealed class TestBenchScenarioTests
         bench.Press();
 
         AssertValues(scenario, scenario.Expected, bench.Fields.CurrentValues);
-        AssertSuggestions(scenario, bench.Notifier.Reports.LastOrDefault());
+        AssertSuggestions(scenario, bench.Notifier.Reports.Count > 0 ? bench.Notifier.Reports[^1] : null);
     }
 
     [Theory]
