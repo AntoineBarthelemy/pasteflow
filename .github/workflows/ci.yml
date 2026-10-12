@@ -50,7 +50,7 @@ jobs:
           try {
             $total = 0; $passed = 0; $failed = 0
             Get-ChildItem TestResults -Filter *.trx -Recurse -ErrorAction SilentlyContinue | ForEach-Object {
-              [xml]$trx = Get-Content -Raw -Encoding utf8 $_.FullName
+              [xml]$trx = Get-Content -LiteralPath $_.FullName -Raw -Encoding utf8
               $counters = $trx.TestRun.ResultSummary.Counters
               $total += [int]$counters.total
               $passed += [int]$counters.passed
