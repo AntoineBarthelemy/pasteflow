@@ -29,6 +29,7 @@ public sealed class ImageReadingTests : IDisposable
     public async Task RecognizeAsync_ReadsTheTextOfAPicture()
     {
         Skip.If(_ocr is null, "Windows has no character recognition for the languages of this computer.");
+
         // The window draws its picture a moment after it opens: the capture is taken again until the text shows
         string text;
         var deadline = DateTime.UtcNow + RenderTimeout;
