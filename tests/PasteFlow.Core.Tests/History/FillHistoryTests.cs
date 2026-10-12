@@ -143,6 +143,8 @@ public sealed class FillHistoryTests : IDisposable
     [InlineData("Numéro de sécurité sociale", "1 90 03 51 454 123 45")]
     [InlineData("IBAN", "FR76 3000 6000 0112 3456 7890 189")]
     [InlineData("Commentaire", "4970101234567890")]
+    [InlineData("Commentaire", "FR76 3000 6000 0112 3456 7890 189")]
+    [InlineData("Remarque", "2 85 11 75 116 007 02")]
     public async Task RecordAsync_NeverLearnsSensitiveValues(string label, string value)
     {
         await RecordAsync(label, value);

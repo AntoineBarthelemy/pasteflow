@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using PasteFlow.Core.Forms;
+using PasteFlow.Core.Profile;
 using PasteFlow.Core.Reference;
 
 namespace PasteFlow.Core.History;
@@ -34,7 +35,8 @@ public static partial class SensitiveFields
         var description = ReferenceText.Normalize($"{field.Label} {SplitWords(field.TechnicalName)} {field.Hint}");
         try
         {
-            return SensitiveWordsRegex().IsMatch(description) || CardNumberRegex().IsMatch(value);
+            // An IBAN or a social security number is recognized by its key, even in a field named "Commentaire"
+            return SensitiveWordsRegex().IsMatch(description) || CardNumberRegex().IsMatch(value) || SensitiveFormats.IsSensitiveValue(value);
         }
         catch (RegexMatchTimeoutException)
         {
