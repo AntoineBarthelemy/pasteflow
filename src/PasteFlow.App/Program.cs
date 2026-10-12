@@ -7,6 +7,7 @@ using PasteFlow.App.Notifications;
 using PasteFlow.App.Picking;
 using PasteFlow.App.Profile;
 using PasteFlow.App.Screen;
+using PasteFlow.App.Security;
 using PasteFlow.App.Settings;
 using PasteFlow.App.Tray;
 using PasteFlow.Core.Activation;
@@ -17,6 +18,7 @@ using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Matching;
 using PasteFlow.Core.Profile;
 using PasteFlow.Core.Reference;
+using PasteFlow.Core.Security;
 using PasteFlow.Core.Settings;
 using PasteFlow.Core.Undo;
 
@@ -53,6 +55,10 @@ internal static class Program
 
         // What the user keeps about themselves, encrypted on this computer
         using var profile = new ProfileBook(new ProtectedFileProfileStore(ProtectedFileProfileStore.DefaultPath));
+
+        // Sensitive values open with Windows Hello for 30 minutes, and close as soon as the computer is locked
+        using var sensitiveGate = new SensitiveGate(new WindowsHelloPresenceCheck());
+        using var sessionLockWatcher = new SessionLockWatcher(sensitiveGate);
 
         // Reading and writing forms, frames and suggestions
         var formAccess = new UiAutomationFormAccess();
@@ -122,7 +128,7 @@ internal static class Program
                 return;
             }
 
-            profileWindow = new ProfileWindow(profile, owner => new WindowsProfileTransferPrompts(owner));
+            profileWindow = new ProfileWindow(profile, sensitiveGate, owner => new WindowsProfileTransferPrompts(owner));
             profileWindow.Show();
         }
 

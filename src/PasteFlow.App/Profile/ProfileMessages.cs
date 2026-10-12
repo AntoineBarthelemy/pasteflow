@@ -1,4 +1,5 @@
 using PasteFlow.Core.Profile;
+using PasteFlow.Core.Security;
 
 namespace PasteFlow.App.Profile;
 
@@ -41,6 +42,21 @@ internal static class ProfileMessages
             ProfileArchiveStatus.WrongPassword => "Mot de passe incorrect, ou fichier modifié depuis l'export.",
             ProfileArchiveStatus.NotAnArchive => "Ce fichier n'est pas un export de fiche PasteFlow.",
             _ => "Fiche lue.",
+        };
+    }
+
+    /// <summary>
+    /// Gets the sentence that tells why a sensitive value stays closed.
+    /// </summary>
+    /// <param name="presence">What came of the check of the user.</param>
+    /// <returns>The sentence, in French.</returns>
+    public static string For(PresenceResult presence)
+    {
+        return presence switch
+        {
+            PresenceResult.Verified => "C'est bien toi.",
+            PresenceResult.Unavailable => "Windows Hello n'est pas configuré sur ce PC : ajoute un code PIN (Paramètres, Comptes, Options de connexion) pour utiliser tes infos sensibles.",
+            _ => "Vérification annulée : les infos sensibles restent fermées.",
         };
     }
 

@@ -1,5 +1,6 @@
 using PasteFlow.App.Profile;
 using PasteFlow.Core.Profile;
+using PasteFlow.Core.Security;
 
 namespace PasteFlow.App.Tests.Profile;
 
@@ -13,6 +14,15 @@ public sealed class ProfileMessagesTests
         Assert.All(sentences, sentence => Assert.False(string.IsNullOrWhiteSpace(sentence)));
         Assert.Equal(sentences.Count, sentences.Distinct().Count());
         Assert.DoesNotContain(sentences, sentence => sentence.Contains('—', StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void EveryPresenceResult_HasItsOwnSentence()
+    {
+        var sentences = Enum.GetValues<PresenceResult>().Select(ProfileMessages.For).ToList();
+
+        Assert.Equal(sentences.Count, sentences.Distinct().Count());
+        Assert.Contains("PIN", ProfileMessages.For(PresenceResult.Unavailable), StringComparison.Ordinal);
     }
 
     [Theory]

@@ -3,19 +3,24 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using PasteFlow.Core.Profile;
+using PasteFlow.Core.Security;
 
 namespace PasteFlow.App.Profile;
 
 /// <summary>
 /// Window where the user sees their profile, adds, corrects and removes informations, and exports or imports it.
 /// </summary>
-/// <remarks>Sensitive values are never shown whole: only their last characters, and they are retyped to be corrected.</remarks>
+/// <remarks>
+/// Sensitive values are never shown whole without Windows Hello: only their last characters. Exporting a profile with
+/// sensitive values also asks for Windows Hello.
+/// </remarks>
 internal sealed class ProfileWindow : Window
 {
     // An export holds a few hundred values at most: anything far bigger is not one
     private const int MaxArchiveBytes = 1024 * 1024;
 
     private readonly ProfileBook _book;
+    private readonly SensitiveGate _gate;
     private readonly IProfileTransferPrompts _prompts;
     private readonly ListBox _list;
     private readonly ComboBox _topic;
@@ -23,6 +28,7 @@ internal sealed class ProfileWindow : Window
     private readonly TextBox _label;
     private readonly Button _correct;
     private readonly Button _remove;
+    private readonly Button _show;
     private readonly TextBlock _status;
     private IReadOnlyList<ProfileValue> _values = Array.Empty<ProfileValue>();
 
@@ -30,13 +36,16 @@ internal sealed class ProfileWindow : Window
     /// Initializes a new instance of the <see cref="ProfileWindow"/> class.
     /// </summary>
     /// <param name="book">The profile shown and changed.</param>
+    /// <param name="gate">The gate that guards the sensitive values.</param>
     /// <param name="createPrompts">Creates, for this window, what asks where to export or import and the password.</param>
-    public ProfileWindow(ProfileBook book, Func<Window, IProfileTransferPrompts> createPrompts)
+    public ProfileWindow(ProfileBook book, SensitiveGate gate, Func<Window, IProfileTransferPrompts> createPrompts)
     {
         ArgumentNullException.ThrowIfNull(book);
+        ArgumentNullException.ThrowIfNull(gate);
         ArgumentNullException.ThrowIfNull(createPrompts);
 
         _book = book;
+        _gate = gate;
         _prompts = createPrompts(this);
         Title = "Ma fiche PasteFlow";
         SizeToContent = SizeToContent.WidthAndHeight;
@@ -60,6 +69,8 @@ internal sealed class ProfileWindow : Window
         _correct.Click += async (_, _) => await CorrectAsync();
         _remove = ActionButton("Supprimer");
         _remove.Click += async (_, _) => await RemoveAsync();
+        _show = ActionButton("Afficher");
+        _show.Click += async (_, _) => await ShowSensitiveAsync();
         var export = ActionButton("Exporter…");
         export.Click += async (_, _) => await ExportAsync();
         var import = ActionButton("Importer…");
@@ -75,7 +86,7 @@ internal sealed class ProfileWindow : Window
         panel.Children.Add(new TextBlock
         {
             Text = "Les infos que PasteFlow peut écrire pour toi. Elles restent chiffrées sur ce PC. "
-                + "Les infos sensibles (IBAN, n° de sécu…) ne sont jamais affichées en entier.",
+                + "Les infos sensibles (IBAN, n° de sécu…) ne s'affichent en entier qu'avec Windows Hello.",
             TextWrapping = TextWrapping.Wrap,
         });
         panel.Children.Add(_list);
@@ -85,7 +96,7 @@ internal sealed class ProfileWindow : Window
         panel.Children.Add(_value);
         panel.Children.Add(new TextBlock { Text = "Nom (facultatif, par exemple « E-mail de l'IUT »)" });
         panel.Children.Add(_label);
-        panel.Children.Add(Row(add, _correct, _remove));
+        panel.Children.Add(Row(add, _correct, _remove, _show));
         panel.Children.Add(_status);
         panel.Children.Add(Row(export, import, close));
         Content = panel;
@@ -173,6 +184,7 @@ internal sealed class ProfileWindow : Window
         var selected = Selected;
         _correct.IsEnabled = selected is not null;
         _remove.IsEnabled = selected is not null;
+        _show.IsEnabled = selected is { IsSensitive: true };
         if (selected is null)
         {
             return;
@@ -183,7 +195,7 @@ internal sealed class ProfileWindow : Window
 
         // A sensitive value is never put back on screen: the user retypes it to correct it
         _value.Text = selected.IsSensitive ? string.Empty : selected.Value;
-        _status.Text = selected.IsSensitive ? "Valeur sensible masquée : retape-la en entier pour la corriger." : string.Empty;
+        _status.Text = selected.IsSensitive ? "Valeur sensible masquée : « Afficher » la montre avec Windows Hello, ou retape-la en entier pour la corriger." : string.Empty;
     }
 
     private async Task AddAsync()
@@ -231,6 +243,28 @@ internal sealed class ProfileWindow : Window
         _status.Text = result == ProfileEditResult.Done ? "Info supprimée." : ProfileMessages.For(result);
     }
 
+    private async Task ShowSensitiveAsync()
+    {
+        if (Selected is not { IsSensitive: true } selected)
+        {
+            return;
+        }
+
+        var presence = await _gate.OpenAsync("Afficher une info sensible de ta fiche PasteFlow", CancellationToken.None);
+        if (presence != PresenceResult.Verified)
+        {
+            _status.Text = ProfileMessages.For(presence);
+            return;
+        }
+
+        // Still the same value selected: the user may have chosen another one while Windows Hello was open
+        if (Selected?.Id == selected.Id)
+        {
+            _value.Text = selected.Value;
+            _status.Text = "Valeur affichée. Corrige-la si besoin, puis « Corriger ».";
+        }
+    }
+
     private async Task ExportAsync()
     {
         var values = await _book.GetValuesAsync(CancellationToken.None);
@@ -238,6 +272,16 @@ internal sealed class ProfileWindow : Window
         {
             _status.Text = "Ta fiche est vide : rien à exporter.";
             return;
+        }
+
+        if (values.Any(value => value.IsSensitive))
+        {
+            var presence = await _gate.OpenAsync("Exporter ta fiche PasteFlow, avec ses infos sensibles", CancellationToken.None);
+            if (presence != PresenceResult.Verified)
+            {
+                _status.Text = ProfileMessages.For(presence);
+                return;
+            }
         }
 
         var path = _prompts.ChooseExportPath();

@@ -4,6 +4,7 @@ using PasteFlow.App.Profile;
 using PasteFlow.App.Tests.Fakes;
 using PasteFlow.App.Tests.TestWindows;
 using PasteFlow.Core.Profile;
+using PasteFlow.Core.Security;
 
 namespace PasteFlow.App.Tests.Profile;
 
@@ -15,13 +16,16 @@ public sealed class ProfileWindowTests : IDisposable
     private readonly string _folder = Directory.CreateTempSubdirectory("pasteflow-tests-").FullName;
     private readonly InMemoryProfileStore _store = new(Email, Iban);
     private readonly FakeProfileTransferPrompts _prompts = new();
+    private readonly FakePresenceCheck _presence = new();
+    private readonly SensitiveGate _gate;
     private readonly ProfileBook _book;
     private readonly WindowHost<ProfileWindow> _host;
 
     public ProfileWindowTests()
     {
         _book = new ProfileBook(_store);
-        _host = new WindowHost<ProfileWindow>(() => new ProfileWindow(_book, _ => _prompts));
+        _gate = new SensitiveGate(_presence);
+        _host = new WindowHost<ProfileWindow>(() => new ProfileWindow(_book, _gate, _ => _prompts));
         WaitUntil(() => _host.Invoke(window => window.Lines.Count) == 2);
     }
 
@@ -85,6 +89,47 @@ public sealed class ProfileWindowTests : IDisposable
 
         WaitUntil(() => _host.Invoke(profile => profile.Status).Contains("masquée", StringComparison.Ordinal));
         Assert.Equal(string.Empty, GetText(window, "Valeur"));
+        Assert.Equal(0, _presence.Count);
+    }
+
+    [Fact]
+    public void Show_WithWindowsHello_PutsTheSensitiveValueOnScreen()
+    {
+        var window = AutomationElement.FromHandle(_host.Handle);
+        SelectItem(window, "IBAN");
+
+        Click(window, "Afficher");
+
+        WaitUntil(() => GetText(window, "Valeur") == Iban.Value);
+        Assert.Equal(1, _presence.Count);
+    }
+
+    [Theory]
+    [InlineData(PresenceResult.Refused)]
+    [InlineData(PresenceResult.Unavailable)]
+    public void Show_WithoutWindowsHello_KeepsTheValueHidden(PresenceResult answer)
+    {
+        _presence.Answer = answer;
+        var window = AutomationElement.FromHandle(_host.Handle);
+        SelectItem(window, "IBAN");
+
+        Click(window, "Afficher");
+
+        WaitUntil(() => _host.Invoke(profile => profile.Status) == ProfileMessages.For(answer));
+        Assert.Equal(string.Empty, GetText(window, "Valeur"));
+    }
+
+    [Fact]
+    public void Export_OfSensitiveValues_WithoutWindowsHello_WritesNothing()
+    {
+        _presence.Answer = PresenceResult.Refused;
+        _prompts.ExportPath = Path.Combine(_folder, "ma-fiche.pasteflow");
+        _prompts.Password = "vignes-de-Taissy";
+
+        Click(AutomationElement.FromHandle(_host.Handle), "Exporter");
+
+        WaitUntil(() => _host.Invoke(profile => profile.Status) == ProfileMessages.For(PresenceResult.Refused));
+        Assert.Empty(Directory.GetFiles(_folder));
     }
 
     [Fact]
@@ -173,6 +218,7 @@ public sealed class ProfileWindowTests : IDisposable
     {
         _host.Dispose();
         _book.Dispose();
+        _gate.Dispose();
         Directory.Delete(_folder, recursive: true);
     }
 
@@ -191,7 +237,10 @@ public sealed class ProfileWindowTests : IDisposable
 
     private static void Click(AutomationElement window, string nameStart)
     {
-        ((InvokePattern)Find(window, ControlType.Button, nameStart).GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+        // A button follows the selection of the list: it may be enabled a moment after the item is selected
+        var button = Find(window, ControlType.Button, nameStart);
+        WaitUntil(() => button.Current.IsEnabled);
+        ((InvokePattern)button.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
     }
 
     private static void SetText(AutomationElement window, string name, string text)
