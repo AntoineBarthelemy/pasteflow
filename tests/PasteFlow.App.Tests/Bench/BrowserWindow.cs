@@ -12,6 +12,7 @@ internal sealed class BrowserWindow : IDisposable
 {
     private static readonly TimeSpan OpenTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan PollDelay = TimeSpan.FromMilliseconds(200);
+    private static readonly TimeSpan PictureDelay = TimeSpan.FromSeconds(2);
 
     private static readonly string[] BrowserPaths =
     {
@@ -49,9 +50,12 @@ internal sealed class BrowserWindow : IDisposable
     /// Opens a page in a new browser window, without address bar, and waits until it shows the given text.
     /// </summary>
     /// <param name="url">The page.</param>
-    /// <param name="readyName">The name of an element the page shows once loaded, such as the label of a field.</param>
+    /// <param name="readyName">
+    /// The name of an element the page shows once loaded, such as the label of a field; <see langword="null"/> for a
+    /// picture, which is waited for a moment.
+    /// </param>
     /// <returns>The window.</returns>
-    public static BrowserWindow Open(Uri url, string readyName)
+    public static BrowserWindow Open(Uri url, string? readyName)
     {
         var browser = BrowserPath ?? throw new InvalidOperationException("Aucun navigateur installé.");
         var profile = Path.Combine(Path.GetTempPath(), "pasteflow-bench-" + Guid.NewGuid().ToString("N"));
@@ -74,7 +78,14 @@ internal sealed class BrowserWindow : IDisposable
         while (DateTime.UtcNow < deadline)
         {
             var window = FindWindow(process.Id);
-            if (window?.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, readyName)) is not null)
+            if (window is not null && readyName is null)
+            {
+                Thread.Sleep(PictureDelay);
+                return new BrowserWindow(process, profile, window);
+            }
+
+            if (readyName is not null
+                && window?.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, readyName)) is not null)
             {
                 return new BrowserWindow(process, profile, window);
             }
@@ -113,6 +124,24 @@ internal sealed class BrowserWindow : IDisposable
         return field.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern) && pattern is ValuePattern value
             ? (value.Current.Value ?? string.Empty).ReplaceLineEndings("\n")
             : string.Empty;
+    }
+
+    /// <summary>
+    /// Writes a text at the end of a field, as typing after its text would.
+    /// </summary>
+    /// <param name="label">The label of the field.</param>
+    /// <param name="text">The text to add.</param>
+    /// <returns><see langword="true"/> if the field took the text; otherwise <see langword="false"/>.</returns>
+    public bool AppendTo(string label, string text)
+    {
+        var field = Field(label);
+        if (!field.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern) || pattern is not ValuePattern value)
+        {
+            return false;
+        }
+
+        value.SetValue((value.Current.Value ?? string.Empty) + text);
+        return true;
     }
 
     public void Dispose()

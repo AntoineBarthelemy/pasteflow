@@ -24,6 +24,7 @@
   <ItemGroup>
     <None Include="..\..\terrain-essai\index.html" Link="Bench\index.html" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\terrain-essai\scenarios.json" Link="Bench\scenarios.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\terrain-essai\bon-de-commande.png" Link="Bench\bon-de-commande.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
