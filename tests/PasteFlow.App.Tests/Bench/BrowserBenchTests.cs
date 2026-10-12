@@ -68,13 +68,13 @@ public sealed class BrowserBenchTests
         var screen = Describe(await reader.ReadWindowsAsync(CancellationToken.None));
         listener.SimulatePress();
         await notifier.WaitForFillAsync(1);
-        AssertValues(scenario, scenario.Expected, form, screen);
+        AssertValues(scenario, scenario.Expected, form, $"{Decisions(notifier.Reports[0])}\n{screen}");
 
         if (scenario.SecondPress is { } secondPress)
         {
             listener.SimulatePress();
             await notifier.WaitForFillAsync(2);
-            AssertValues(scenario, secondPress, form, screen);
+            AssertValues(scenario, secondPress, form, $"{Decisions(notifier.Reports[1])}\n{screen}");
         }
     }
 
@@ -109,6 +109,17 @@ public sealed class BrowserBenchTests
     private static string FirstLine(string text)
     {
         return text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? string.Empty;
+    }
+
+    // Shows what the fill decided for each field, to understand a failure
+    private static string Decisions(FillReport report)
+    {
+        var lines = new List<string> { $"Bilan : {report.Summary()}" };
+        lines.AddRange(report.FilledValues.Select(filled => $"[écrit] {filled.FieldLabel} = {filled.Value} ({filled.SourceName})"));
+        lines.AddRange(report.FieldsToCheck.Select(toCheck =>
+            $"[à vérifier] {toCheck.Field.Label} : {string.Join(" / ", toCheck.Suggestions.Select(suggestion => suggestion.Value))}"));
+        lines.AddRange(report.FailedFields.Select(field => $"[refusé] {field.Label}"));
+        return string.Join('\n', lines);
     }
 
     // Shows what was read on screen, to understand a failure: special characters made visible
@@ -176,8 +187,15 @@ public sealed class BrowserBenchTests
             // Only the end of a fill matters to the tester
         }
 
+        public List<FillReport> Reports { get; } = new();
+
         public void NotifyFill(FillReport report)
         {
+            lock (Reports)
+            {
+                Reports.Add(report);
+            }
+
             _ = Interlocked.Increment(ref _fillCount);
             _ = _fills.Release();
         }
