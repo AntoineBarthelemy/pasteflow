@@ -390,7 +390,9 @@ public sealed class ShortcutActivationService : IDisposable
         }
 
         stopwatch.Stop();
-        _fillMemory.Remember(writtenFields);
+
+        // The page tells what the values were for: the profile learns only from the fields about the user
+        _fillMemory.Remember(writtenFields.Select(written => written with { Page = page }).ToList());
 
         return new FillReport
         {

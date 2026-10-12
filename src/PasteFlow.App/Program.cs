@@ -1,3 +1,4 @@
+using System.IO;
 using System.Windows;
 using PasteFlow.App.Forms;
 using PasteFlow.App.Highlights;
@@ -60,6 +61,14 @@ internal static class Program
         using var sensitiveGate = new SensitiveGate(new WindowsHelloPresenceCheck());
         using var sessionLockWatcher = new SessionLockWatcher(sensitiveGate);
 
+        // The profile learns from what the user fills about themselves, and starts with the Windows account
+        using var learner = new ProfileLearner(
+            profile,
+            new ProtectedFileProfileStore(ProtectedFileProfileStore.LearningPath),
+            sensitiveGate,
+            new PopupLearningPrompts(notifier, application.Dispatcher));
+        learner.Observe(history, fillMemory);
+
         // Reading and writing forms, frames and suggestions
         var formAccess = new UiAutomationFormAccess();
         using var choiceListener1 = new Win32HotkeyListener();
@@ -95,6 +104,7 @@ internal static class Program
         {
             activation.Options = MatchingOptions.For(chosen.Prudence);
             history.IsEnabled = chosen.LearnFromFills;
+            learner.IsEnabled = chosen.LearnFromFills;
             windowReader.ReadImages = chosen.ReadImages;
         }
 
@@ -155,10 +165,43 @@ internal static class Program
             notifier.Notify($"Le raccourci {hotkey} est déjà utilisé par une autre application.");
         }
 
+        _ = application.Dispatcher.InvokeAsync(async () => await StartProfileAsync(learner, notifier));
+
         // The official lists are loaded now, in the background, rather than at the first fill
         _ = Task.Run(() => ReferenceData.Shared);
 
         return application.Run();
+    }
+
+    /// <summary>
+    /// At the very first launch, starts the profile with the name and the email of the Windows account.
+    /// </summary>
+    /// <param name="learner">The learner that fills the profile.</param>
+    /// <param name="notifier">The notifier that tells the user.</param>
+    /// <returns>A task completed once the profile is started.</returns>
+    private static async Task StartProfileAsync(ProfileLearner learner, PopupNotifier notifier)
+    {
+        var marker = Path.Combine(Path.GetDirectoryName(ProtectedFileProfileStore.DefaultPath)!, "profile-started");
+        if (File.Exists(marker))
+        {
+            return;
+        }
+
+        var added = await learner.ImportWindowsAccountAsync(await WindowsAccountReader.ReadAsync(), CancellationToken.None);
+        try
+        {
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(marker)!);
+            await File.WriteAllTextAsync(marker, "Fiche démarrée avec le compte Windows.");
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // Without the marker, the next launch tries again; the values already there are not added twice
+        }
+
+        if (added > 0)
+        {
+            notifier.Notify("Ta fiche démarre avec ton nom et ton e-mail Windows. Clic droit sur l'icône PasteFlow, « Ma fiche… », pour la compléter.");
+        }
     }
 
     private static async Task ClearHistoryAsync(FillHistory history, PopupNotifier notifier)

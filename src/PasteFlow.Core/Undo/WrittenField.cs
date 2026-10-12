@@ -1,4 +1,5 @@
 using PasteFlow.Core.Forms;
+using PasteFlow.Core.Matching;
 
 namespace PasteFlow.Core.Undo;
 
@@ -21,4 +22,9 @@ public sealed record WrittenField
     /// Gets the value the field held before, put back when the fill is undone; empty for a field that was empty.
     /// </summary>
     public string PreviousValue { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets what the window written into told: whether its form is about the user, and on which site.
+    /// </summary>
+    public PageContext Page { get; init; } = PageContext.Empty;
 }

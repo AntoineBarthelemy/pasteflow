@@ -30,6 +30,18 @@ internal sealed class PopupNotifier : IUserNotifier
         Show(new NotificationPopup(RecapView.Create(recap), RecapView.DisplayTimeFor(recap)));
     }
 
+    /// <summary>
+    /// Displays any content, such as a message with a button, in place of the popup currently displayed.
+    /// </summary>
+    /// <param name="content">The content.</param>
+    /// <param name="displayTime">How long the popup stays when the mouse is not on it.</param>
+    public void ShowContent(System.Windows.UIElement content, TimeSpan displayTime)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+
+        Show(new NotificationPopup(content, displayTime));
+    }
+
     private void Show(NotificationPopup popup)
     {
         // A new popup replaces the one currently displayed

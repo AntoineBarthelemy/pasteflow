@@ -151,6 +151,33 @@ public sealed class ProfileBook : IDisposable
     }
 
     /// <summary>
+    /// Counts a use of a value of the profile, written into a field, and the site where it was written: among several
+    /// values of a topic, PasteFlow then prefers the one used on this site, or else the most used one.
+    /// </summary>
+    /// <param name="id">The identifier of the value used.</param>
+    /// <param name="site">The site where it was written, such as "univ-reims.fr", or an empty string.</param>
+    /// <param name="cancellationToken">A token to cancel the change.</param>
+    /// <returns>What became of the change.</returns>
+    public Task<ProfileEditResult> RecordUseAsync(Guid id, string site, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(site);
+
+        return ChangeAsync(
+            values =>
+            {
+                var index = values.FindIndex(existing => existing.Id == id);
+                if (index < 0)
+                {
+                    return ProfileEditResult.NotFound;
+                }
+
+                values[index] = values[index] with { UseCount = values[index].UseCount + 1, Sites = SiteUses.Add(values[index].Sites, site) };
+                return ProfileEditResult.Done;
+            },
+            cancellationToken);
+    }
+
+    /// <summary>
     /// Removes a value from the profile.
     /// </summary>
     /// <param name="id">The identifier of the value to remove.</param>

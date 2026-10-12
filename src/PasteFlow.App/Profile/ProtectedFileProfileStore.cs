@@ -32,6 +32,14 @@ internal sealed class ProtectedFileProfileStore : IProfileStore
         "PasteFlow",
         "profile.dat");
 
+    /// <summary>
+    /// Gets the path of the values counted while waiting to be learned, next to the profile.
+    /// </summary>
+    public static string LearningPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "PasteFlow",
+        "profile-learning.dat");
+
     /// <inheritdoc/>
     public Task<IReadOnlyList<ProfileValue>> LoadAsync(CancellationToken cancellationToken)
     {

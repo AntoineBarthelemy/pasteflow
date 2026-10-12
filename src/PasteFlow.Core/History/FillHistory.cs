@@ -71,6 +71,12 @@ public sealed class FillHistory : ICandidateSource, IDisposable
     }
 
     /// <summary>
+    /// Occurs when values written by the user or by a fill are recorded: the values are already trimmed, and the
+    /// sensitive ones are never among them.
+    /// </summary>
+    public event EventHandler<IReadOnlyList<WrittenField>>? Recorded;
+
+    /// <summary>
     /// Gets or sets a value indicating whether the history learns and offers values. When off, nothing is recorded
     /// and nothing is offered; what was learned before is kept.
     /// </summary>
@@ -108,6 +114,8 @@ public sealed class FillHistory : ICandidateSource, IDisposable
         {
             return;
         }
+
+        Recorded?.Invoke(this, toRecord);
 
         await ChangeAsync(
             entries =>
