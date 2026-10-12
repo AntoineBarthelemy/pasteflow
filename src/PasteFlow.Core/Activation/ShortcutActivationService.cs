@@ -209,6 +209,34 @@ public sealed class ShortcutActivationService : IDisposable
             .ToDictionary(group => group.Key, group => group.Count());
     }
 
+    /// <summary>
+    /// Removes from the values read in the form's own window the values its filled fields hold.
+    /// </summary>
+    /// <param name="candidates">The values found.</param>
+    /// <param name="fields">The fields of the form.</param>
+    /// <param name="valueReader">The component that reads the value of a field.</param>
+    /// <param name="cancellationToken">A token to cancel the reading.</param>
+    /// <returns>The values left.</returns>
+    private static async Task<List<Candidate>> WithoutCurrentValuesAsync(
+        List<Candidate> candidates,
+        IReadOnlyList<FormField> fields,
+        IFieldValueReader valueReader,
+        CancellationToken cancellationToken)
+    {
+        var currentValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var field in fields.Where(FillRules.CanReplace))
+        {
+            if (await valueReader.TryReadValueAsync(field, cancellationToken) is { } value && value.Trim().Length > 0)
+            {
+                _ = currentValues.Add(value.Trim());
+            }
+        }
+
+        return candidates
+            .Where(candidate => candidate.SourceRank != 0 || !currentValues.Contains(candidate.Value.Trim()))
+            .ToList();
+    }
+
     private async void OnHotkeyPressed(object? sender, EventArgs e)
     {
         var report = await FillActiveFormAsync(CancellationToken.None);
@@ -428,34 +456,6 @@ public sealed class ShortcutActivationService : IDisposable
             _lastFormSignature = signature;
             return isSecondPress;
         }
-    }
-
-    /// <summary>
-    /// Removes from the values read in the form's own window the values its filled fields hold.
-    /// </summary>
-    /// <param name="candidates">The values found.</param>
-    /// <param name="fields">The fields of the form.</param>
-    /// <param name="valueReader">The component that reads the value of a field.</param>
-    /// <param name="cancellationToken">A token to cancel the reading.</param>
-    /// <returns>The values left.</returns>
-    private static async Task<List<Candidate>> WithoutCurrentValuesAsync(
-        List<Candidate> candidates,
-        IReadOnlyList<FormField> fields,
-        IFieldValueReader valueReader,
-        CancellationToken cancellationToken)
-    {
-        var currentValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var field in fields.Where(FillRules.CanReplace))
-        {
-            if (await valueReader.TryReadValueAsync(field, cancellationToken) is { } value && value.Trim().Length > 0)
-            {
-                _ = currentValues.Add(value.Trim());
-            }
-        }
-
-        return candidates
-            .Where(candidate => candidate.SourceRank != 0 || !currentValues.Contains(candidate.Value.Trim()))
-            .ToList();
     }
 
     /// <summary>
