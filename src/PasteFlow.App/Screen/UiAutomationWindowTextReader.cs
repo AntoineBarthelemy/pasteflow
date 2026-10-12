@@ -209,7 +209,7 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
     {
         var fields = new List<FieldText>();
         var windowBounds = window.Current.BoundingRectangle;
-        foreach (AutomationElement element in window.FindAll(TreeScope.Descendants, UiAutomationFormAccess.FieldCondition))
+        foreach (var element in UiAutomationFormAccess.FindFields(window))
         {
             if (fields.Count == MaxFilledFields)
             {

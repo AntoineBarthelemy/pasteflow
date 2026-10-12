@@ -35,6 +35,11 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
     private int _readingCount;
 
     /// <summary>
+    /// Gets the condition that finds the pages of a window, such as the page shown by a browser.
+    /// </summary>
+    internal static Condition DocumentCondition { get; } = new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Document);
+
+    /// <summary>
     /// Gets the condition that finds the fields of a window: text boxes and combo boxes, enabled. Fields out of view
     /// further down a long form are kept; see <see cref="IsInPage"/> for those hidden on purpose.
     /// </summary>
@@ -111,7 +116,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
 
         if (current.ControlType == ControlType.ComboBox)
         {
-            return valuePattern is { Current.IsReadOnly: false };
+            return IsEditableComboBox(element);
         }
 
         if (current.ControlType != ControlType.Document)
@@ -171,6 +176,54 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             && bounds.Width >= MinSize
             && bounds.Height >= MinSize
             && (window.IsEmpty || (bounds.Right > window.Left && bounds.Left < window.Right && bounds.Bottom > window.Top));
+    }
+
+    /// <summary>
+    /// Tells a combo box where the user can type from a closed list. A combo box with its own text box can be typed
+    /// in; one without, whose value can be set but which offers a selection, is a list of choices, such as a
+    /// &lt;select&gt; of a web page.
+    /// </summary>
+    /// <param name="element">The combo box.</param>
+    /// <returns><see langword="true"/> if the user can type in it; otherwise <see langword="false"/>.</returns>
+    internal static bool IsEditableComboBox(AutomationElement element)
+    {
+        if (element.FindFirst(TreeScope.Children, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit)) is not null)
+        {
+            return true;
+        }
+
+        var isWritable = element.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern)
+            && pattern is ValuePattern valuePattern
+            && !valuePattern.Current.IsReadOnly;
+        return isWritable && !element.TryGetCurrentPattern(SelectionPattern.Pattern, out _);
+    }
+
+    /// <summary>
+    /// Finds the fields of a window, in reading order. In a browser, only the fields of the page count: the address
+    /// bar and the panels of the browser are not part of the form. A window whose pages hold no field, such as a mail
+    /// application with a rich text body, keeps all its fields.
+    /// </summary>
+    /// <param name="window">The window.</param>
+    /// <returns>The fields, each once.</returns>
+    internal static List<AutomationElement> FindFields(AutomationElement window)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var fields = new List<AutomationElement>();
+        foreach (AutomationElement document in window.FindAll(TreeScope.Descendants, DocumentCondition))
+        {
+            foreach (AutomationElement element in document.FindAll(TreeScope.Descendants, FieldCondition))
+            {
+                // A page inside another one (a frame) is found twice: each field is kept once
+                if (seen.Add(string.Join('.', element.GetRuntimeId())))
+                {
+                    fields.Add(element);
+                }
+            }
+        }
+
+        return fields.Count > 0
+            ? fields
+            : window.FindAll(TreeScope.Descendants, FieldCondition).Cast<AutomationElement>().ToList();
     }
 
     /// <summary>
@@ -337,10 +390,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             return FieldKind.Text;
         }
 
-        var isEditable = element.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern)
-            && pattern is ValuePattern valuePattern
-            && !valuePattern.Current.IsReadOnly;
-        return isEditable ? FieldKind.Text : FieldKind.Choice;
+        return IsEditableComboBox(element) ? FieldKind.Text : FieldKind.Choice;
     }
 
     private static bool HasValue(AutomationElement element)
@@ -447,7 +497,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             {
                 var window = AutomationElement.FromHandle(windowHandle);
                 var windowBounds = window.Current.BoundingRectangle;
-                foreach (AutomationElement element in window.FindAll(TreeScope.Descendants, FieldCondition))
+                foreach (var element in FindFields(window))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
