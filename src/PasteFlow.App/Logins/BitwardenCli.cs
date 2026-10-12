@@ -20,6 +20,9 @@ namespace PasteFlow.App.Logins;
 internal sealed partial class BitwardenCli : IPasswordManager
 {
     private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(20);
+    private static readonly string[] StatusArguments = { "status" };
+    private static readonly string[] UnlockArguments = { "unlock", "--passwordenv", "BW_PASSWORD", "--raw" };
+    private static readonly string[] ListItemsArguments = { "list", "items" };
 
     private readonly string? _executable;
     private volatile string? _session;
@@ -88,7 +91,7 @@ internal sealed partial class BitwardenCli : IPasswordManager
     /// <returns>"unlocked", "locked" or "unauthenticated", or an empty string if bw does not answer.</returns>
     public async Task<string> StatusAsync(CancellationToken cancellationToken)
     {
-        var output = await RunAsync(new[] { "status" }, new Dictionary<string, string>(), cancellationToken);
+        var output = await RunAsync(StatusArguments, new Dictionary<string, string>(), cancellationToken);
         return output is null ? string.Empty : BitwardenJson.Status(output);
     }
 
@@ -108,7 +111,7 @@ internal sealed partial class BitwardenCli : IPasswordManager
         }
 
         var session = await RunAsync(
-            new[] { "unlock", "--passwordenv", "BW_PASSWORD", "--raw" },
+            UnlockArguments,
             new Dictionary<string, string> { ["BW_PASSWORD"] = masterPassword },
             cancellationToken);
         session = session?.Trim();
@@ -172,7 +175,7 @@ internal sealed partial class BitwardenCli : IPasswordManager
     /// <inheritdoc/>
     public async Task<IReadOnlyList<ProfileValue>> GetIdentityAsync(CancellationToken cancellationToken)
     {
-        var output = await RunWithSessionAsync(new[] { "list", "items" }, cancellationToken);
+        var output = await RunWithSessionAsync(ListItemsArguments, cancellationToken);
         return output is null ? Array.Empty<ProfileValue>() : BitwardenJson.Identity(output);
     }
 
