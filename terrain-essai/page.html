@@ -98,6 +98,7 @@
     <details id="about"><summary>Ce que ce scénario vérifie</summary><p id="checks"></p></details>
   </section>
 
+  <!-- Instructions and results are hidden from screen reading (aria-hidden), so that PasteFlow never takes them for values -->
   <div class="panes">
     <section class="pane" id="source-pane" aria-labelledby="source-label">
       <p class="pane-title" id="source-label">Ce que l'outil lit</p>
@@ -105,7 +106,7 @@
     </section>
     <section class="pane" id="form-pane" aria-labelledby="form-label">
       <p class="pane-title" id="form-label">À remplir avec Ctrl+Alt+V</p>
-      <ol id="steps"></ol>
+      <ol id="steps" aria-hidden="true"></ol>
       <pre class="message" id="page" hidden></pre>
       <form id="form" autocomplete="off" novalidate></form>
       <div class="actions">
@@ -113,8 +114,8 @@
         <button type="button" id="check2" hidden>Vérifier après le 2e appui</button>
         <button type="button" id="reset">Tout remettre à zéro</button>
       </div>
-      <p class="summary" id="summary" hidden></p>
-      <div id="after-block" hidden><p class="note">Ensuite :</p><ul id="after"></ul></div>
+      <p class="summary" id="summary" aria-hidden="true" hidden></p>
+      <div id="after-block" aria-hidden="true" hidden><p class="note">Ensuite :</p><ul id="after"></ul></div>
     </section>
   </div>
 </div>
@@ -197,7 +198,7 @@
     form.replaceChildren();
     current.form.forEach((field) => {
       const { wrapper, control } = fieldControl(field, "f");
-      wrapper.append(el("div", { className: "verdict", id: `v-${field.id}`, hidden: true }));
+      wrapper.append(el("div", { className: "verdict", id: `v-${field.id}`, hidden: true, "aria-hidden": "true" }));
       control.addEventListener("input", () => { $(`v-${field.id}`).hidden = true; $("summary").hidden = true; });
       form.append(wrapper);
     });

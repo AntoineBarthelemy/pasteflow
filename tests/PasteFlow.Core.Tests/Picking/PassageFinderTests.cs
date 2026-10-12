@@ -167,6 +167,12 @@ public sealed class PassageFinderTests
     }
 
     [Fact]
+    public void Find_StartingAtAnApostrophe_KeepsTheElidedWord()
+    {
+        Assert.Equal("l’agenda d'Hugo", First("l'agenda d'hu", PassageCut.Words));
+    }
+
+    [Fact]
     public void Empty_FindsNothing()
     {
         Assert.Empty(PassageFinder.Empty.Find("lea", PassageCut.Words));
