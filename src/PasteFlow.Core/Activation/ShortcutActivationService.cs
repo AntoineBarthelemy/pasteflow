@@ -217,6 +217,29 @@ public sealed class ShortcutActivationService : IDisposable
             .ToDictionary(group => group.Key, group => group.Count());
     }
 
+    /// <summary>
+    /// Adds the values of the profile to the windows searched in the list, as one more window after the screen, so
+    /// that typing "mail" in the list also finds the user's own email.
+    /// </summary>
+    /// <param name="windows">The windows of the screen.</param>
+    /// <param name="profileCandidates">The values of the profile allowed in the list.</param>
+    /// <returns>The windows, and the profile last.</returns>
+    private static List<WindowText> WithProfile(List<WindowText> windows, List<Candidate> profileCandidates)
+    {
+        if (profileCandidates.Count == 0)
+        {
+            return windows;
+        }
+
+        var profile = new WindowText
+        {
+            Title = profileCandidates[0].SourceName,
+            Text = string.Join('\n', profileCandidates.Select(candidate => candidate.Value).Distinct(StringComparer.Ordinal)),
+            Rank = windows.Count == 0 ? 0 : windows.Max(window => window.Rank) + 1,
+        };
+        return windows.Append(profile).ToList();
+    }
+
     private static bool UsesSensitiveValue(FieldMatch match)
     {
         return match is { IsConfident: true, Candidate.IsSensitive: true } || match.Suggestions.Any(candidate => candidate.IsSensitive);
@@ -326,9 +349,7 @@ public sealed class ShortcutActivationService : IDisposable
             .Where(field => FillRules.CanFill(field) || (isReplacing && FillRules.CanReplace(field)))
             .ToList();
         var textFields = fields.Where(field => field.Kind == FieldKind.Text).ToList();
-        var page = PageContext.From(_candidateSources.OfType<IScreenTextSource>()
-            .SelectMany(source => source.LastWindows)
-            .FirstOrDefault(window => window.Rank == 0));
+        var page = CurrentPage();
         var matches = FormMatcher.MatchAll(fillableFields, candidates, ReferenceData.Shared, Options, textFields, page);
         foreach (var match in await GuardSensitiveValuesAsync(matches, cancellationToken))
         {
@@ -438,9 +459,11 @@ public sealed class ShortcutActivationService : IDisposable
         _highlighter.Highlight(Array.Empty<FieldToCheck>());
 
         var field = FreePaste.TargetField(caret);
-        candidates = candidates.Where(candidate => !FreePaste.IsTypedText(candidate, field) && !candidate.IsFromProfile).ToList();
-        var match = FormMatcher.MatchAll(new[] { field }, candidates, ReferenceData.Shared, Options, new[] { field })[0];
-        if (match is { IsConfident: true, Candidate: { } sure })
+        candidates = candidates.Where(candidate => !FreePaste.IsTypedText(candidate, field)).ToList();
+        var match = FormMatcher.MatchAll(new[] { field }, candidates, ReferenceData.Shared, Options, new[] { field }, CurrentPage())[0];
+
+        // Safety net: a sensitive value is never pasted straight into a text, only chosen by the user in the list
+        if (match is { IsConfident: true, Candidate: { IsSensitive: false } sure })
         {
             var value = ValueFormatter.Adapt(sure.Value, sure.Kind, field);
             var isPasted = await Inserter.InsertAsync(value, cancellationToken);
@@ -449,15 +472,16 @@ public sealed class ShortcutActivationService : IDisposable
         }
 
         var screenCandidates = candidates.Where(candidate => !candidate.IsFromHistory && !candidate.IsFromProfile).ToList();
+        var profileCandidates = await ProfileValuesForTheListAsync(field, candidates, cancellationToken);
         var windows = _candidateSources.OfType<IScreenTextSource>().SelectMany(source => source.LastWindows).ToList();
         var request = new PickRequest
         {
             Suggestions = FieldMatcher.Rank(
                 FieldClues.Of(field),
-                screenCandidates,
+                screenCandidates.Concat(profileCandidates).ToList(),
                 ScreenContext.From(screenCandidates),
                 PassageFinder.MaxResults),
-            Finder = new PassageFinder(windows, screenCandidates),
+            Finder = new PassageFinder(WithProfile(windows, profileCandidates), screenCandidates.Concat(profileCandidates).ToList()),
         };
         var chosen = await Picker.PickAsync(request, cancellationToken);
         if (chosen is not null && !await Inserter.InsertAsync(chosen, cancellationToken))
@@ -516,6 +540,38 @@ public sealed class ShortcutActivationService : IDisposable
         return await _fieldWriter.TryWriteAsync(field, value, cancellationToken)
             ? new WrittenField { Field = field, Value = value, PreviousValue = previousValue }
             : null;
+    }
+
+    /// <summary>
+    /// Gets what the window being filled tells: its title, its text and its site.
+    /// </summary>
+    /// <returns>The context of the active window, as read with the candidates.</returns>
+    private PageContext CurrentPage()
+    {
+        return PageContext.From(_candidateSources.OfType<IScreenTextSource>()
+            .SelectMany(source => source.LastWindows)
+            .FirstOrDefault(window => window.Rank == 0));
+    }
+
+    /// <summary>
+    /// Chooses the values of the profile offered in the list at the cursor: the ordinary ones always, the sensitive
+    /// ones only when the words before the cursor ask for them ("mon IBAN :") and the user proves it is them.
+    /// </summary>
+    /// <param name="field">The cursor described as a field.</param>
+    /// <param name="candidates">The values found.</param>
+    /// <param name="cancellationToken">A token to cancel the check.</param>
+    /// <returns>The values of the profile allowed in the list.</returns>
+    private async Task<List<Candidate>> ProfileValuesForTheListAsync(FormField field, List<Candidate> candidates, CancellationToken cancellationToken)
+    {
+        var ordinary = candidates.Where(candidate => candidate.IsFromProfile && !candidate.IsSensitive).ToList();
+        var sensitive = candidates.Where(candidate => candidate.IsFromProfile && candidate.IsSensitive).ToList();
+        var isAskedFor = sensitive.Count > 0 && FieldMatcher.Match(field, sensitive).Suggestions.Count > 0;
+        if (!isAskedFor || SensitiveGate is not { } gate || await gate.OpenAsync(SensitiveFillReason, cancellationToken) != PresenceResult.Verified)
+        {
+            return ordinary;
+        }
+
+        return ordinary.Concat(FieldMatcher.Match(field, sensitive).Suggestions).ToList();
     }
 
     /// <summary>

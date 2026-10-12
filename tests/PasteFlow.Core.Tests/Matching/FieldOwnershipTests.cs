@@ -19,6 +19,7 @@ public sealed class FieldOwnershipTests
     [InlineData("Téléphone du client")]
     [InlineData("Nom du destinataire")]
     [InlineData("E-mail du parrain")]
+    [InlineData("Tu peux écrire à Léa, son mail :")]
     public void FieldThatNamesSomeoneElse_IsAboutSomeoneElse(string label)
     {
         Assert.Equal(FieldOwner.SomeoneElse, FieldOwnership.Of(TestFields.Text("f", label), PageContext.Empty));

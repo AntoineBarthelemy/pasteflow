@@ -20,6 +20,7 @@ public static class FieldOwnership
     {
         "CLIENT", "CLIENTS", "CONTACT", "DESTINATAIRE", "DESTINATAIRES", "RECIPIENT", "BENEFICIAIRE", "BENEFICIARY",
         "INVITE", "GUEST", "PATIENT", "ELEVE", "FILLEUL", "PARRAIN", "CONJOINT", "ENFANT", "SALARIE", "EMPLOYEE",
+        "SON", "SA", "SES", "LEUR", "LEURS", "HIS", "HER", "THEIR",
     };
 
     // Written as ReferenceText.Normalize writes them: upper case, without accents, punctuation turned into spaces
