@@ -165,6 +165,20 @@ public sealed class ReplaceOnSecondPressTests : IDisposable
     }
 
     [Fact]
+    public void SecondPress_WhenThePageShowsTheValueBeingReplaced_StillReplacesIt()
+    {
+        // A browser shows the value of each field in the text of the page, read as the form's own window
+        _candidateSource.Candidates = _candidateSource.Candidates
+            .Append(new Candidate { Value = "Ancien titre", Label = "Title (required)", SourceName = "Studio", SourceRank = 0 })
+            .ToArray();
+        using var service = CreateService();
+
+        PressTwice(TimeSpan.FromSeconds(2));
+
+        Assert.Equal("Mon tuto PasteFlow", _fieldWriter.CurrentValues["title"]);
+    }
+
+    [Fact]
     public void SecondPress_StillFillsEmptyFields()
     {
         _formReader.Fields = StudioForm.Append(TestFields.Text("email", "Email")).ToArray();

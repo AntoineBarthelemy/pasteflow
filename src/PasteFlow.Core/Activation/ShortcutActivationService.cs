@@ -262,6 +262,13 @@ public sealed class ShortcutActivationService : IDisposable
         var failedFields = new List<FormField>();
         var replacedCount = 0;
 
+        // A browser shows the values of the fields in the text of the page: when replacing, the value already in a
+        // field is the one being replaced, never a candidate competing with the new one
+        if (isReplacing)
+        {
+            candidates = await WithoutCurrentValuesAsync(candidates, fields, valueReader!, cancellationToken);
+        }
+
         // Safety net: the values are chosen for the whole form at once, so one value never fills two fields
         var fillableFields = fields
             .Where(field => FillRules.CanFill(field) || (isReplacing && FillRules.CanReplace(field)))
@@ -421,6 +428,34 @@ public sealed class ShortcutActivationService : IDisposable
             _lastFormSignature = signature;
             return isSecondPress;
         }
+    }
+
+    /// <summary>
+    /// Removes from the values read in the form's own window the values its filled fields hold.
+    /// </summary>
+    /// <param name="candidates">The values found.</param>
+    /// <param name="fields">The fields of the form.</param>
+    /// <param name="valueReader">The component that reads the value of a field.</param>
+    /// <param name="cancellationToken">A token to cancel the reading.</param>
+    /// <returns>The values left.</returns>
+    private static async Task<List<Candidate>> WithoutCurrentValuesAsync(
+        List<Candidate> candidates,
+        IReadOnlyList<FormField> fields,
+        IFieldValueReader valueReader,
+        CancellationToken cancellationToken)
+    {
+        var currentValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var field in fields.Where(FillRules.CanReplace))
+        {
+            if (await valueReader.TryReadValueAsync(field, cancellationToken) is { } value && value.Trim().Length > 0)
+            {
+                _ = currentValues.Add(value.Trim());
+            }
+        }
+
+        return candidates
+            .Where(candidate => candidate.SourceRank != 0 || !currentValues.Contains(candidate.Value.Trim()))
+            .ToList();
     }
 
     /// <summary>

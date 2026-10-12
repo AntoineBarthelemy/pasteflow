@@ -192,10 +192,18 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             return true;
         }
 
+        // A box where the user types gives its text; a list of choices of a web page does not, and it opens a list
+        if (element.TryGetCurrentPattern(TextPattern.Pattern, out _))
+        {
+            return true;
+        }
+
         var isWritable = element.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern)
             && pattern is ValuePattern valuePattern
             && !valuePattern.Current.IsReadOnly;
-        return isWritable && !element.TryGetCurrentPattern(SelectionPattern.Pattern, out _);
+        return isWritable
+            && !element.TryGetCurrentPattern(SelectionPattern.Pattern, out _)
+            && !element.TryGetCurrentPattern(ExpandCollapsePattern.Pattern, out _);
     }
 
     /// <summary>
