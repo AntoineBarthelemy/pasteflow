@@ -408,6 +408,7 @@ public sealed class ShortcutActivationService : IDisposable
         _highlighter.Highlight(Array.Empty<FieldToCheck>());
 
         var field = FreePaste.TargetField(caret);
+        candidates = candidates.Where(candidate => !FreePaste.IsTypedText(candidate, field)).ToList();
         var match = FormMatcher.MatchAll(new[] { field }, candidates, ReferenceData.Shared, Options, new[] { field })[0];
         if (match is { IsConfident: true, Candidate: { } sure })
         {

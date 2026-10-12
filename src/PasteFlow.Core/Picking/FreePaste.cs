@@ -1,3 +1,4 @@
+using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
 
 namespace PasteFlow.Core.Picking;
@@ -41,6 +42,25 @@ public static class FreePaste
     }
 
     /// <summary>
+    /// Determines whether a value was only read after the words being typed: the active window shows them too, and
+    /// what follows them on screen (often the button under the box) is not a value they ask for.
+    /// </summary>
+    /// <param name="candidate">A value found.</param>
+    /// <param name="target">The cursor described as a field, see <see cref="TargetField"/>.</param>
+    /// <returns><see langword="true"/> to set the value aside; otherwise <see langword="false"/>.</returns>
+    public static bool IsTypedText(Candidate candidate, FormField target)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        ArgumentNullException.ThrowIfNull(target);
+
+        var label = WithoutColon(target.Label);
+        return candidate.SourceRank == 0
+            && !candidate.IsFromHistory
+            && label.Length > 0
+            && string.Equals(WithoutColon(candidate.Label), label, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
     /// Describes the cursor as a field: the words just before it are its label.
     /// </summary>
     /// <param name="caret">Where the cursor is.</param>
@@ -59,5 +79,10 @@ public static class FreePaste
             Kind = FieldKind.Text,
             HasValue = false,
         };
+    }
+
+    private static string WithoutColon(string label)
+    {
+        return label.Trim().TrimEnd(':', '：').TrimEnd();
     }
 }

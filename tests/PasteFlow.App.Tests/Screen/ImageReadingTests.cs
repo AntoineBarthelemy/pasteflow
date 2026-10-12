@@ -5,6 +5,8 @@ namespace PasteFlow.App.Tests.Screen;
 
 public sealed class ImageReadingTests : IDisposable
 {
+    private static readonly TimeSpan RenderTimeout = TimeSpan.FromSeconds(5);
+
     private readonly WindowHost<ImageTextWindow> _imageWindow = new(() => new ImageTextWindow());
     private readonly OcrTextRecognizer? _ocr = OcrTextRecognizer.TryCreate();
 
@@ -27,10 +29,20 @@ public sealed class ImageReadingTests : IDisposable
     public async Task RecognizeAsync_ReadsTheTextOfAPicture()
     {
         Skip.If(_ocr is null, "Windows has no character recognition for the languages of this computer.");
-        var png = WindowCapture.TryCapturePng(_imageWindow.Handle);
-        Assert.NotNull(png);
-
-        var text = await _ocr.RecognizeAsync(png, CancellationToken.None);
+        // The window draws its picture a moment after it opens: the capture is taken again until the text shows
+        string text;
+        var deadline = DateTime.UtcNow + RenderTimeout;
+        do
+        {
+            var png = WindowCapture.TryCapturePng(_imageWindow.Handle);
+            Assert.NotNull(png);
+            text = await _ocr.RecognizeAsync(png, CancellationToken.None);
+            if (!text.Contains("48213", StringComparison.Ordinal))
+            {
+                await Task.Delay(300);
+            }
+        }
+        while (!text.Contains("48213", StringComparison.Ordinal) && DateTime.UtcNow < deadline);
 
         Assert.Contains("48213", text, StringComparison.Ordinal);
     }

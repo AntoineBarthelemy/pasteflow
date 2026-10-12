@@ -63,6 +63,24 @@ public sealed class PasteAtCaretTests : IDisposable
     }
 
     [Fact]
+    public void Press_WhenTheWindowShowsTheTextBeingTyped_DoesNotTakeWhatFollowsItForItsValue()
+    {
+        // The words typed are on screen too, followed by the button under the box: "Tiens :" then "Envoyer"
+        _windows = new[]
+        {
+            new WindowText { Title = "Messagerie", Rank = 0, Text = "Message à Paul\nTiens :\nEnvoyer" },
+            new WindowText { Title = "Claude", Rank = 1, Text = Contacts },
+        };
+        _caret.Caret = Caret("Tiens : ");
+
+        Press();
+
+        var request = Assert.IsType<PickRequest>(_caret.ShownRequest);
+        Assert.DoesNotContain(request.Suggestions, candidate => candidate.Value == "Envoyer");
+        Assert.Empty(_caret.InsertedTexts);
+    }
+
+    [Fact]
     public void Press_WhenTheUserChoosesAValue_PastesIt()
     {
         _caret.Caret = Caret("Tiens : ");
