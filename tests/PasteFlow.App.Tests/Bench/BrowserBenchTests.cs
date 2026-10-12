@@ -72,9 +72,11 @@ public sealed class BrowserBenchTests
 
         if (scenario.SecondPress is { } secondPress)
         {
+            var fieldsRead = await formAccess.ReadFormAsync(form.Handle, CancellationToken.None);
             listener.SimulatePress();
             await notifier.WaitForFillAsync(2);
-            AssertValues(scenario, secondPress, form, $"{Decisions(notifier.Reports[1])}\n{screen}");
+            var fieldList = string.Join('\n', fieldsRead.Select(field => $"[champ lu] {field.Kind} « {field.Label} » ({field.TechnicalName}) rempli={field.HasValue}"));
+            AssertValues(scenario, secondPress, form, $"{Decisions(notifier.Reports[1])}\n{fieldList}\n{screen}");
         }
     }
 
