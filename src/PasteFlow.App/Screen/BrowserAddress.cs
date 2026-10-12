@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
 using PasteFlow.Core.Screen;
@@ -66,15 +65,7 @@ internal static class BrowserAddress
 
     private static bool IsBrowser(int processId)
     {
-        try
-        {
-            using var process = Process.GetProcessById(processId);
-            return BrowserProcesses.Contains(process.ProcessName);
-        }
-        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
-        {
-            return false;
-        }
+        return BrowserProcesses.Contains(WindowProgram.NameOf(processId));
     }
 
     private static bool IsInsidePage(AutomationElement element, AutomationElement window)

@@ -3,6 +3,7 @@ using System.Windows;
 using PasteFlow.App.Forms;
 using PasteFlow.App.Highlights;
 using PasteFlow.App.History;
+using PasteFlow.App.Logins;
 using PasteFlow.App.Hotkeys;
 using PasteFlow.App.Notifications;
 using PasteFlow.App.Picking;
@@ -69,6 +70,9 @@ internal static class Program
             new PopupLearningPrompts(notifier, application.Dispatcher));
         learner.Observe(history, fillMemory);
 
+        // Sign-in forms are filled from Bitwarden, once its vault is unlocked with the master password
+        var bitwarden = new BitwardenCli();
+
         // Reading and writing forms, frames and suggestions
         var formAccess = new UiAutomationFormAccess();
         using var choiceListener1 = new Win32HotkeyListener();
@@ -96,6 +100,8 @@ internal static class Program
 
         // Outside a form, the shortcut pastes at the cursor, or lets the user choose
         activation.SensitiveGate = sensitiveGate;
+        activation.PasswordManager = bitwarden;
+        activation.LoginPicker = new WindowLoginPicker(application.Dispatcher);
         activation.CaretReader = formAccess;
         activation.Picker = new PastePicker();
         activation.Inserter = new KeyboardTextInserter();
@@ -143,8 +149,36 @@ internal static class Program
             profileWindow.Show();
         }
 
+        BitwardenUnlockWindow? unlockWindow = null;
+        void OpenBitwardenUnlock()
+        {
+            if (unlockWindow is { IsVisible: true })
+            {
+                _ = unlockWindow.Activate();
+                return;
+            }
+
+            if (!bitwarden.IsInstalled)
+            {
+                notifier.Notify("Bitwarden en ligne de commande n'est pas installé. Dans un terminal : winget install Bitwarden.CLI, puis bw login.");
+                return;
+            }
+
+            unlockWindow = new BitwardenUnlockWindow(async password =>
+            {
+                var isUnlocked = await bitwarden.UnlockAsync(password, CancellationToken.None);
+                if (isUnlocked)
+                {
+                    await ImportBitwardenIdentityAsync(bitwarden, learner, notifier);
+                }
+
+                return isUnlocked;
+            });
+            unlockWindow.Show();
+        }
+
         Apply(settings);
-        using var trayIcon = new TrayIcon(application.Shutdown, () => _ = ClearHistoryAsync(history, notifier), OpenSettings, OpenProfile);
+        using var trayIcon = new TrayIcon(application.Shutdown, () => _ = ClearHistoryAsync(history, notifier), OpenSettings, OpenProfile, OpenBitwardenUnlock);
 
         // Without its own shortcut, undoing is simply not announced: filling still works
         var undoHotkey = Hotkey.DefaultUndo;
@@ -165,7 +199,16 @@ internal static class Program
             notifier.Notify($"Le raccourci {hotkey} est déjà utilisé par une autre application.");
         }
 
-        _ = application.Dispatcher.InvokeAsync(async () => await StartProfileAsync(learner, notifier));
+        _ = application.Dispatcher.InvokeAsync(async () =>
+        {
+            await StartProfileAsync(learner, notifier);
+
+            // At launch, a locked vault asks for its master password once; "Plus tard" leaves it for the tray menu
+            if (bitwarden.IsInstalled && await bitwarden.StatusAsync(CancellationToken.None) == "locked")
+            {
+                OpenBitwardenUnlock();
+            }
+        });
 
         // The official lists are loaded now, in the background, rather than at the first fill
         _ = Task.Run(() => ReferenceData.Shared);
@@ -201,6 +244,40 @@ internal static class Program
         if (added > 0)
         {
             notifier.Notify("Ta fiche démarre avec ton nom et ton e-mail Windows. Clic droit sur l'icône PasteFlow, « Ma fiche… », pour la compléter.");
+        }
+    }
+
+    /// <summary>
+    /// The first time Bitwarden is unlocked, adds its identity to the profile: ordinary values at once, sensitive ones
+    /// only if the user agrees, behind Windows Hello.
+    /// </summary>
+    /// <param name="bitwarden">The unlocked Bitwarden.</param>
+    /// <param name="learner">The learner that fills the profile.</param>
+    /// <param name="notifier">The notifier that tells the user.</param>
+    /// <returns>A task completed once the identity is imported.</returns>
+    private static async Task ImportBitwardenIdentityAsync(BitwardenCli bitwarden, ProfileLearner learner, PopupNotifier notifier)
+    {
+        var marker = Path.Combine(Path.GetDirectoryName(ProtectedFileProfileStore.DefaultPath)!, "bitwarden-identity-imported");
+        if (File.Exists(marker))
+        {
+            return;
+        }
+
+        var identity = await bitwarden.GetIdentityAsync(CancellationToken.None);
+        var added = await learner.ImportIdentityAsync(identity, ProfileOrigin.PasswordManager, CancellationToken.None);
+        try
+        {
+            _ = Directory.CreateDirectory(Path.GetDirectoryName(marker)!);
+            await File.WriteAllTextAsync(marker, "Identité Bitwarden reprise dans la fiche.");
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // Without the marker, the next unlock tries again; the values already there are not added twice
+        }
+
+        if (added > 0)
+        {
+            notifier.Notify($"Ton identité Bitwarden a complété ta fiche ({added} infos).");
         }
     }
 

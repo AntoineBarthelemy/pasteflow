@@ -23,15 +23,18 @@ internal sealed class TrayIcon : IDisposable
     /// <param name="clearHistoryRequested">The action to run when the user chooses to clear the history of fills.</param>
     /// <param name="settingsRequested">The action to run when the user chooses to open the settings.</param>
     /// <param name="profileRequested">The action to run when the user chooses to open their profile.</param>
-    public TrayIcon(Action exitRequested, Action clearHistoryRequested, Action settingsRequested, Action profileRequested)
+    /// <param name="bitwardenRequested">The action to run when the user chooses to unlock Bitwarden.</param>
+    public TrayIcon(Action exitRequested, Action clearHistoryRequested, Action settingsRequested, Action profileRequested, Action bitwardenRequested)
     {
         ArgumentNullException.ThrowIfNull(exitRequested);
         ArgumentNullException.ThrowIfNull(clearHistoryRequested);
         ArgumentNullException.ThrowIfNull(settingsRequested);
         ArgumentNullException.ThrowIfNull(profileRequested);
+        ArgumentNullException.ThrowIfNull(bitwardenRequested);
 
         _menu = new ContextMenuStrip();
         _ = _menu.Items.Add("Ma fiche…", image: null, (_, _) => profileRequested());
+        _ = _menu.Items.Add("Déverrouiller Bitwarden…", image: null, (_, _) => bitwardenRequested());
         _ = _menu.Items.Add("Paramètres…", image: null, (_, _) => settingsRequested());
         _ = _menu.Items.Add("Effacer l'historique", image: null, (_, _) => clearHistoryRequested());
         _ = _menu.Items.Add(new ToolStripSeparator());

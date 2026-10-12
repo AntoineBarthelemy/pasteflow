@@ -31,6 +31,7 @@ public sealed class PageAddressTests
     [InlineData("univ-reims.fr", "univ-reims.fr")]
     [InlineData("www.service-public.gouv.fr", "service-public.gouv.fr")]
     [InlineData("bbc.co.uk", "bbc.co.uk")]
+    [InlineData("antoine.github.io", "antoine.github.io")]
     [InlineData("", "")]
     public void SiteOf_KeepsTheNameOfTheSite(string host, string expected)
     {

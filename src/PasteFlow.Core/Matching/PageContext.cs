@@ -34,6 +34,11 @@ public sealed record PageContext
     public string Host { get; init; } = string.Empty;
 
     /// <summary>
+    /// Gets the name of the program of the window, such as "steam" or "chrome", or an empty string.
+    /// </summary>
+    public string Program { get; init; } = string.Empty;
+
+    /// <summary>
     /// Gets the site of the page shown, such as "univ-reims.fr" for "moodle.univ-reims.fr".
     /// </summary>
     public string Site => PageAddress.SiteOf(Host);
@@ -55,6 +60,7 @@ public sealed record PageContext
             Title = window.Title,
             Text = window.Text.Length > MaxTextLength ? window.Text[..MaxTextLength] : window.Text,
             Host = PageAddress.HostOf(window.Address),
+            Program = window.Program,
         };
     }
 }

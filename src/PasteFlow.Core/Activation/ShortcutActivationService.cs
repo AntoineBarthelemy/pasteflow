@@ -2,6 +2,7 @@ using System.Diagnostics;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
 using PasteFlow.Core.Hotkeys;
+using PasteFlow.Core.Logins;
 using PasteFlow.Core.Matching;
 using PasteFlow.Core.Notifications;
 using PasteFlow.Core.Picking;
@@ -29,6 +30,7 @@ public sealed class ShortcutActivationService : IDisposable
     private const int MaxNotifiedLength = 60;
     private const string CannotPasteMessage = "Impossible d'écrire à cet endroit.";
     private const string SensitiveFillReason = "Remplir une info sensible de ta fiche PasteFlow (IBAN, n° de sécu…)";
+    private const string HiddenPassword = "••••••••";
 
     private readonly object _pressGate = new();
     private readonly IHotkeyListener _listener;
@@ -128,6 +130,17 @@ public sealed class ShortcutActivationService : IDisposable
     /// the user proved it is them. Without a gate, they are never used.
     /// </summary>
     public SensitiveGate? SensitiveGate { get; set; }
+
+    /// <summary>
+    /// Gets or sets the password manager that fills sign-in forms; without it, only the identifier is filled, from the
+    /// profile. It is only used with a <see cref="SensitiveGate"/>.
+    /// </summary>
+    public IPasswordManager? PasswordManager { get; set; }
+
+    /// <summary>
+    /// Gets or sets what lets the user choose among several accounts; without it, nothing is chosen for them.
+    /// </summary>
+    public ILoginPicker? LoginPicker { get; set; }
 
     /// <summary>
     /// Gets or sets the component that tells where the text cursor is; with <see cref="Picker"/> and
@@ -329,6 +342,8 @@ public sealed class ShortcutActivationService : IDisposable
             return null;
         }
 
+        var page = CurrentPage();
+
         var filledValues = new List<FilledValue>();
         var writtenFields = new List<WrittenField>();
         var uncertainCount = 0;
@@ -336,6 +351,30 @@ public sealed class ShortcutActivationService : IDisposable
         var fieldsToCheck = new List<FieldToCheck>();
         var failedFields = new List<FormField>();
         var replacedCount = 0;
+
+        // A sign-in form first: the account saved for the site gives its identifier and its password
+        var login = PasswordManager is { } manager && SensitiveGate is { } loginGate
+            ? await new LoginFiller(manager, loginGate, LoginPicker, _fieldWriter).FillAsync(fields, page, cancellationToken)
+            : null;
+        if (login is not null)
+        {
+            if (login.IdentifierField is { } identifierField)
+            {
+                filledValues.Add(new FilledValue { FieldLabel = identifierField.Label, Value = login.Identifier, SourceName = login.AccountName });
+                writtenFields.Add(new WrittenField { Field = identifierField, Value = login.Identifier });
+            }
+
+            // The password is never shown, kept or learned: it is not remembered for undoing either
+            if (login.IsPasswordWritten)
+            {
+                filledValues.Add(new FilledValue { FieldLabel = login.PasswordField.Label, Value = HiddenPassword, SourceName = login.AccountName });
+            }
+            else
+            {
+                uncertainCount++;
+                fieldsToCheck.Add(new FieldToCheck { Field = login.PasswordField });
+            }
+        }
 
         // A browser shows the values of the fields in the text of the page: when replacing, the value already in a
         // field is the one being replaced, never a candidate competing with the new one
@@ -347,9 +386,9 @@ public sealed class ShortcutActivationService : IDisposable
         // Safety net: the values are chosen for the whole form at once, so one value never fills two fields
         var fillableFields = fields
             .Where(field => FillRules.CanFill(field) || (isReplacing && FillRules.CanReplace(field)))
+            .Where(field => login?.IdentifierField is not { } written || written.Id != field.Id)
             .ToList();
         var textFields = fields.Where(field => field.Kind == FieldKind.Text).ToList();
-        var page = CurrentPage();
         var matches = FormMatcher.MatchAll(fillableFields, candidates, ReferenceData.Shared, Options, textFields, page);
         foreach (var match in await GuardSensitiveValuesAsync(matches, cancellationToken))
         {

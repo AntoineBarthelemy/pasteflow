@@ -36,4 +36,10 @@ public sealed record WindowText
     /// other windows. Only read for the active window.
     /// </summary>
     public string Address { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the name of the program the window belongs to, such as "steam" or "chrome", read from the program really
+    /// running rather than from the title; only read for the active window, empty otherwise.
+    /// </summary>
+    public string Program { get; init; } = string.Empty;
 }

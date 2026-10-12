@@ -96,7 +96,8 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
 
             // The site matters for the window being filled only: it tells which of the user's values goes there
             var address = rank == 0 ? BrowserAddress.TryRead(window) : string.Empty;
-            return new WindowText { Title = window.Current.Name, Text = text, Rank = rank, Fields = fields, Address = address };
+            var program = rank == 0 ? WindowProgram.NameOf(window.Current.ProcessId) : string.Empty;
+            return new WindowText { Title = window.Current.Name, Text = text, Rank = rank, Fields = fields, Address = address, Program = program };
         }
         catch (ElementNotAvailableException)
         {

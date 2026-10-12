@@ -6,10 +6,13 @@ namespace PasteFlow.Core.Screen;
 /// </summary>
 public static class PageAddress
 {
-    // Suffixes made of two labels, under which each site has its own name: "service-public.gouv.fr" is its own site
+    // Suffixes made of two labels, under which each site has its own name: "service-public.gouv.fr" is its own site,
+    // and so is each page hosted on "github.io" or "netlify.app", which belong to different people
     private static readonly HashSet<string> TwoLabelSuffixes = new(StringComparer.Ordinal)
     {
         "gouv.fr", "asso.fr", "co.uk", "org.uk", "ac.uk", "gov.uk", "com.au", "co.jp", "co.nz", "com.br", "co.za",
+        "github.io", "gitlab.io", "netlify.app", "vercel.app", "pages.dev", "web.app", "firebaseapp.com",
+        "herokuapp.com", "azurewebsites.net", "blogspot.com", "wixsite.com",
     };
 
     /// <summary>
