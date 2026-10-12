@@ -56,8 +56,8 @@ jobs:
               $passed += [int]$counters.passed
               $failed += [int]$counters.failed
               foreach ($result in @($trx.TestRun.Results.UnitTestResult) | Where-Object { $_ -and $_.outcome -eq 'Failed' }) {
-                $reason = ([string]$result.Output.ErrorInfo.Message -replace '\s+', ' ')
-                if ($reason.Length -gt 400) { $reason = $reason.Substring(0, 400) }
+                $reason = (([string]$result.Output.ErrorInfo.Message -replace '\r?\n', ' | ') -replace '[ \t]+', ' ')
+                if ($reason.Length -gt 6000) { $reason = $reason.Substring(0, 6000) }
                 Write-Output "::error title=Test failed::$($result.testName) : $reason"
               }
             }
