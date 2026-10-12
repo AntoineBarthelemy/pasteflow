@@ -30,7 +30,7 @@ public sealed class PasteProfileAtCaretTests : IDisposable
     private readonly FakeCaret _caret = new();
     private readonly FakePresenceCheck _presence = new();
     private readonly SensitiveGate _gate;
-    private WindowText[] _windows = { new() { Title = "Claude", Rank = 1, Text = "Léa Martin\nlea.martin@atelier-nova.fr" } };
+    private readonly WindowText[] _windows = { new() { Title = "Claude", Rank = 1, Text = "Léa Martin\nlea.martin@atelier-nova.fr" } };
 
     public PasteProfileAtCaretTests()
     {
