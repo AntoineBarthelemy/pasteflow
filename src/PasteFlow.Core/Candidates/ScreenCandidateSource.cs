@@ -170,7 +170,7 @@ public sealed class ScreenCandidateSource : ICandidateSource, IScreenTextSource
     /// <returns><see langword="true"/> if the value can be offered; otherwise <see langword="false"/>.</returns>
     private static bool IsFormValue(FieldText field)
     {
-        return !string.IsNullOrWhiteSpace(field.Value)
+        return field.Value.Any(char.IsLetterOrDigit)
             && !FillRules.IsSearchBox(new FormField { Id = string.Empty, Label = field.Label, Kind = FieldKind.Text, HasValue = true });
     }
 

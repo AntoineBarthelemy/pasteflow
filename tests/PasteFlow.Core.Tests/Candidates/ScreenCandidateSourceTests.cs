@@ -122,6 +122,7 @@ public sealed class ScreenCandidateSourceTests
     [InlineData("Rechercher", "chaussures rouges")]
     [InlineData("Address and search bar", "youtube.com")]
     [InlineData("Nom", "   ")]
+    [InlineData("Ville", "\uFFFC")]
     public async Task GetCandidatesAsync_SkipsSearchBoxesAndBlankFields(string label, string value)
     {
         var reader = new FakeWindowTextReader

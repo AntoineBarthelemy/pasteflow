@@ -252,7 +252,7 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
                 return null;
             }
 
-            var value = ReadValue(element)?.Trim();
+            var value = ReadValue(element)?.Replace(ObjectReplacementCharacter, ' ').Trim();
             var isUsable = !string.IsNullOrEmpty(value)
                 && !string.IsNullOrEmpty(value)
                 && value.Length <= MaxFieldValueLength
