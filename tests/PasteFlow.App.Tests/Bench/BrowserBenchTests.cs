@@ -53,7 +53,7 @@ public sealed class BrowserBenchTests
         await WaitForSourceAsync(reader, scenario);
 
         var formAccess = new UiAutomationFormAccess();
-        var notifier = new WaitingNotifier();
+        using var notifier = new WaitingNotifier();
         using var listener = new FakeHotkeyListener();
         using var service = new ShortcutActivationService(
             listener,
@@ -154,7 +154,7 @@ public sealed class BrowserBenchTests
         }
     }
 
-    private sealed class WaitingNotifier : IUserNotifier
+    private sealed class WaitingNotifier : IUserNotifier, IDisposable
     {
         private readonly SemaphoreSlim _fills = new(0);
         private int _fillCount;
@@ -168,6 +168,11 @@ public sealed class BrowserBenchTests
         {
             _ = Interlocked.Increment(ref _fillCount);
             _ = _fills.Release();
+        }
+
+        public void Dispose()
+        {
+            _fills.Dispose();
         }
 
         public async Task WaitForFillAsync(int count)
