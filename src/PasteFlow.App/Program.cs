@@ -158,6 +158,13 @@ internal static class Program
                 return;
             }
 
+            if (bitwarden.IsUnlocked)
+            {
+                bitwarden.Lock();
+                notifier.Notify("Bitwarden verrouillé : PasteFlow ne remplit plus les mots de passe.");
+                return;
+            }
+
             if (!bitwarden.IsInstalled)
             {
                 notifier.Notify("Bitwarden en ligne de commande n'est pas installé. Dans un terminal : winget install Bitwarden.CLI (ou npm install -g @bitwarden/cli), puis bw login.");
@@ -169,6 +176,7 @@ internal static class Program
                 var isUnlocked = await bitwarden.UnlockAsync(password, CancellationToken.None);
                 if (isUnlocked)
                 {
+                    notifier.Notify("Bitwarden déverrouillé. Sur une page de connexion, clique dans l'identifiant puis Ctrl+Alt+V.");
                     await ImportBitwardenIdentityAsync(bitwarden, learner, notifier);
                 }
 
@@ -178,7 +186,7 @@ internal static class Program
         }
 
         Apply(settings);
-        using var trayIcon = new TrayIcon(application.Shutdown, () => _ = ClearHistoryAsync(history, notifier), OpenSettings, OpenProfile, OpenBitwardenUnlock);
+        using var trayIcon = new TrayIcon(application.Shutdown, () => _ = ClearHistoryAsync(history, notifier), OpenSettings, OpenProfile, OpenBitwardenUnlock, () => bitwarden.IsUnlocked);
 
         // Without its own shortcut, undoing is simply not announced: filling still works
         var undoHotkey = Hotkey.DefaultUndo;

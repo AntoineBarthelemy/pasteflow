@@ -23,22 +23,33 @@ internal sealed class TrayIcon : IDisposable
     /// <param name="clearHistoryRequested">The action to run when the user chooses to clear the history of fills.</param>
     /// <param name="settingsRequested">The action to run when the user chooses to open the settings.</param>
     /// <param name="profileRequested">The action to run when the user chooses to open their profile.</param>
-    /// <param name="bitwardenRequested">The action to run when the user chooses to unlock Bitwarden.</param>
-    public TrayIcon(Action exitRequested, Action clearHistoryRequested, Action settingsRequested, Action profileRequested, Action bitwardenRequested)
+    /// <param name="bitwardenRequested">The action to run when the user chooses to unlock or lock Bitwarden.</param>
+    /// <param name="isBitwardenUnlocked">Tells, each time the menu opens, whether Bitwarden is unlocked.</param>
+    public TrayIcon(
+        Action exitRequested,
+        Action clearHistoryRequested,
+        Action settingsRequested,
+        Action profileRequested,
+        Action bitwardenRequested,
+        Func<bool> isBitwardenUnlocked)
     {
         ArgumentNullException.ThrowIfNull(exitRequested);
         ArgumentNullException.ThrowIfNull(clearHistoryRequested);
         ArgumentNullException.ThrowIfNull(settingsRequested);
         ArgumentNullException.ThrowIfNull(profileRequested);
         ArgumentNullException.ThrowIfNull(bitwardenRequested);
+        ArgumentNullException.ThrowIfNull(isBitwardenUnlocked);
 
         _menu = new ContextMenuStrip();
         _ = _menu.Items.Add("Ma fiche…", image: null, (_, _) => profileRequested());
-        _ = _menu.Items.Add("Déverrouiller Bitwarden…", image: null, (_, _) => bitwardenRequested());
+        var bitwarden = _menu.Items.Add(BitwardenMenuText(false), image: null, (_, _) => bitwardenRequested());
         _ = _menu.Items.Add("Paramètres…", image: null, (_, _) => settingsRequested());
         _ = _menu.Items.Add("Effacer l'historique", image: null, (_, _) => clearHistoryRequested());
         _ = _menu.Items.Add(new ToolStripSeparator());
         _ = _menu.Items.Add("Quitter", image: null, (_, _) => exitRequested());
+
+        // The menu tells the real state of Bitwarden each time it opens
+        _menu.Opening += (_, _) => bitwarden.Text = BitwardenMenuText(isBitwardenUnlocked());
 
         _notifyIcon = new NotifyIcon
         {
@@ -67,5 +78,15 @@ internal sealed class TrayIcon : IDisposable
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
         _menu.Dispose();
+    }
+
+    /// <summary>
+    /// Gets the entry of the menu for Bitwarden, which tells its state.
+    /// </summary>
+    /// <param name="isUnlocked">Whether Bitwarden is unlocked.</param>
+    /// <returns>The text of the entry.</returns>
+    internal static string BitwardenMenuText(bool isUnlocked)
+    {
+        return isUnlocked ? "Bitwarden déverrouillé ✓ (cliquer pour verrouiller)" : "Déverrouiller Bitwarden…";
     }
 }

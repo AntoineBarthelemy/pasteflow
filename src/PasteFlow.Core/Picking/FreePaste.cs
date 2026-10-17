@@ -7,7 +7,8 @@ namespace PasteFlow.Core.Picking;
 /// Decides when the shortcut pastes at the cursor rather than filling a form, and what the cursor asks for.
 /// </summary>
 /// <remarks>
-/// A form is a window with several text fields: there, the shortcut fills the form as a whole. A text written alone,
+/// A form is a window with several fields to type into, a password field included: there, the shortcut fills the
+/// form as a whole, so a sign-in page (an identifier and a password) is a form, not a lone text. A text written alone,
 /// such as the body of a message, a document or a chat box, is filled at the cursor: the words just before the
 /// cursor tell what is expected, as a label would ("mon mail :" asks for an email).
 /// </remarks>
@@ -36,7 +37,10 @@ public static class FreePaste
             return false;
         }
 
-        var textFields = fields.Where(field => field.Kind == FieldKind.Text && !FillRules.IsSearchBox(field)).ToList();
+        // A password field counts: an identifier alone next to it is a sign-in form, filled as a whole
+        var textFields = fields
+            .Where(field => (field.Kind == FieldKind.Text && !FillRules.IsSearchBox(field)) || field.Kind == FieldKind.Password)
+            .ToList();
         var isInForm = caret.FocusedFieldId is { } id && textFields.Exists(field => string.Equals(field.Id, id, StringComparison.Ordinal));
         return !isInForm || textFields.Count < 2;
     }

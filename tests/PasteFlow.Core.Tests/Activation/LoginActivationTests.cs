@@ -2,6 +2,7 @@ using PasteFlow.Core.Activation;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Logins;
+using PasteFlow.Core.Picking;
 using PasteFlow.Core.Screen;
 using PasteFlow.Core.Security;
 using PasteFlow.Core.Tests.Fakes;
@@ -19,6 +20,7 @@ public sealed class LoginActivationTests : IDisposable
     private readonly FakePasswordManager _manager = new();
     private readonly FakePresenceCheck _presence = new();
     private readonly SensitiveGate _gate;
+    private readonly FakeCaret _caret = new();
     private readonly FillMemory _memory = new();
     private readonly List<WrittenField> _remembered = new();
     private readonly ShortcutActivationService _service;
@@ -46,6 +48,9 @@ public sealed class LoginActivationTests : IDisposable
         {
             SensitiveGate = _gate,
             PasswordManager = _manager,
+            CaretReader = _caret,
+            Picker = _caret,
+            Inserter = _caret,
         };
         _ = _service.Start(Hotkey.Default);
     }
@@ -55,6 +60,20 @@ public sealed class LoginActivationTests : IDisposable
     {
         _listener.SimulatePress();
 
+        Assert.Equal("AntoineBarthelemy", _fields.WrittenValues["login"]);
+        Assert.Equal(Secret, _fields.WrittenValues["password"]);
+    }
+
+    [Fact]
+    public void CursorInTheIdentifier_FillsTheSignInFormRatherThanPastingAtTheCursor()
+    {
+        // As in a real browser: the cursor blinks in the identifier field, next to the only password field
+        _caret.Caret = new CaretContext { IsEditable = true, FocusedFieldId = "login", FieldLabel = "Adresse e-mail" };
+
+        _listener.SimulatePress();
+
+        Assert.Null(_caret.ShownRequest);
+        Assert.Empty(_caret.InsertedTexts);
         Assert.Equal("AntoineBarthelemy", _fields.WrittenValues["login"]);
         Assert.Equal(Secret, _fields.WrittenValues["password"]);
     }

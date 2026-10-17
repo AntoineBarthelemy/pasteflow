@@ -29,6 +29,14 @@ public sealed class FreePasteTests
     }
 
     [Fact]
+    public void IsFreeText_InTheIdentifierOfASignInPage_ReturnsFalse()
+    {
+        var fields = new[] { TestFields.Text("username", "Username"), TestFields.Password("password", "Password") };
+
+        Assert.False(FreePaste.IsFreeText(fields, new CaretContext { IsEditable = true, FocusedFieldId = "username" }));
+    }
+
+    [Fact]
     public void IsFreeText_InTheBodyOfAMessageNextToItsFields_ReturnsTrue()
     {
         var fields = new[] { TestFields.Text("to", "À"), TestFields.Text("subject", "Objet") };
