@@ -754,7 +754,13 @@
         "nom": "Barthélémy",
         "email": "antoine.b@orange.fr",
         "tel": "0647218539"
-      }
+      },
+      "steps": [
+        "Avant : clic droit sur l'icône PasteFlow, « Ma fiche… », et ajoute Prénom « Antoine », Nom « Barthélémy », E-mail « antoine.b@orange.fr », Téléphone « 0647218539 » (tu pourras les supprimer après).",
+        "Laisse la source visible, dans cette fenêtre (« Tout ») ou dans une 2e fenêtre derrière.",
+        "Clique dans le premier champ, puis appuie sur Ctrl+Alt+V.",
+        "Clique sur Vérifier."
+      ]
     },
     {
       "id": "fiche-nouveau-client",
@@ -803,7 +809,13 @@
         "prenom": "Marie",
         "nom": "Lefèvre",
         "email": "marie.lefevre@boulangerie-martin.fr"
-      }
+      },
+      "steps": [
+        "Avant : clic droit sur l'icône PasteFlow, « Ma fiche… », et ajoute Prénom « Antoine », Nom « Barthélémy », E-mail « antoine.b@orange.fr », Téléphone « 0647218539 » (tu pourras les supprimer après).",
+        "Laisse la source visible, dans cette fenêtre (« Tout ») ou dans une 2e fenêtre derrière.",
+        "Clique dans le premier champ, puis appuie sur Ctrl+Alt+V.",
+        "Clique sur Vérifier."
+      ]
     },
     {
       "id": "fiche-hesitation",
@@ -836,7 +848,17 @@
           "antoine.b@orange.fr",
           "clara.moreau@jobteaser.com"
         ]
-      }
+      },
+      "steps": [
+        "Avant : dans « Ma fiche… », un seul e-mail, « antoine.b@orange.fr ».",
+        "Laisse la source visible, dans cette fenêtre (« Tout ») ou dans une 2e fenêtre derrière.",
+        "Clique dans le premier champ, puis appuie sur Ctrl+Alt+V.",
+        "Clique sur Vérifier : le champ doit rester vide."
+      ],
+      "after": [
+        "Clique dans le champ E-mail : la bulle propose ton e-mail et celui de Clara.",
+        "Ctrl+Maj+1 ou 2 colle la proposition choisie."
+      ]
     },
     {
       "id": "fiche-deux-emails",
@@ -867,7 +889,11 @@
       ],
       "expected": {
         "email": "antoine.barthelemy@etudiant.univ-reims.fr"
-      }
+      },
+      "steps": [
+        "Ce scénario se joue seulement en automatique : il fait comme si la page était sur ent.univ-reims.fr, ce que cette page ne peut pas imiter.",
+        "Pour le vérifier en vrai : mets tes deux e-mails dans « Ma fiche… », remplis deux fois ton e-mail de l'IUT sur l'ENT, puis appuie sur Ctrl+Alt+V sur la page de connexion de l'ENT."
+      ]
     },
     {
       "id": "fiche-iban",
@@ -889,7 +915,13 @@
       ],
       "expected": {
         "iban": "FR76 3000 6000 0112 3456 7890 189"
-      }
+      },
+      "steps": [
+        "Avant : dans « Ma fiche… », sujet IBAN, valeur « FR76 3000 6000 0112 3456 7890 189 ».",
+        "Clique dans le champ IBAN, puis appuie sur Ctrl+Alt+V.",
+        "Windows Hello te demande ton visage, ton empreinte ou ton PIN (sauf si tu l'as déjà fait il y a moins de 30 min).",
+        "Clique sur Vérifier."
+      ]
     }
   ]
 }
