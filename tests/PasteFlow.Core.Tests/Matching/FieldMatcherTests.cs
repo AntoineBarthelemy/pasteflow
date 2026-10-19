@@ -42,6 +42,23 @@ public sealed class FieldMatcherTests
             Candidate("contact@example.com", CandidateKind.Email, string.Empty));
 
         Assert.False(match.IsConfident);
+        Assert.Equal("Deux valeurs aussi probables : « antoine@example.com » et « contact@example.com ».", match.Reason);
+    }
+
+    [Fact]
+    public void Match_NoValue_SaysNothingWasFound()
+    {
+        var match = Match("Email");
+
+        Assert.Equal(MatchReasons.NothingFound, match.Reason);
+    }
+
+    [Fact]
+    public void Match_ConfidentValue_HasNoReason()
+    {
+        var match = Match("Email", Candidate("antoine@example.com", CandidateKind.Email, "Email"));
+
+        Assert.Empty(match.Reason);
     }
 
     [Fact]

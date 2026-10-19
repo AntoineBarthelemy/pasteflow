@@ -176,9 +176,9 @@ public static class FormMatcher
     {
         for (var index = 0; index < matches.Length; index++)
         {
-            if (matches[index] is { IsConfident: true, Candidate.IsReadFromImage: true })
+            if (matches[index] is { IsConfident: true, Candidate.IsReadFromImage: true } match)
             {
-                matches[index] = matches[index] with { IsConfident = false };
+                matches[index] = match with { IsConfident = false, Reason = MatchReasons.ReadFromImage(match.Candidate) };
             }
         }
     }
@@ -231,6 +231,7 @@ public static class FormMatcher
                     .DistinctBy(candidate => candidate.Value, StringComparer.Ordinal)
                     .Take(FieldMatcher.MaxSuggestions)
                     .ToList(),
+                Reason = screenMatch.Suggestions.Count == 0 && historyMatch.Suggestions.Count > 0 ? historyMatch.Reason : screenMatch.Reason,
             };
         }
     }
@@ -277,8 +278,9 @@ public static class FormMatcher
 
         if (data.IsPostalCode(postalCode.Value) && data.IsCommune(commune.Value) && !data.IsCommuneOf(postalCode.Value, commune.Value))
         {
-            matches[postalCodeIndex] = matches[postalCodeIndex] with { IsConfident = false };
-            matches[communeIndex] = matches[communeIndex] with { IsConfident = false };
+            var reason = MatchReasons.PostalCodeAndCommune(postalCode.Value, commune.Value);
+            matches[postalCodeIndex] = matches[postalCodeIndex] with { IsConfident = false, Reason = reason };
+            matches[communeIndex] = matches[communeIndex] with { IsConfident = false, Reason = reason };
         }
     }
 }

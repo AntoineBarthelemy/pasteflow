@@ -51,6 +51,33 @@ public sealed class FillRecapTests
     }
 
     [Fact]
+    public void From_TellsWhyAFieldIsLeftToTheUser()
+    {
+        var report = Report() with
+        {
+            UncertainCount = 1,
+            FieldsToCheck = new[]
+            {
+                new FieldToCheck { Field = TestFields.Text("postal", "Code postal"), Reason = "51500 ne correspond pas à Reims selon La Poste." },
+            },
+        };
+
+        Assert.Equal("51500 ne correspond pas à Reims selon La Poste.", Assert.Single(FillRecap.From(report).Lines).Reason);
+    }
+
+    [Fact]
+    public void From_ShortensAVeryLongReason()
+    {
+        var report = Report() with
+        {
+            UncertainCount = 1,
+            FieldsToCheck = new[] { new FieldToCheck { Field = TestFields.Text("email", "Email"), Reason = new string('a', 300) } },
+        };
+
+        Assert.Equal(FillRecap.MaxReasonLength, Assert.Single(FillRecap.From(report).Lines).Reason.Length);
+    }
+
+    [Fact]
     public void From_SumsTheResultUpInTheTitle()
     {
         var report = Report() with { FilledCount = 2, UncertainCount = 1, Elapsed = TimeSpan.FromMilliseconds(120.4) };

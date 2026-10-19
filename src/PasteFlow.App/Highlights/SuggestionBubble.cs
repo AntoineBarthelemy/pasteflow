@@ -23,6 +23,7 @@ internal sealed class SuggestionBubble : Window
 
     private const double HiddenPosition = -32000;
     private const double MaxValueWidth = 320;
+    private const double MaxContentWidth = 460;
 
     private static readonly Brush HoverBackground = CreateBrush(0x33, 0x33, 0x33);
 
@@ -67,20 +68,34 @@ internal sealed class SuggestionBubble : Window
     /// </summary>
     /// <param name="suggestions">The values proposed, the most likely first.</param>
     /// <param name="shortcutNames">The name of the shortcut of each value, such as "Ctrl+Maj+1".</param>
-    public void SetSuggestions(IReadOnlyList<SuggestedValue> suggestions, IReadOnlyList<string> shortcutNames)
+    /// <param name="reason">Why the field is left to the user, or an empty string.</param>
+    public void SetSuggestions(IReadOnlyList<SuggestedValue> suggestions, IReadOnlyList<string> shortcutNames, string reason)
     {
         ArgumentNullException.ThrowIfNull(suggestions);
         ArgumentNullException.ThrowIfNull(shortcutNames);
+        ArgumentNullException.ThrowIfNull(reason);
 
-        var panel = new StackPanel();
-        panel.Children.Add(Text("Propositions", PopupColors.DiscreetText, 11, new Thickness(8, 0, 8, 4)));
-        for (var index = 0; index < suggestions.Count; index++)
+        var panel = new StackPanel { MaxWidth = MaxContentWidth };
+        if (reason.Length > 0)
         {
-            var shortcut = index < shortcutNames.Count ? shortcutNames[index] : string.Empty;
-            panel.Children.Add(CreateRow(index, suggestions[index], shortcut));
+            // Why the field was not filled comes first: it is what lets the user choose with confidence
+            var why = Text($"Pourquoi : {reason}", PopupColors.Text, 12, new Thickness(8, 0, 8, suggestions.Count > 0 ? 8 : 0));
+            why.TextWrapping = TextWrapping.Wrap;
+            why.TextTrimming = TextTrimming.None;
+            panel.Children.Add(why);
         }
 
-        panel.Children.Add(Text("Ou tape ta propre valeur", PopupColors.DiscreetText, 11, new Thickness(8, 4, 8, 0)));
+        if (suggestions.Count > 0)
+        {
+            panel.Children.Add(Text("Propositions", PopupColors.DiscreetText, 11, new Thickness(8, 0, 8, 4)));
+            for (var index = 0; index < suggestions.Count; index++)
+            {
+                var shortcut = index < shortcutNames.Count ? shortcutNames[index] : string.Empty;
+                panel.Children.Add(CreateRow(index, suggestions[index], shortcut));
+            }
+
+            panel.Children.Add(Text("Ou tape ta propre valeur", PopupColors.DiscreetText, 11, new Thickness(8, 4, 8, 0)));
+        }
 
         Content = new Border
         {

@@ -142,23 +142,26 @@ public static class FieldMatcher
 
         if (ranked.Count == 0)
         {
-            return new FieldMatch { Field = field };
+            return new FieldMatch { Field = field, Reason = MatchReasons.NothingFound };
         }
 
         var best = ranked[0];
         var lead = ranked.Count > 1 ? best.Score - ranked[1].Score : double.MaxValue;
+        var isSureEnough = best.Score >= options.ConfidenceThreshold;
+        var isAhead = lead >= options.MinimumLead;
 
         return new FieldMatch
         {
             Field = field,
             Candidate = best.Candidate,
             Score = best.Score,
-            IsConfident = best.Score >= options.ConfidenceThreshold && lead >= options.MinimumLead,
+            IsConfident = isSureEnough && isAhead,
             Suggestions = ranked
                 .Where(scored => scored.Score >= SuggestionThreshold)
                 .Take(MaxSuggestions)
                 .Select(scored => scored.Candidate)
                 .ToList(),
+            Reason = ReasonOf(ranked, isSureEnough, isAhead),
         };
     }
 
@@ -180,6 +183,22 @@ public static class FieldMatcher
             .Take(maxCount)
             .Select(scored => scored.Candidate)
             .ToList();
+    }
+
+    private static string ReasonOf(List<(Candidate Candidate, double Score)> ranked, bool isSureEnough, bool isAhead)
+    {
+        if (ranked[0].Score < SuggestionThreshold)
+        {
+            return MatchReasons.NothingClose;
+        }
+
+        // Two values close to each other: naming both says more than "not sure"
+        if (!isAhead && ranked[1].Score >= SuggestionThreshold)
+        {
+            return MatchReasons.Hesitation(ranked[0].Candidate, ranked[1].Candidate);
+        }
+
+        return isSureEnough && isAhead ? string.Empty : MatchReasons.Unsure(ranked[0].Candidate);
     }
 
     private static List<(Candidate Candidate, double Score)> RankAll(

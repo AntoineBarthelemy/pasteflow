@@ -120,11 +120,29 @@ internal static class ProfileArbiter
         {
             // Two different values and nobody known, or the user's own field with several values in the profile:
             // left to the user, with the values of both proposed
-            return screenMatch with { IsConfident = false, Suggestions = bothSuggestions };
+            return screenMatch with { IsConfident = false, Suggestions = bothSuggestions, Reason = ReasonOf(screenMatch, profileMatch, profileSuggestions, isProfileSure, screenOffers) };
         }
 
         // The profile hesitates and the field is not known to be the user's: the screen keeps its sure value
         return screenMatch;
+    }
+
+    private static string ReasonOf(FieldMatch screenMatch, FieldMatch profileMatch, List<Candidate> profileSuggestions, bool isProfileSure, bool screenOffers)
+    {
+        if (isProfileSure && screenOffers)
+        {
+            return MatchReasons.ProfileAndScreenDiffer(profileMatch.Candidate!, screenMatch.Candidate!);
+        }
+
+        if (profileSuggestions.Count > 1)
+        {
+            return MatchReasons.SeveralProfileValues(profileSuggestions[0], profileSuggestions[1]);
+        }
+
+        // The screen alone was not sure: its reason still holds, unless the profile proposes a value
+        return screenMatch.Candidate is null && profileSuggestions.Count == 1
+            ? MatchReasons.Unsure(profileSuggestions[0])
+            : screenMatch.Reason;
     }
 
     private static bool IsSameValue(Candidate first, Candidate second)

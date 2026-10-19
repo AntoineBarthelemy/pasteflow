@@ -21,6 +21,11 @@ public sealed record FillRecap
     /// </summary>
     public const int MaxTextLength = 40;
 
+    /// <summary>
+    /// The maximum length of the sentence that tells why a field is left to the user.
+    /// </summary>
+    public const int MaxReasonLength = 140;
+
     private const string UnnamedField = "Champ sans nom";
 
     /// <summary>
@@ -68,7 +73,10 @@ public sealed record FillRecap
         var lines = report.FieldsToCheck
             .Select(toCheck => failedIds.Contains(toCheck.Field.Id)
                 ? Line(RecapLineKind.Failed, toCheck.Field.Label, "non écrit")
-                : Line(RecapLineKind.ToCheck, toCheck.Field.Label, DescribeToCheck(toCheck)))
+                : Line(RecapLineKind.ToCheck, toCheck.Field.Label, DescribeToCheck(toCheck)) with
+                {
+                    Reason = FillReport.Shorten(toCheck.Reason, MaxReasonLength),
+                })
             .Concat(report.FilledValues.Select(filled => Line(RecapLineKind.Filled, filled.FieldLabel, filled.Value) with
             {
                 SourceName = FillReport.Shorten(filled.SourceName, MaxTextLength),

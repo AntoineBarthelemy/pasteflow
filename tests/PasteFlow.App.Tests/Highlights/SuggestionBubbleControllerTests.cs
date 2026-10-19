@@ -71,6 +71,27 @@ public sealed class SuggestionBubbleControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task Show_TellsWhyTheFieldIsLeftToTheUser()
+    {
+        Show(await NameToCheckAsync("Antoine", "Barthélémy") with { Reason = "Deux valeurs aussi probables." });
+
+        var bubble = Assert.IsType<SuggestionBubble>(_host.Invoke(_ => _controller.Bubble));
+        var text = UiAutomationWindowTextReader.ReadWindow(_host.Invoke(_ => bubble.Handle), rank: 0)?.Text;
+        Assert.NotNull(text);
+        Assert.Contains("Pourquoi : Deux valeurs aussi probables.", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Show_WithAReasonButNoSuggestion_ShowsTheReasonAndRegistersNothing()
+    {
+        Show(await NameToCheckAsync() with { Reason = "Aucune valeur trouvée pour ce champ." });
+
+        var bubble = Assert.IsType<SuggestionBubble>(_host.Invoke(_ => _controller.Bubble));
+        Assert.True(_host.Invoke(_ => bubble.IsVisible));
+        Assert.All(_listeners, listener => Assert.Null(listener.RegisteredHotkey));
+    }
+
+    [Fact]
     public async Task Hide_FreesTheShortcutsForOtherApplications()
     {
         Show(await NameToCheckAsync("Antoine", "Barthélémy"));

@@ -61,23 +61,24 @@ public sealed record ProfileValue
     /// Gets the value as it can be shown on screen: whole if it is ordinary, only its last characters if it is sensitive.
     /// </summary>
     [JsonIgnore]
-    public string ShownValue
-    {
-        get
-        {
-            if (!IsSensitive)
-            {
-                return Value;
-            }
-
-            var compact = SensitiveFormats.Compact(Value);
-            return compact.Length <= VisibleEndLength * 2 ? "••••" : $"•••• {compact[^VisibleEndLength..]}";
-        }
-    }
+    public string ShownValue => IsSensitive ? Masked(Value) : Value;
 
     /// <summary>
     /// Gets the name shown for the value: the one the user gave, or else the name of its topic.
     /// </summary>
     [JsonIgnore]
     public string ShownLabel => Label.Length > 0 ? Label : ProfileTopics.DisplayName(Topic);
+
+    /// <summary>
+    /// Hides a sensitive value but its last characters, such as "•••• 0189".
+    /// </summary>
+    /// <param name="value">The value to hide.</param>
+    /// <returns>The value as it can be shown on screen.</returns>
+    public static string Masked(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var compact = SensitiveFormats.Compact(value);
+        return compact.Length <= VisibleEndLength * 2 ? "••••" : $"•••• {compact[^VisibleEndLength..]}";
+    }
 }

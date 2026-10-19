@@ -24,4 +24,9 @@ public sealed record RecapLine
     /// Gets the name of the window the value comes from; empty when the field was not filled.
     /// </summary>
     public string SourceName { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets why the field is left to the user, or an empty string.
+    /// </summary>
+    public string Reason { get; init; } = string.Empty;
 }

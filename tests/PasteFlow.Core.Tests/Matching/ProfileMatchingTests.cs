@@ -49,6 +49,7 @@ public sealed class ProfileMatchingTests
         Assert.False(match.IsConfident);
         Assert.Contains(match.Suggestions, candidate => candidate.Value == MyEmail);
         Assert.Contains(match.Suggestions, candidate => candidate.Value == RecruiterEmail);
+        Assert.Equal($"Ta fiche donne « {MyEmail} », l'écran donne « {RecruiterEmail} ».", match.Reason);
     }
 
     [Fact]
@@ -101,6 +102,7 @@ public sealed class ProfileMatchingTests
         Assert.False(match.IsConfident);
         Assert.Contains(match.Suggestions, candidate => candidate.Value == MyEmail);
         Assert.Contains(match.Suggestions, candidate => candidate.Value == SchoolEmail);
+        Assert.StartsWith("Ta fiche a plusieurs valeurs : ", match.Reason, StringComparison.Ordinal);
     }
 
     [Fact]

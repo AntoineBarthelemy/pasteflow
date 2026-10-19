@@ -71,7 +71,8 @@ internal sealed class SuggestionBubbleController : ISuggestionDisplay, IDisposab
     {
         ArgumentNullException.ThrowIfNull(fieldToCheck);
 
-        if (_isDisposed || fieldToCheck.Suggestions.Count == 0 || fieldBounds.IsEmpty)
+        // Nothing to propose and nothing to explain: the orange frame is enough
+        if (_isDisposed || (fieldToCheck.Suggestions.Count == 0 && fieldToCheck.Reason.Length == 0) || fieldBounds.IsEmpty)
         {
             Hide();
             return;
@@ -81,7 +82,7 @@ internal sealed class SuggestionBubbleController : ISuggestionDisplay, IDisposab
         if (_current?.Field.Id != fieldToCheck.Field.Id)
         {
             Hide();
-            bubble.SetSuggestions(fieldToCheck.Suggestions, RegisterShortcuts(fieldToCheck.Suggestions.Count));
+            bubble.SetSuggestions(fieldToCheck.Suggestions, RegisterShortcuts(fieldToCheck.Suggestions.Count), fieldToCheck.Reason);
             _current = fieldToCheck;
         }
 

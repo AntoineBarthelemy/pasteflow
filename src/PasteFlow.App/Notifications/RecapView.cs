@@ -31,7 +31,7 @@ internal static class RecapView
         ArgumentNullException.ThrowIfNull(recap);
 
         return TimeSpan.FromMilliseconds(Math.Clamp(
-            MinDisplayMilliseconds + (DisplayMillisecondsPerLine * recap.Lines.Count),
+            MinDisplayMilliseconds + (DisplayMillisecondsPerLine * (recap.Lines.Count + (2 * recap.Lines.Count(line => line.Reason.Length > 0)))),
             MinDisplayMilliseconds,
             MaxDisplayMilliseconds));
     }
@@ -95,10 +95,10 @@ internal static class RecapView
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        for (var row = 0; row < lines.Count; row++)
+        var row = 0;
+        foreach (var line in lines)
         {
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            var line = lines[row];
             var color = ColorOf(line.Kind);
             var margin = new Thickness(0, 2, 10, 2);
 
@@ -114,6 +114,19 @@ internal static class RecapView
 
             AddToGrid(grid, value, row, 2);
             AddToGrid(grid, Text(line.SourceName, PopupColors.DiscreetText, 11, new Thickness(0, 3, 0, 2)), row, 3);
+            row++;
+
+            if (line.Reason.Length > 0)
+            {
+                // Why the field is left to the user, under its line, in full
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                var reason = Text(line.Reason, PopupColors.SecondaryText, 11, new Thickness(0, 0, 0, 4));
+                reason.TextWrapping = TextWrapping.Wrap;
+                reason.TextTrimming = TextTrimming.None;
+                AddToGrid(grid, reason, row, 1);
+                Grid.SetColumnSpan(reason, 3);
+                row++;
+            }
         }
 
         return grid;

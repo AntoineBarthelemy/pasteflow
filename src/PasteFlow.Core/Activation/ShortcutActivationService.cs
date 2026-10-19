@@ -260,12 +260,18 @@ public sealed class ShortcutActivationService : IDisposable
 
     private static FieldMatch WithoutSensitiveValues(FieldMatch match)
     {
+        if (!UsesSensitiveValue(match))
+        {
+            return match;
+        }
+
         var isSensitive = match.Candidate is { IsSensitive: true };
         return match with
         {
             Candidate = isSensitive ? null : match.Candidate,
             IsConfident = match.IsConfident && !isSensitive,
             Suggestions = match.Suggestions.Where(candidate => !candidate.IsSensitive).ToList(),
+            Reason = MatchReasons.SensitiveClosed,
         };
     }
 
@@ -375,7 +381,7 @@ public sealed class ShortcutActivationService : IDisposable
             else
             {
                 uncertainCount++;
-                fieldsToCheck.Add(new FieldToCheck { Field = login.PasswordField });
+                fieldsToCheck.Add(new FieldToCheck { Field = login.PasswordField, Reason = login.PasswordNote });
                 notes.Add(login.PasswordNote);
             }
         }
@@ -427,6 +433,7 @@ public sealed class ShortcutActivationService : IDisposable
                             SourceName = candidate.SourceName,
                         })
                         .ToList(),
+                    Reason = match.Reason,
                 });
                 continue;
             }
@@ -448,7 +455,7 @@ public sealed class ShortcutActivationService : IDisposable
                 failedCount++;
 
                 // The value was refused: proposing it again would not help
-                fieldsToCheck.Add(new FieldToCheck { Field = field });
+                fieldsToCheck.Add(new FieldToCheck { Field = field, Reason = MatchReasons.WriteRefused });
                 failedFields.Add(field);
             }
         }

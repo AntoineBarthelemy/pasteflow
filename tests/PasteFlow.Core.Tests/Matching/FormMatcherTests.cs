@@ -229,6 +229,8 @@ public sealed class FormMatcherTests
         Assert.False(matches[1].IsConfident);
         Assert.Equal("51500", Assert.Single(matches[0].Suggestions).Value);
         Assert.Equal("Reims", Assert.Single(matches[1].Suggestions).Value);
+        Assert.Equal("51500 ne correspond pas à Reims selon La Poste.", matches[0].Reason);
+        Assert.Equal(matches[0].Reason, matches[1].Reason);
     }
 
     [Fact]
@@ -319,6 +321,7 @@ public sealed class FormMatcherTests
 
         Assert.False(matches[0].IsConfident);
         Assert.Equal("06 47 21 85 39", Assert.Single(matches[0].Suggestions).Value);
+        Assert.Equal("« 06 47 21 85 39 » a été lue dans une image : un caractère a pu être mal lu.", matches[0].Reason);
     }
 
     [Fact]

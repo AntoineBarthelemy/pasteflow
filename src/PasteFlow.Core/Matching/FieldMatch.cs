@@ -33,4 +33,10 @@ public sealed record FieldMatch
     /// <see cref="FieldMatcher.MaxSuggestions"/>.
     /// </summary>
     public IReadOnlyList<Candidate> Suggestions { get; init; } = Array.Empty<Candidate>();
+
+    /// <summary>
+    /// Gets why the field is left to the user, in a sentence for them (see <see cref="MatchReasons"/>), or an empty
+    /// string when the field is filled.
+    /// </summary>
+    public string Reason { get; init; } = string.Empty;
 }
