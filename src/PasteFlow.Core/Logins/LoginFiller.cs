@@ -81,6 +81,18 @@ public sealed class LoginFiller
     }
 
     /// <summary>
+    /// Gets the sentence that tells why the password stays closed.
+    /// </summary>
+    /// <param name="presence">What came of the check of the user.</param>
+    /// <returns>The sentence, in French.</returns>
+    public static string PasswordNoteFor(PresenceResult presence)
+    {
+        return presence == PresenceResult.Unavailable
+            ? "Mot de passe non rempli : Windows Hello n'est pas configuré sur ce PC. Ajoute un code PIN dans Paramètres, Comptes, Options de connexion."
+            : "Mot de passe non rempli : vérification Windows Hello annulée.";
+    }
+
+    /// <summary>
     /// Fills the sign-in form of the page, if there is one and an account fits.
     /// </summary>
     /// <param name="fields">The fields of the form.</param>
@@ -136,18 +148,6 @@ public sealed class LoginFiller
             IsPasswordWritten = isWritten,
             PasswordNote = isWritten ? string.Empty : "Mot de passe non rempli : ce champ refuse l'écriture automatique.",
         };
-    }
-
-    /// <summary>
-    /// Gets the sentence that tells why the password stays closed.
-    /// </summary>
-    /// <param name="presence">What came of the check of the user.</param>
-    /// <returns>The sentence, in French.</returns>
-    public static string PasswordNoteFor(PresenceResult presence)
-    {
-        return presence == PresenceResult.Unavailable
-            ? "Mot de passe non rempli : Windows Hello n'est pas configuré sur ce PC. Ajoute un code PIN dans Paramètres, Comptes, Options de connexion."
-            : "Mot de passe non rempli : vérification Windows Hello annulée.";
     }
 
     private static bool HasAnyWord(FormField field, string[] words)
