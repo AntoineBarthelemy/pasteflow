@@ -40,6 +40,7 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
     private readonly Dictionary<string, (FieldToCheck ToCheck, FieldFrame Frame)> _frames = new(StringComparer.Ordinal);
     private readonly Dictionary<string, FieldToCheck> _typedFields = new(StringComparer.Ordinal);
     private IntPtr _formWindow;
+    private string _formTitle = string.Empty;
     private long _shownAt;
     private int _generation;
     private bool _isRefreshing;
@@ -178,6 +179,7 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
         if (_frames.Count > 0)
         {
             _formWindow = _formAccess.GetWindow(_frames.Values.First().ToCheck.Field);
+            _formTitle = NativeMethods.GetWindowTitle(_formWindow);
             _shownAt = Environment.TickCount64;
             _refreshTimer.Start();
         }
@@ -198,6 +200,18 @@ internal sealed class UiAutomationFieldHighlighter : IFieldHighlighter, IDisposa
         {
             // The user went to another window: the frames would float above it
             RemoveFrames();
+            return;
+        }
+
+        if (!string.Equals(NativeMethods.GetWindowTitle(_formWindow), _formTitle, StringComparison.Ordinal))
+        {
+            // Same window, other tab: the frames hide until the user comes back to the tab of the form
+            foreach (var (_, frame) in _frames.Values)
+            {
+                frame.Surround(Rect.Empty);
+            }
+
+            _suggestionDisplay.Hide();
             return;
         }
 

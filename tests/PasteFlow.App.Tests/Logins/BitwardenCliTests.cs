@@ -32,7 +32,7 @@ public sealed class BitwardenCliTests
     [Fact]
     public async Task WithoutBitwarden_NothingIsFound()
     {
-        var bitwarden = new BitwardenCli(executable: null);
+        using var bitwarden = new BitwardenCli(executable: null);
 
         Assert.False(bitwarden.IsInstalled);
         Assert.False(bitwarden.IsUnlocked);

@@ -12,8 +12,8 @@ namespace PasteFlow.Core.Logins;
 /// <para>In a browser, the account must be saved for the very site of the address bar (<see cref="LoginSites"/>); with
 /// several accounts, the user chooses. In an application, which has no address, the accounts named like the program
 /// are only proposed: the user always chooses.</para>
-/// <para>The password is asked for only after Windows Hello, written straight into the password field, and never kept,
-/// shown or learned. A form with several password fields (creating an account, changing a password) is left alone,
+/// <para>The password is asked for to the manager while Windows Hello checks the user, so that both waits overlap; it is
+/// written into the password field only once the user is checked, and never kept, shown or learned. A form with several password fields (creating an account, changing a password) is left alone,
 /// and so is a form whose identifier is already there, typed by the user or another tool.</para>
 /// </remarks>
 public sealed class LoginFiller
@@ -131,13 +131,17 @@ public sealed class LoginFiller
             PasswordField = passwordField,
         };
 
+        // Asked for while Windows Hello waits for the user, so that it is ready when they are; only written once they are
+        // checked, and dropped otherwise
+        var passwordTask = _manager.GetPasswordAsync(login.Id, cancellationToken);
         var presence = await _gate.OpenAsync($"Remplir ton mot de passe {login.Name}", cancellationToken);
+        var password = await passwordTask;
         if (presence != PresenceResult.Verified)
         {
             return fill with { PasswordNote = PasswordNoteFor(presence) };
         }
 
-        if (await _manager.GetPasswordAsync(login.Id, cancellationToken) is not { Length: > 0 } password)
+        if (password is not { Length: > 0 })
         {
             return fill with { PasswordNote = $"Mot de passe non rempli : Bitwarden n'a pas donné le mot de passe de « {login.Name} »." };
         }

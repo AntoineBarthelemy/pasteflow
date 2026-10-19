@@ -79,6 +79,38 @@ internal static partial class NativeMethods
     internal static partial int GetWindowTextLength(IntPtr hWnd);
 
     /// <summary>
+    /// Copies the title of a window.
+    /// </summary>
+    /// <param name="hWnd">The window.</param>
+    /// <param name="lpString">Where the title is copied.</param>
+    /// <param name="nMaxCount">The room available, end character included.</param>
+    /// <returns>The number of characters copied.</returns>
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowTextW")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    internal static unsafe partial int GetWindowText(IntPtr hWnd, char* lpString, int nMaxCount);
+
+    /// <summary>
+    /// Gets the title of a window, such as "CAS Login - Google Chrome": a browser puts the title of its open tab there.
+    /// </summary>
+    /// <param name="hWnd">The window.</param>
+    /// <returns>The title, or an empty string.</returns>
+    internal static unsafe string GetWindowTitle(IntPtr hWnd)
+    {
+        var length = GetWindowTextLength(hWnd);
+        if (length <= 0)
+        {
+            return string.Empty;
+        }
+
+        var buffer = new char[length + 1];
+        fixed (char* text = buffer)
+        {
+            var copied = GetWindowText(hWnd, text, buffer.Length);
+            return new string(buffer, 0, Math.Max(copied, 0));
+        }
+    }
+
+    /// <summary>
     /// Gets information about a window, for example its extended style with GWL_EXSTYLE (-20).
     /// </summary>
     /// <param name="hWnd">The window.</param>

@@ -72,6 +72,14 @@ public sealed class FillRecapTests
     }
 
     [Fact]
+    public void From_TellsTheTimeSpentWithThePasswordManager()
+    {
+        var recap = FillRecap.From(Report() with { PasswordManagerElapsed = TimeSpan.FromMilliseconds(312.4) });
+
+        Assert.Contains("Dont Bitwarden et Windows Hello : 312 ms.", recap.Details);
+    }
+
+    [Fact]
     public void From_PutsTheNotesFirstInDetails()
     {
         var recap = FillRecap.From(Report() with { Notes = new[] { "Mot de passe non rempli : vérification Windows Hello annulée." } });

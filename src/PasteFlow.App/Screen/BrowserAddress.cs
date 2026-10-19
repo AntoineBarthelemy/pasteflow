@@ -13,13 +13,14 @@ namespace PasteFlow.App.Screen;
 /// </remarks>
 internal static class BrowserAddress
 {
+    // The address bar sits a few levels under the window, far before the page and its thousands of elements
+    private const int MaxDepth = 12;
+    private const int MaxVisited = 600;
+
     private static readonly HashSet<string> BrowserProcesses = new(StringComparer.OrdinalIgnoreCase)
     {
         "chrome", "msedge", "firefox", "brave", "opera", "vivaldi",
     };
-
-    private static readonly Condition ToolBarCondition =
-        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ToolBar);
 
     private static readonly Condition EditCondition =
         new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit);
@@ -38,13 +39,8 @@ internal static class BrowserAddress
                 return string.Empty;
             }
 
-            foreach (AutomationElement toolBar in window.FindAll(TreeScope.Descendants, ToolBarCondition))
+            foreach (var toolBar in ToolBarsOutsidePages(window))
             {
-                if (IsInsidePage(toolBar, window))
-                {
-                    continue;
-                }
-
                 foreach (AutomationElement edit in toolBar.FindAll(TreeScope.Descendants, EditCondition))
                 {
                     if (edit.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern) && pattern is ValuePattern value
@@ -68,17 +64,41 @@ internal static class BrowserAddress
         return BrowserProcesses.Contains(WindowProgram.NameOf(processId));
     }
 
-    private static bool IsInsidePage(AutomationElement element, AutomationElement window)
+    /// <summary>
+    /// Finds the toolbars of the browser itself, without entering the pages: a page can hold thousands of elements,
+    /// and its toolbars are not the address bar anyway.
+    /// </summary>
+    /// <param name="window">The window of the browser.</param>
+    /// <returns>The toolbars, closest to the top of the window first.</returns>
+    private static List<AutomationElement> ToolBarsOutsidePages(AutomationElement window)
     {
         var walker = TreeWalker.ControlViewWalker;
-        for (var parent = walker.GetParent(element); parent is not null && !Automation.Compare(parent, window); parent = walker.GetParent(parent))
+        var toolBars = new List<AutomationElement>();
+        var level = new List<AutomationElement> { window };
+        var visited = 0;
+        for (var depth = 0; depth < MaxDepth && level.Count > 0 && visited < MaxVisited; depth++)
         {
-            if (parent.Current.ControlType == ControlType.Document)
+            var next = new List<AutomationElement>();
+            foreach (var parent in level)
             {
-                return true;
+                for (var child = walker.GetFirstChild(parent); child is not null && visited < MaxVisited; child = walker.GetNextSibling(child))
+                {
+                    visited++;
+                    var type = child.Current.ControlType;
+                    if (type == ControlType.ToolBar)
+                    {
+                        toolBars.Add(child);
+                    }
+                    else if (type != ControlType.Document)
+                    {
+                        next.Add(child);
+                    }
+                }
             }
+
+            level = next;
         }
 
-        return false;
+        return toolBars;
     }
 }

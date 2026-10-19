@@ -16,16 +16,24 @@ namespace PasteFlow.App.Logins;
 /// key, kept in memory only, never written anywhere, and forgotten when PasteFlow closes.</para>
 /// <para>The master password and the session key go to bw through its environment, never on its command line, which
 /// other programs can read. Every word given to bw is checked first: only letters, digits and a few signs.</para>
+/// <para>Each run of bw starts a program and decrypts the vault again, about a second. So the list of accounts, without
+/// their passwords, is read once when the vault is unlocked and kept in memory, refreshed in the background every few
+/// minutes: finding the account of a site then takes no time. Only the password is asked for at the moment it is
+/// written.</para>
 /// </remarks>
-internal sealed partial class BitwardenCli : IPasswordManager
+internal sealed partial class BitwardenCli : IPasswordManager, IDisposable
 {
     private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(20);
     private static readonly string[] StatusArguments = { "status" };
     private static readonly string[] UnlockArguments = { "unlock", "--passwordenv", "BW_PASSWORD", "--raw" };
     private static readonly string[] ListItemsArguments = { "list", "items" };
+    private static readonly string[] SyncArguments = { "sync" };
+    private static readonly TimeSpan LoginsMaxAge = TimeSpan.FromMinutes(5);
 
     private readonly string? _executable;
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private volatile string? _session;
+    private volatile LoginsCache? _logins;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BitwardenCli"/> class with the bw found on this computer.
@@ -116,7 +124,14 @@ internal sealed partial class BitwardenCli : IPasswordManager
             cancellationToken);
         session = session?.Trim();
         _session = string.IsNullOrEmpty(session) || session.Any(char.IsWhiteSpace) ? null : session;
-        return _session is not null;
+        if (_session is null)
+        {
+            return false;
+        }
+
+        // The accounts are read now, in the background, so that the first sign-in does not wait for them
+        _ = RefreshLoginsAsync(withSync: true, CancellationToken.None);
+        return true;
     }
 
     /// <summary>
@@ -125,6 +140,7 @@ internal sealed partial class BitwardenCli : IPasswordManager
     public void Lock()
     {
         _session = null;
+        _logins = null;
     }
 
     /// <inheritdoc/>
@@ -132,14 +148,8 @@ internal sealed partial class BitwardenCli : IPasswordManager
     {
         ArgumentNullException.ThrowIfNull(host);
 
-        var address = $"https://{host}";
-        if (!IsSafeArgument(host) || host.Contains(' ', StringComparison.Ordinal))
-        {
-            return Array.Empty<VaultLogin>();
-        }
-
-        var output = await RunWithSessionAsync(new[] { "list", "items", "--url", address }, cancellationToken);
-        return output is null ? Array.Empty<VaultLogin>() : BitwardenJson.Logins(output);
+        var logins = await LoginsAsync(cancellationToken);
+        return logins.Where(login => LoginSites.IsFor(login, host)).ToList();
     }
 
     /// <inheritdoc/>
@@ -147,13 +157,13 @@ internal sealed partial class BitwardenCli : IPasswordManager
     {
         ArgumentNullException.ThrowIfNull(text);
 
-        if (!IsSafeArgument(text))
+        if (text.Trim().Length == 0)
         {
             return Array.Empty<VaultLogin>();
         }
 
-        var output = await RunWithSessionAsync(new[] { "list", "items", "--search", text }, cancellationToken);
-        return output is null ? Array.Empty<VaultLogin>() : BitwardenJson.Logins(output);
+        var logins = await LoginsAsync(cancellationToken);
+        return logins.Where(login => login.Name.Contains(text.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
     /// <inheritdoc/>
@@ -179,6 +189,13 @@ internal sealed partial class BitwardenCli : IPasswordManager
         return output is null ? Array.Empty<ProfileValue>() : BitwardenJson.Identity(output);
     }
 
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        Lock();
+        _refreshGate.Dispose();
+    }
+
     /// <summary>
     /// Determines whether a word can be given to bw safely: letters, digits, spaces and a few signs only.
     /// </summary>
@@ -189,8 +206,63 @@ internal sealed partial class BitwardenCli : IPasswordManager
         return word.Length is > 0 and <= 200 && SafeArgumentRegex().IsMatch(word);
     }
 
+    /// <summary>
+    /// Reads the accounts of the vault again, without their passwords, and keeps them in memory.
+    /// </summary>
+    /// <param name="withSync">Whether to bring the vault up to date with the Bitwarden server first.</param>
+    /// <param name="cancellationToken">A token to cancel the reading.</param>
+    /// <returns>A task completed once the accounts are read.</returns>
+    internal async Task RefreshLoginsAsync(bool withSync, CancellationToken cancellationToken)
+    {
+        await _refreshGate.WaitAsync(cancellationToken);
+        try
+        {
+            if (withSync)
+            {
+                // Accounts added from the browser extension reach bw only through a sync; offline, the local vault is kept
+                _ = await RunWithSessionAsync(SyncArguments, cancellationToken);
+            }
+
+            var output = await RunWithSessionAsync(ListItemsArguments, cancellationToken);
+            if (output is not null && _session is not null)
+            {
+                _logins = new LoginsCache(BitwardenJson.Logins(output), DateTimeOffset.UtcNow);
+            }
+        }
+        finally
+        {
+            _ = _refreshGate.Release();
+        }
+    }
+
     [GeneratedRegex(@"^[\p{L}\p{N} ._:/@-]+$", RegexOptions.CultureInvariant, matchTimeoutMilliseconds: 1000)]
     private static partial Regex SafeArgumentRegex();
+
+    /// <summary>
+    /// Gets the accounts of the vault: at once from memory, read again in the background when they are a few minutes old.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the reading.</param>
+    /// <returns>The accounts, without their passwords.</returns>
+    private async Task<IReadOnlyList<VaultLogin>> LoginsAsync(CancellationToken cancellationToken)
+    {
+        if (_logins is null && _session is not null)
+        {
+            await RefreshLoginsAsync(withSync: false, cancellationToken);
+        }
+
+        var cache = _logins;
+        if (cache is null)
+        {
+            return Array.Empty<VaultLogin>();
+        }
+
+        if (DateTimeOffset.UtcNow - cache.ReadAt > LoginsMaxAge && _refreshGate.CurrentCount > 0)
+        {
+            _ = RefreshLoginsAsync(withSync: true, CancellationToken.None);
+        }
+
+        return cache.Logins;
+    }
 
     private Task<string?> RunWithSessionAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken)
     {
@@ -275,5 +347,32 @@ internal sealed partial class BitwardenCli : IPasswordManager
             // bw was removed or cannot start: nothing is found
             return null;
         }
+    }
+
+    /// <summary>
+    /// The accounts of the vault read at a given time.
+    /// </summary>
+    private sealed class LoginsCache
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="LoginsCache"/> class.
+        /// </summary>
+        /// <param name="logins">The accounts, without their passwords.</param>
+        /// <param name="readAt">When they were read.</param>
+        public LoginsCache(IReadOnlyList<VaultLogin> logins, DateTimeOffset readAt)
+        {
+            Logins = logins;
+            ReadAt = readAt;
+        }
+
+        /// <summary>
+        /// Gets the accounts, without their passwords.
+        /// </summary>
+        public IReadOnlyList<VaultLogin> Logins { get; }
+
+        /// <summary>
+        /// Gets when the accounts were read.
+        /// </summary>
+        public DateTimeOffset ReadAt { get; }
     }
 }

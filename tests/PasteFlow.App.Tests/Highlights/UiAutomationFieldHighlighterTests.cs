@@ -162,6 +162,25 @@ public sealed class UiAutomationFieldHighlighterTests : IDisposable
     }
 
     [Fact]
+    public async Task RefreshAsync_WhenTheWindowShowsAnotherTab_HidesTheFramesUntilTheTabComesBack()
+    {
+        await _highlighter.HighlightAsync(await ReadFieldsAsync("Nom", "Ville"));
+        var title = _host.Invoke(window => window.Title);
+
+        // A browser puts the title of the tab shown in the title of its window
+        _ = _host.Invoke(window => window.Title = "YouTube - Google Chrome");
+        await _highlighter.RefreshAsync();
+
+        Assert.Empty(_highlighter.VisibleFrameBounds);
+        Assert.Equal(2, _highlighter.FrameHandles.Count);
+
+        _ = _host.Invoke(window => window.Title = title);
+        await _highlighter.RefreshAsync();
+
+        Assert.Equal(2, _highlighter.VisibleFrameBounds.Count);
+    }
+
+    [Fact]
     public async Task HighlightAsync_WithoutFocusedFieldToCheck_HidesSuggestions()
     {
         await _highlighter.HighlightAsync(await ReadFieldsAsync("Nom", "Ville"));

@@ -83,6 +83,10 @@ public sealed record FillRecap
         }
 
         details.Add(report.DescribeSources());
+        if (report.PasswordManagerElapsed is { } passwordManager)
+        {
+            details.Add(string.Create(CultureInfo.InvariantCulture, $"Dont Bitwarden et Windows Hello : {Math.Round(passwordManager.TotalMilliseconds)} ms."));
+        }
         if (report.DescribeIgnoredSamples() is { } ignored)
         {
             details.Add(ignored);

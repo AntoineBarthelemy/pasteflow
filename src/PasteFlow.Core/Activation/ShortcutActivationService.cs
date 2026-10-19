@@ -354,9 +354,11 @@ public sealed class ShortcutActivationService : IDisposable
         var notes = new List<string>();
 
         // A sign-in form first: the account saved for the site gives its identifier and its password
+        var loginWatch = Stopwatch.StartNew();
         var login = PasswordManager is { } manager && SensitiveGate is { } loginGate
             ? await new LoginFiller(manager, loginGate, LoginPicker, _fieldWriter).FillAsync(fields, page, cancellationToken)
             : null;
+        loginWatch.Stop();
         if (login is not null)
         {
             if (login.IdentifierField is { } identifierField)
@@ -473,6 +475,7 @@ public sealed class ShortcutActivationService : IDisposable
             UndoHotkey = UndoHotkey,
             ReplaceHotkey = isReplacing ? null : ActiveHotkey,
             Notes = notes.Where(note => note.Length > 0).ToList(),
+            PasswordManagerElapsed = login is null ? null : loginWatch.Elapsed,
         };
     }
 

@@ -88,7 +88,7 @@ public sealed class LoginFillerTests : IDisposable
         Assert.False(fill!.IsPasswordWritten);
         Assert.Equal("AntoineBarthelemy", _writer.WrittenValues["login"]);
         Assert.False(_writer.WrittenValues.ContainsKey("password"));
-        Assert.Equal(0, _manager.PasswordReads);
+        Assert.DoesNotContain(_writer.WrittenValues.Values, value => value.Contains("mot-de-passe", StringComparison.Ordinal));
     }
 
     [Fact]

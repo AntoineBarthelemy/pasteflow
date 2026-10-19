@@ -90,6 +90,12 @@ public sealed record FillReport
     public IReadOnlyList<FormField> FailedFields { get; init; } = Array.Empty<FormField>();
 
     /// <summary>
+    /// Gets the time spent with the password manager and Windows Hello for a sign-in form, or <see langword="null"/>
+    /// when the form was not filled from the password manager.
+    /// </summary>
+    public TimeSpan? PasswordManagerElapsed { get; init; }
+
+    /// <summary>
     /// Gets the sentences that explain to the user what was not done and why, such as a password left empty.
     /// </summary>
     public IReadOnlyList<string> Notes { get; init; } = Array.Empty<string>();

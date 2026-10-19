@@ -71,7 +71,7 @@ internal static class Program
         learner.Observe(history, fillMemory);
 
         // Sign-in forms are filled from Bitwarden, once its vault is unlocked with the master password
-        var bitwarden = new BitwardenCli();
+        using var bitwarden = new BitwardenCli();
 
         // Reading and writing forms, frames and suggestions
         var formAccess = new UiAutomationFormAccess();
