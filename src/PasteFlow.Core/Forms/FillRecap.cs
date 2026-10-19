@@ -87,6 +87,7 @@ public sealed record FillRecap
         {
             details.Add(string.Create(CultureInfo.InvariantCulture, $"Dont Bitwarden et Windows Hello : {Math.Round(passwordManager.TotalMilliseconds)} ms."));
         }
+
         if (report.DescribeIgnoredSamples() is { } ignored)
         {
             details.Add(ignored);
