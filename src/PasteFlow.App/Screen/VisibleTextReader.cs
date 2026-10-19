@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
-using System.Windows;
 using System.Windows.Automation;
 using PasteFlow.App.Interop;
 using PasteFlow.Core.Hints;
+using Rect = System.Windows.Rect;
 
 namespace PasteFlow.App.Screen;
 
