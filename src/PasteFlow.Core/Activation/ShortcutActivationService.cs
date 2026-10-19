@@ -351,6 +351,7 @@ public sealed class ShortcutActivationService : IDisposable
         var fieldsToCheck = new List<FieldToCheck>();
         var failedFields = new List<FormField>();
         var replacedCount = 0;
+        var notes = new List<string>();
 
         // A sign-in form first: the account saved for the site gives its identifier and its password
         var login = PasswordManager is { } manager && SensitiveGate is { } loginGate
@@ -373,6 +374,7 @@ public sealed class ShortcutActivationService : IDisposable
             {
                 uncertainCount++;
                 fieldsToCheck.Add(new FieldToCheck { Field = login.PasswordField });
+                notes.Add(login.PasswordNote);
             }
         }
 
@@ -390,7 +392,7 @@ public sealed class ShortcutActivationService : IDisposable
             .ToList();
         var textFields = fields.Where(field => field.Kind == FieldKind.Text).ToList();
         var matches = FormMatcher.MatchAll(fillableFields, candidates, ReferenceData.Shared, Options, textFields, page);
-        foreach (var match in await GuardSensitiveValuesAsync(matches, cancellationToken))
+        foreach (var match in await GuardSensitiveValuesAsync(matches, notes, cancellationToken))
         {
             var field = match.Field;
             if (field.HasValue)
@@ -470,6 +472,7 @@ public sealed class ShortcutActivationService : IDisposable
             FailedFields = failedFields,
             UndoHotkey = UndoHotkey,
             ReplaceHotkey = isReplacing ? null : ActiveHotkey,
+            Notes = notes.Where(note => note.Length > 0).ToList(),
         };
     }
 
@@ -618,20 +621,25 @@ public sealed class ShortcutActivationService : IDisposable
     /// it is them; otherwise it is left out, and the field is left to the user.
     /// </summary>
     /// <param name="matches">The matches of the form.</param>
+    /// <param name="notes">The sentences for the user, completed with why sensitive values were left out.</param>
     /// <param name="cancellationToken">A token to cancel the check.</param>
     /// <returns>The matches, without sensitive values if the user did not prove it is them.</returns>
-    private async Task<IReadOnlyList<FieldMatch>> GuardSensitiveValuesAsync(IReadOnlyList<FieldMatch> matches, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<FieldMatch>> GuardSensitiveValuesAsync(IReadOnlyList<FieldMatch> matches, List<string> notes, CancellationToken cancellationToken)
     {
         if (!matches.Any(UsesSensitiveValue))
         {
             return matches;
         }
 
-        if (SensitiveGate is { } gate && await gate.OpenAsync(SensitiveFillReason, cancellationToken) == PresenceResult.Verified)
+        var presence = SensitiveGate is { } gate ? await gate.OpenAsync(SensitiveFillReason, cancellationToken) : PresenceResult.Unavailable;
+        if (presence == PresenceResult.Verified)
         {
             return matches;
         }
 
+        notes.Add(presence == PresenceResult.Unavailable
+            ? "Infos sensibles non remplies : Windows Hello n'est pas configuré sur ce PC. Ajoute un code PIN dans Paramètres, Comptes, Options de connexion."
+            : "Infos sensibles non remplies : vérification Windows Hello annulée.");
         return matches.Select(WithoutSensitiveValues).ToList();
     }
 

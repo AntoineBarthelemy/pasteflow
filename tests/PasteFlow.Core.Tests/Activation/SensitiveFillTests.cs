@@ -14,6 +14,7 @@ public sealed class SensitiveFillTests : IDisposable
     private readonly FakeHotkeyListener _listener = new();
     private readonly FakeFieldWriter _fieldWriter = new();
     private readonly FakeFieldHighlighter _highlighter = new();
+    private readonly RecordingNotifier _notifier = new();
     private readonly FakePresenceCheck _presence = new();
     private readonly SensitiveGate _gate;
     private readonly ShortcutActivationService _service;
@@ -30,7 +31,7 @@ public sealed class SensitiveFillTests : IDisposable
                 new Candidate { Value = "antoine.b@orange.fr", Kind = CandidateKind.Email, Label = "E-mail", SourceName = "Ma fiche", SourceRank = 0, IsFromProfile = true },
             },
         };
-        _service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { source }, new FakeUserNotifier(), new FillMemory(), _highlighter)
+        _service = new ShortcutActivationService(_listener, formReader, _fieldWriter, new[] { source }, _notifier, new FillMemory(), _highlighter)
         {
             SensitiveGate = _gate,
         };
@@ -68,6 +69,7 @@ public sealed class SensitiveFillTests : IDisposable
 
         Assert.False(_fieldWriter.WrittenValues.ContainsKey("iban"));
         Assert.Equal("antoine.b@orange.fr", _fieldWriter.WrittenValues["email"]);
+        Assert.Contains("Infos sensibles non remplies", Assert.Single(_notifier.Reports).Notes.Single(), StringComparison.Ordinal);
         Assert.DoesNotContain(_highlighter.HighlightedFields.SelectMany(field => field.Suggestions), suggestion => suggestion.Value.Contains("3000", StringComparison.Ordinal));
     }
 

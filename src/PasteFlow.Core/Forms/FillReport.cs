@@ -90,6 +90,11 @@ public sealed record FillReport
     public IReadOnlyList<FormField> FailedFields { get; init; } = Array.Empty<FormField>();
 
     /// <summary>
+    /// Gets the sentences that explain to the user what was not done and why, such as a password left empty.
+    /// </summary>
+    public IReadOnlyList<string> Notes { get; init; } = Array.Empty<string>();
+
+    /// <summary>
     /// Gets the shortcut that undoes the fill, or <see langword="null"/> if undoing is not available.
     /// </summary>
     public Hotkey? UndoHotkey { get; init; }

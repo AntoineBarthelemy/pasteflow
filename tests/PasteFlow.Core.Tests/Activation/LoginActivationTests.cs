@@ -108,7 +108,38 @@ public sealed class LoginActivationTests : IDisposable
         _listener.SimulatePress();
 
         Assert.False(_fields.WrittenValues.ContainsKey("password"));
-        Assert.Contains(Assert.Single(_notifier.Reports).FieldsToCheck, field => field.Field.Id == "password");
+        var report = Assert.Single(_notifier.Reports);
+        Assert.Contains(report.FieldsToCheck, field => field.Field.Id == "password");
+        Assert.Equal(LoginFiller.PasswordNoteFor(PresenceResult.Refused), Assert.Single(report.Notes));
+    }
+
+    [Fact]
+    public void WithoutWindowsHelloOnThisComputer_TheUserIsToldHowToSetItUp()
+    {
+        _presence.Answer = PresenceResult.Unavailable;
+
+        _listener.SimulatePress();
+
+        var note = Assert.Single(Assert.Single(_notifier.Reports).Notes);
+        Assert.Contains("code PIN", note, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PasswordUnknownToBitwarden_IsExplained()
+    {
+        _manager.Passwords.Clear();
+
+        _listener.SimulatePress();
+
+        Assert.Contains("Bitwarden n'a pas donné", Assert.Single(Assert.Single(_notifier.Reports).Notes), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PasswordWritten_LeavesNoNote()
+    {
+        _listener.SimulatePress();
+
+        Assert.Empty(Assert.Single(_notifier.Reports).Notes);
     }
 
     public void Dispose()

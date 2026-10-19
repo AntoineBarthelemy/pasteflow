@@ -119,13 +119,35 @@ public sealed class LoginFiller
             PasswordField = passwordField,
         };
 
-        if (await _gate.OpenAsync($"Remplir ton mot de passe {login.Name}", cancellationToken) != PresenceResult.Verified
-            || await _manager.GetPasswordAsync(login.Id, cancellationToken) is not { Length: > 0 } password)
+        var presence = await _gate.OpenAsync($"Remplir ton mot de passe {login.Name}", cancellationToken);
+        if (presence != PresenceResult.Verified)
         {
-            return fill;
+            return fill with { PasswordNote = PasswordNoteFor(presence) };
         }
 
-        return fill with { IsPasswordWritten = await _writer.TryWriteAsync(passwordField, password, cancellationToken) };
+        if (await _manager.GetPasswordAsync(login.Id, cancellationToken) is not { Length: > 0 } password)
+        {
+            return fill with { PasswordNote = $"Mot de passe non rempli : Bitwarden n'a pas donné le mot de passe de « {login.Name} »." };
+        }
+
+        var isWritten = await _writer.TryWriteAsync(passwordField, password, cancellationToken);
+        return fill with
+        {
+            IsPasswordWritten = isWritten,
+            PasswordNote = isWritten ? string.Empty : "Mot de passe non rempli : ce champ refuse l'écriture automatique.",
+        };
+    }
+
+    /// <summary>
+    /// Gets the sentence that tells why the password stays closed.
+    /// </summary>
+    /// <param name="presence">What came of the check of the user.</param>
+    /// <returns>The sentence, in French.</returns>
+    public static string PasswordNoteFor(PresenceResult presence)
+    {
+        return presence == PresenceResult.Unavailable
+            ? "Mot de passe non rempli : Windows Hello n'est pas configuré sur ce PC. Ajoute un code PIN dans Paramètres, Comptes, Options de connexion."
+            : "Mot de passe non rempli : vérification Windows Hello annulée.";
     }
 
     private static bool HasAnyWord(FormField field, string[] words)

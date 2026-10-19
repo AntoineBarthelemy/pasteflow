@@ -59,7 +59,7 @@ internal static class Program
         using var profile = new ProfileBook(new ProtectedFileProfileStore(ProtectedFileProfileStore.DefaultPath));
 
         // Sensitive values open with Windows Hello for 30 minutes, and close as soon as the computer is locked
-        using var sensitiveGate = new SensitiveGate(new WindowsHelloPresenceCheck());
+        using var sensitiveGate = new SensitiveGate(new WindowsHelloPresenceCheck(application.Dispatcher));
         using var sessionLockWatcher = new SessionLockWatcher(sensitiveGate);
 
         // The profile learns from what the user fills about themselves, and starts with the Windows account

@@ -72,6 +72,14 @@ public sealed class FillRecapTests
     }
 
     [Fact]
+    public void From_PutsTheNotesFirstInDetails()
+    {
+        var recap = FillRecap.From(Report() with { Notes = new[] { "Mot de passe non rempli : vérification Windows Hello annulée." } });
+
+        Assert.Equal("Mot de passe non rempli : vérification Windows Hello annulée.", recap.Details[0]);
+    }
+
+    [Fact]
     public void From_ListsOnlyTheFirstFieldsAndCountsTheOthers()
     {
         var filled = Enumerable.Range(1, FillRecap.MaxLines + 3)

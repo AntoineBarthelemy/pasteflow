@@ -31,4 +31,9 @@ public sealed record LoginFill
     /// Gets a value indicating whether the password was written.
     /// </summary>
     public bool IsPasswordWritten { get; init; }
+
+    /// <summary>
+    /// Gets why the password was not written, in a sentence for the user, or an empty string when it was.
+    /// </summary>
+    public string PasswordNote { get; init; } = string.Empty;
 }

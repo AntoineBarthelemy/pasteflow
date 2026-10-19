@@ -75,7 +75,8 @@ public sealed record FillRecap
             }))
             .ToList();
 
-        var details = new List<string>(capacity: 3);
+        // What was not done and why comes first: it is what the user needs to read
+        var details = new List<string>(report.Notes);
         if (report.DescribeReplaceHint() is { } replaceHint)
         {
             details.Add(replaceHint);
