@@ -19,6 +19,13 @@ public sealed class HotkeyTests
     }
 
     [Fact]
+    public void DefaultMenuAndLabels_AreControlAltPAndF()
+    {
+        Assert.Equal("Ctrl+Alt+P", Hotkey.DefaultMenu.ToString());
+        Assert.Equal("Ctrl+Alt+F", Hotkey.DefaultLabels.ToString());
+    }
+
+    [Fact]
     public void Constructor_WithLowerCaseKey_NormalizesKeyToUpperCase()
     {
         var hotkey = new Hotkey(KeyModifiers.Control, 'k');

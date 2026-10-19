@@ -77,11 +77,15 @@ internal sealed class SettingsWindow : Window
         panel.Children.Add(new TextBlock
         {
             Text = "Ctrl+Alt+V remplit le formulaire, Ctrl+Alt+Z annule le dernier remplissage, "
-                + "Ctrl+Maj+1, 2 ou 3 choisit une proposition dans un champ encadré en orange.",
+                + "Ctrl+Maj+1, 2 ou 3 choisit une proposition dans un champ encadré en orange, "
+                + "Ctrl+Alt+P ouvre le menu de PasteFlow.",
             TextWrapping = TextWrapping.Wrap,
         });
         panel.Children.Add(buttons);
         Content = panel;
+
+        // The keyboard starts on the prudence chosen: the arrows change it, Tab goes on, Entrée saves
+        Loaded += (_, _) => _ = new[] { _cautious, balanced, _bold }.FirstOrDefault(choice => choice.IsChecked == true, balanced).Focus();
     }
 
     /// <summary>

@@ -63,11 +63,12 @@ internal static class Program
         using var sessionLockWatcher = new SessionLockWatcher(sensitiveGate);
 
         // The profile learns from what the user fills about themselves, and starts with the Windows account
+        var learningPrompts = new PopupLearningPrompts(notifier, application.Dispatcher);
         using var learner = new ProfileLearner(
             profile,
             new ProtectedFileProfileStore(ProtectedFileProfileStore.LearningPath),
             sensitiveGate,
-            new PopupLearningPrompts(notifier, application.Dispatcher));
+            learningPrompts);
         learner.Observe(history, fillMemory);
 
         // Sign-in forms are filled from Bitwarden, once its vault is unlocked with the master password
@@ -86,6 +87,7 @@ internal static class Program
         // The shortcuts
         using var hotkeyListener = new Win32HotkeyListener();
         using var undoHotkeyListener = new Win32HotkeyListener();
+        using var menuHotkeyListener = new Win32HotkeyListener();
         var windowReader = new UiAutomationWindowTextReader(OcrTextRecognizer.TryCreate());
         var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(windowReader), new ProfileCandidateSource(profile), history };
         using var activation = new ShortcutActivationService(
@@ -134,6 +136,7 @@ internal static class Program
                     : "Paramètres appliqués, mais ils n'ont pas pu être tous enregistrés.");
             });
             settingsWindow.Show();
+            _ = settingsWindow.Activate();
         }
 
         ProfileWindow? profileWindow = null;
@@ -147,6 +150,7 @@ internal static class Program
 
             profileWindow = new ProfileWindow(profile, sensitiveGate, owner => new WindowsProfileTransferPrompts(owner));
             profileWindow.Show();
+            _ = profileWindow.Activate();
         }
 
         BitwardenUnlockWindow? unlockWindow = null;
@@ -183,10 +187,60 @@ internal static class Program
                 return isUnlocked;
             });
             unlockWindow.Show();
+            _ = unlockWindow.Activate();
+        }
+
+        void ClearHistoryAfterAsking()
+        {
+            // From the keyboard, a letter typed by mistake must not erase what PasteFlow learned
+            var answer = MessageBox.Show(
+                "Effacer l'historique ? PasteFlow oubliera les valeurs apprises de tes remplissages. Ta fiche, elle, est gardée.",
+                "PasteFlow",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question,
+                MessageBoxResult.No);
+            if (answer == MessageBoxResult.Yes)
+            {
+                _ = ClearHistoryAsync(history, notifier);
+            }
+        }
+
+        async Task UndoLastLearnedAsync()
+        {
+            notifier.Notify(await learningPrompts.UndoLastAsync()
+                ? "Dernier ajout retiré de ta fiche."
+                : "Rien à retirer : aucun ajout récent à ta fiche.");
+        }
+
+        MenuWindow? menuWindow = null;
+        void OpenMenu()
+        {
+            if (menuWindow is { IsVisible: true })
+            {
+                _ = menuWindow.Activate();
+                return;
+            }
+
+            menuWindow = new MenuWindow(new MenuEntry[]
+            {
+                new('F', "Ma fiche…", OpenProfile),
+                new('A', "Annuler le dernier ajout à ma fiche", () => _ = UndoLastLearnedAsync(), learningPrompts.CanUndoLast),
+                new('B', bitwarden.IsUnlocked ? "Verrouiller Bitwarden" : "Déverrouiller Bitwarden…", OpenBitwardenUnlock),
+                new('P', "Paramètres…", OpenSettings),
+                new('H', "Effacer l'historique…", ClearHistoryAfterAsking),
+                new('Q', "Quitter PasteFlow", application.Shutdown),
+            });
+            menuWindow.Show();
+            _ = menuWindow.Activate();
         }
 
         Apply(settings);
         using var trayIcon = new TrayIcon(application.Shutdown, () => _ = ClearHistoryAsync(history, notifier), OpenSettings, OpenProfile, OpenBitwardenUnlock, () => bitwarden.IsUnlocked);
+
+        // Everything the icon offers, with the keyboard
+        var menuHotkey = Hotkey.DefaultMenu;
+        var isMenuReady = menuHotkeyListener.TryRegister(menuHotkey);
+        menuHotkeyListener.HotkeyPressed += (_, _) => OpenMenu();
 
         // Without its own shortcut, undoing is simply not announced: filling still works
         var undoHotkey = Hotkey.DefaultUndo;
@@ -199,7 +253,9 @@ internal static class Program
         if (activation.Start(hotkey))
         {
             trayIcon.ShowStatus(activation.UndoHotkey is null ? $"{hotkey} actif" : $"{hotkey} actif, {undoHotkey} pour annuler");
-            notifier.Notify($"PasteFlow est lancé. Appuie sur {hotkey} pour le tester.");
+            notifier.Notify(isMenuReady
+                ? $"PasteFlow est lancé. Appuie sur {hotkey} pour le tester, {menuHotkey} pour son menu."
+                : $"PasteFlow est lancé. Appuie sur {hotkey} pour le tester.");
         }
         else
         {

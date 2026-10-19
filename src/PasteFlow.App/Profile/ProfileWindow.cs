@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using System.Windows.Input;
 using PasteFlow.Core.Profile;
 using PasteFlow.Core.Security;
 
@@ -63,17 +64,17 @@ internal sealed class ProfileWindow : Window
         _label = new TextBox { Margin = new Thickness(0, 2, 0, 6) };
         AutomationProperties.SetName(_label, "Nom (facultatif)");
 
-        var add = ActionButton("Ajouter");
+        var add = ActionButton("_Ajouter");
         add.Click += async (_, _) => await AddAsync();
-        _correct = ActionButton("Corriger");
+        _correct = ActionButton("_Corriger");
         _correct.Click += async (_, _) => await CorrectAsync();
-        _remove = ActionButton("Supprimer");
+        _remove = ActionButton("Su_pprimer");
         _remove.Click += async (_, _) => await RemoveAsync();
-        _show = ActionButton("Afficher");
+        _show = ActionButton("A_fficher");
         _show.Click += async (_, _) => await ShowSensitiveAsync();
-        var export = ActionButton("Exporter…");
+        var export = ActionButton("_Exporter…");
         export.Click += async (_, _) => await ExportAsync();
-        var import = ActionButton("Importer…");
+        var import = ActionButton("_Importer…");
         import.Click += async (_, _) => await ImportAsync();
         var close = ActionButton("Fermer");
         close.IsCancel = true;
@@ -89,20 +90,38 @@ internal sealed class ProfileWindow : Window
                 + "Les infos sensibles (IBAN, n° de sécu…) ne s'affichent en entier qu'avec Windows Hello.",
             TextWrapping = TextWrapping.Wrap,
         });
+        panel.Children.Add(FieldLabel("_Mes infos (Suppr pour en retirer une)", _list));
         panel.Children.Add(_list);
-        panel.Children.Add(new TextBlock { Text = "Sujet" });
+        panel.Children.Add(FieldLabel("_Sujet", _topic));
         panel.Children.Add(_topic);
-        panel.Children.Add(new TextBlock { Text = "Valeur" });
+        panel.Children.Add(FieldLabel("_Valeur (Entrée pour ajouter, ou corriger l'info choisie)", _value));
         panel.Children.Add(_value);
-        panel.Children.Add(new TextBlock { Text = "Nom (facultatif, par exemple « E-mail de l'IUT »)" });
+        panel.Children.Add(FieldLabel("_Nom (facultatif, par exemple « E-mail de l'IUT »)", _label));
         panel.Children.Add(_label);
         panel.Children.Add(Row(add, _correct, _remove, _show));
         panel.Children.Add(_status);
         panel.Children.Add(Row(export, import, close));
         Content = panel;
 
+        // With the keyboard: Entrée in the value or the name adds it, or corrects the info chosen; Suppr in the list
+        // removes the info chosen
+        _value.KeyDown += async (_, e) => await OnEnterAsync(e);
+        _label.KeyDown += async (_, e) => await OnEnterAsync(e);
+        _list.KeyDown += async (_, e) =>
+        {
+            if (e.Key == Key.Delete && Selected is not null)
+            {
+                e.Handled = true;
+                await RemoveAsync();
+            }
+        };
+
         ShowSelected();
-        Loaded += async (_, _) => await RefreshAsync();
+        Loaded += async (_, _) =>
+        {
+            await RefreshAsync();
+            _ = _values.Count > 0 ? _list.Focus() : _value.Focus();
+        };
     }
 
     /// <summary>
@@ -147,7 +166,16 @@ internal sealed class ProfileWindow : Window
 
     private static Button ActionButton(string text)
     {
-        return new Button { Content = text, MinWidth = 100, Margin = new Thickness(0, 0, 8, 0) };
+        // The underscore marks the letter that clicks the button with Alt, such as Alt+A for "Ajouter"
+        var button = new Button { Content = text, MinWidth = 100, Margin = new Thickness(0, 0, 8, 0) };
+        AutomationProperties.SetName(button, text.Replace("_", string.Empty, StringComparison.Ordinal));
+        return button;
+    }
+
+    private static Label FieldLabel(string text, Control target)
+    {
+        // Alt and the underscored letter put the keyboard in the field
+        return new Label { Content = text, Target = target, Padding = new Thickness(0, 2, 0, 2) };
     }
 
     private static StackPanel Row(params Button[] buttons)
@@ -196,6 +224,24 @@ internal sealed class ProfileWindow : Window
         // A sensitive value is never put back on screen: the user retypes it to correct it
         _value.Text = selected.IsSensitive ? string.Empty : selected.Value;
         _status.Text = selected.IsSensitive ? "Valeur sensible masquée : « Afficher » la montre avec Windows Hello, ou retape-la en entier pour la corriger." : string.Empty;
+    }
+
+    private async Task OnEnterAsync(KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        if (Selected is null)
+        {
+            await AddAsync();
+        }
+        else
+        {
+            await CorrectAsync();
+        }
     }
 
     private async Task AddAsync()

@@ -18,6 +18,7 @@ internal sealed class PopupLearningPrompts : IProfileLearningPrompts
 
     private readonly PopupNotifier _notifier;
     private readonly Dispatcher _dispatcher;
+    private Func<Task>? _lastUndo;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PopupLearningPrompts"/> class.
@@ -33,12 +34,19 @@ internal sealed class PopupLearningPrompts : IProfileLearningPrompts
         _dispatcher = dispatcher;
     }
 
+    /// <summary>
+    /// Gets a value indicating whether the last value added to the profile can still be taken back.
+    /// </summary>
+    public bool CanUndoLast => Volatile.Read(ref _lastUndo) is not null;
+
     /// <inheritdoc/>
     public void ShowAdded(ProfileValue value, Func<Task> undo)
     {
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(undo);
 
+        // The menu of PasteFlow can take it back too, without the mouse
+        Volatile.Write(ref _lastUndo, undo);
         _ = _dispatcher.InvokeAsync(async () =>
         {
             await Task.Delay(DelayAfterFill);
@@ -58,6 +66,7 @@ internal sealed class PopupLearningPrompts : IProfileLearningPrompts
             cancel.Click += async (_, _) =>
             {
                 cancel.IsEnabled = false;
+                _ = Interlocked.CompareExchange(ref _lastUndo, null, undo);
                 await undo();
                 text.Text = "Retiré de ta fiche.";
             };
@@ -65,13 +74,29 @@ internal sealed class PopupLearningPrompts : IProfileLearningPrompts
         });
     }
 
+    /// <summary>
+    /// Takes back the last value added to the profile, once.
+    /// </summary>
+    /// <returns><see langword="true"/> if a value was taken back; otherwise <see langword="false"/>.</returns>
+    public async Task<bool> UndoLastAsync()
+    {
+        if (Interlocked.Exchange(ref _lastUndo, null) is not { } undo)
+        {
+            return false;
+        }
+
+        await undo();
+        return true;
+    }
+
     /// <inheritdoc/>
     public Task<bool> AskToAddSensitiveAsync(ProfileValue value, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(value);
 
+        // Shown in front and with the keyboard: the question comes a few seconds after a fill, from the background
         return _dispatcher.InvokeAsync(
-            () => MessageBox.Show(SensitiveQuestion(value), "PasteFlow", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No) == MessageBoxResult.Yes,
+            () => MessageBox.Show(SensitiveQuestion(value), "PasteFlow", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No, MessageBoxOptions.DefaultDesktopOnly) == MessageBoxResult.Yes,
             DispatcherPriority.Normal,
             cancellationToken).Task;
     }
