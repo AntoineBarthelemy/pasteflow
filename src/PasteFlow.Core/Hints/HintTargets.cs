@@ -58,7 +58,9 @@ public static class HintTargets
                 continue;
             }
 
-            foreach (var piece in TextSegmenter.Segment(text, data))
+            var pieces = TextSegmenter.Segment(text, data);
+            var values = pieces.Where(piece => piece.Kind != CandidateKind.Text).Select(piece => piece.Value.Trim()).ToList();
+            foreach (var piece in pieces)
             {
                 var value = piece.Value.Trim();
                 if (piece.Kind != CandidateKind.Text)
@@ -68,8 +70,9 @@ public static class HintTargets
                         recognized.Add((value, piece.Kind, place));
                     }
                 }
-                else if (IsPlainValue(value) && seen.Add(value))
+                else if (IsPlainValue(value) && !values.Exists(known => value.Contains(known, StringComparison.Ordinal)) && seen.Add(value))
                 {
+                    // A whole line such as "Tél. : 06 12 34 56 78" adds nothing to the value it holds
                     plain.Add((value, piece.Kind, place));
                 }
             }
