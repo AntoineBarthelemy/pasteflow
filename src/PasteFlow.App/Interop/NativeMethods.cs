@@ -253,4 +253,23 @@ internal static partial class NativeMethods
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool GetCursorPos(out NativePoint lpPoint);
+
+    /// <summary>
+    /// Gets the window seen at a point of the screen.
+    /// </summary>
+    /// <param name="point">The point, in screen pixels.</param>
+    /// <returns>The window, often a child of a top-level window, or <see cref="IntPtr.Zero"/>.</returns>
+    [LibraryImport("user32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    internal static partial IntPtr WindowFromPoint(NativePoint point);
+
+    /// <summary>
+    /// Gets an ancestor of a window, such as its top-level window.
+    /// </summary>
+    /// <param name="hwnd">The window.</param>
+    /// <param name="gaFlags">Which ancestor: 2 (GA_ROOT) for the top-level window.</param>
+    /// <returns>The ancestor, or <see cref="IntPtr.Zero"/>.</returns>
+    [LibraryImport("user32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    internal static partial IntPtr GetAncestor(IntPtr hwnd, uint gaFlags);
 }

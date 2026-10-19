@@ -50,6 +50,7 @@ internal sealed class MenuWindow : Window
         Content = panel;
         KeyboardNavigation.SetDirectionalNavigation(panel, KeyboardNavigationMode.Cycle);
         PreviewKeyDown += OnPreviewKeyDown;
+
         // Clicking elsewhere closes the menu, once the activation is over; a window already closing is left alone
         Closing += (_, _) => _isClosing = true;
         Deactivated += (_, _) => _ = Dispatcher.BeginInvoke(new Action(CloseOnce));

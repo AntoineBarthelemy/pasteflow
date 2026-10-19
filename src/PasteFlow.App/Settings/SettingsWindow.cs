@@ -78,6 +78,7 @@ internal sealed class SettingsWindow : Window
         {
             Text = "Ctrl+Alt+V remplit le formulaire, Ctrl+Alt+Z annule le dernier remplissage, "
                 + "Ctrl+Maj+1, 2 ou 3 choisit une proposition dans un champ encadré en orange, "
+                + "Ctrl+Alt+F met des lettres sur les valeurs de l'écran pour en coller une au clavier, "
                 + "Ctrl+Alt+P ouvre le menu de PasteFlow.",
             TextWrapping = TextWrapping.Wrap,
         });

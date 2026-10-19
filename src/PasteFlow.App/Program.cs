@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using PasteFlow.App.Forms;
 using PasteFlow.App.Highlights;
+using PasteFlow.App.Hints;
 using PasteFlow.App.History;
 using PasteFlow.App.Hotkeys;
 using PasteFlow.App.Logins;
@@ -88,6 +89,7 @@ internal static class Program
         using var hotkeyListener = new Win32HotkeyListener();
         using var undoHotkeyListener = new Win32HotkeyListener();
         using var menuHotkeyListener = new Win32HotkeyListener();
+        using var labelsHotkeyListener = new Win32HotkeyListener();
         var windowReader = new UiAutomationWindowTextReader(OcrTextRecognizer.TryCreate());
         var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(windowReader), new ProfileCandidateSource(profile), history };
         using var activation = new ShortcutActivationService(
@@ -241,6 +243,10 @@ internal static class Program
         var menuHotkey = Hotkey.DefaultMenu;
         var isMenuReady = menuHotkeyListener.TryRegister(menuHotkey);
         menuHotkeyListener.HotkeyPressed += (_, _) => OpenMenu();
+
+        // A value seen on screen pasted by typing the letters put on it, as Vimium does
+        using var hints = new HintService(labelsHotkeyListener, new KeyboardTextInserter(), notifier);
+        _ = hints.Start(Hotkey.DefaultLabels);
 
         // Without its own shortcut, undoing is simply not announced: filling still works
         var undoHotkey = Hotkey.DefaultUndo;
