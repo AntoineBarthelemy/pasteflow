@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using PasteFlow.App.Diagnostics;
 using PasteFlow.App.Forms;
 using PasteFlow.App.Highlights;
 using PasteFlow.App.Hints;
@@ -47,6 +48,26 @@ internal static class Program
 
         var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         var notifier = new PopupNotifier();
+
+        // An unexpected error is kept in a file and told, instead of closing PasteFlow without a word
+        application.DispatcherUnhandledException += (_, e) =>
+        {
+            ErrorLog.Write("Erreur inattendue", e.Exception);
+            notifier.Notify($"Erreur inattendue, PasteFlow continue. Détail dans {ErrorLog.DefaultPath}");
+            e.Handled = true;
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception exception)
+            {
+                ErrorLog.Write("Erreur fatale", exception);
+            }
+        };
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            ErrorLog.Write("Tâche en arrière-plan", e.Exception);
+            e.SetObserved();
+        };
         var settingsStore = new JsonSettingsStore(JsonSettingsStore.DefaultPath);
         var startup = new StartupRegistration(StartupEntryName);
         var settings = settingsStore.Load() with { StartWithWindows = startup.IsEnabled };

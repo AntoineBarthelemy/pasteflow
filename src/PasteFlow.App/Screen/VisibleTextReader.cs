@@ -73,9 +73,16 @@ internal static class VisibleTextReader
                     break;
                 }
 
-                if (TryRead(element, handle) is { } text)
+                try
                 {
-                    texts.Add(text);
+                    if (TryRead(element, handle) is { } text)
+                    {
+                        texts.Add(text);
+                    }
+                }
+                catch (Exception exception) when (exception is ElementNotAvailableException or InvalidOperationException or ArgumentException or COMException)
+                {
+                    // One element that answers badly does not stop the others
                 }
             }
         }
@@ -89,15 +96,17 @@ internal static class VisibleTextReader
 
     private static ScreenText? TryRead(AutomationElement element, IntPtr window)
     {
-        var bounds = (Rect)element.GetCachedPropertyValue(AutomationElement.BoundingRectangleProperty);
-        if ((bool)element.GetCachedPropertyValue(AutomationElement.IsOffscreenProperty) || bounds.IsEmpty || bounds.Width < 1 || bounds.Height < 1)
+        // Some applications answer oddly typed values: anything unexpected leaves the element aside
+        if (element.GetCachedPropertyValue(AutomationElement.BoundingRectangleProperty) is not Rect bounds
+            || element.GetCachedPropertyValue(AutomationElement.IsOffscreenProperty) is not false
+            || bounds.IsEmpty || bounds.Width < 1 || bounds.Height < 1)
         {
             return null;
         }
 
         // A field shows its value, its name is its label; a password is never read
-        var isField = (ControlType)element.GetCachedPropertyValue(AutomationElement.ControlTypeProperty) == ControlType.Edit;
-        if (isField && (bool)element.GetCachedPropertyValue(AutomationElement.IsPasswordProperty))
+        var isField = element.GetCachedPropertyValue(AutomationElement.ControlTypeProperty) is ControlType type && type == ControlType.Edit;
+        if (isField && element.GetCachedPropertyValue(AutomationElement.IsPasswordProperty) is not false)
         {
             return null;
         }
