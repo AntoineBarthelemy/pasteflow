@@ -25,7 +25,7 @@ internal sealed class HintOverlayWindow : Window
     private static readonly Brush ShadeBrush = Freeze(new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0x00, 0x00)));
 
     private readonly IReadOnlyList<HintTarget> _targets;
-    private readonly IReadOnlyList<string> _codes;
+    private readonly List<string> _codes;
     private readonly Rect _screen;
     private readonly Canvas _canvas = new();
     private readonly List<(Border Label, TextBlock Text)> _labels = new();
@@ -138,7 +138,7 @@ internal sealed class HintOverlayWindow : Window
         }
     }
 
-    private static Brush Freeze(SolidColorBrush brush)
+    private static SolidColorBrush Freeze(SolidColorBrush brush)
     {
         brush.Freeze();
         return brush;
