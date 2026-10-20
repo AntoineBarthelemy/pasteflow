@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using PasteFlow.App.Browser;
 using PasteFlow.App.Diagnostics;
 using PasteFlow.App.Forms;
 using PasteFlow.App.Highlights;
@@ -37,8 +38,14 @@ internal static class Program
     private const string StartupEntryName = "PasteFlow";
 
     [STAThread]
-    private static int Main()
+    private static int Main(string[] args)
     {
+        // Started by a browser for the extension: PasteFlow only relays its messages, without window nor icon
+        if (NativeHost.IsStartedByBrowser(args))
+        {
+            return NativeHost.Run(BrowserBridge.PipeName);
+        }
+
         // Only one instance may own the global shortcut
         using var singleInstance = new Mutex(initiallyOwned: false, SingleInstanceMutexName, out var isFirstInstance);
         if (!isFirstInstance)
@@ -112,7 +119,16 @@ internal static class Program
         using var menuHotkeyListener = new Win32HotkeyListener();
         using var labelsHotkeyListener = new Win32HotkeyListener();
         var windowReader = new UiAutomationWindowTextReader(OcrTextRecognizer.TryCreate());
-        var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(windowReader), new ProfileCandidateSource(profile), history };
+
+        // The extension of Chrome and Edge adds the recent tabs hidden behind another tab
+        using var browserBridge = new BrowserBridge(BrowserBridge.PipeName);
+        if (Environment.ProcessPath is { } processPath && !processPath.EndsWith("dotnet.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            _ = BrowserHostRegistration.TryRegister(processPath);
+        }
+
+        var screenReader = new WindowsAndTabsReader(windowReader, browserBridge);
+        var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(screenReader), new ProfileCandidateSource(profile), history };
         using var activation = new ShortcutActivationService(
             hotkeyListener,
             formAccess,

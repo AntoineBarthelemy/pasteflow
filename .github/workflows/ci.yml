@@ -39,6 +39,12 @@ jobs:
       - name: Build with analyzers
         run: dotnet build --configuration Release --no-restore
 
+      - name: Check the browser extension
+        shell: pwsh
+        run: |
+          node --check extension/background.js
+          Get-Content extension/manifest.json -Raw | ConvertFrom-Json | Out-Null
+
       - name: Run tests
         run: dotnet test --configuration Release --no-build --logger trx --results-directory TestResults --collect "XPlat Code Coverage"
 
