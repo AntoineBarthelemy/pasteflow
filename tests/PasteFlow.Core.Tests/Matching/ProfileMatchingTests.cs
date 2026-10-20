@@ -216,6 +216,40 @@ public sealed class ProfileMatchingTests
         AssertFills(match, RecruiterEmail);
     }
 
+    [Fact]
+    public void NamedInfoOfTheProfile_FillsAFieldOfTheSameName()
+    {
+        var match = MatchOne(TestFields.Text("langues", "Langues"), PageContext.Empty, Profile("Anglais B2, français langue maternelle", CandidateKind.Text, "Langues"));
+
+        AssertFills(match, "Anglais B2, français langue maternelle");
+    }
+
+    [Fact]
+    public void NamedInfoOfTheProfile_FillsAFieldNamedInTheSingular()
+    {
+        var match = MatchOne(TestFields.Text("langue", "Langue"), PageContext.Empty, Profile("Anglais B2, français langue maternelle", CandidateKind.Text, "Langues"));
+
+        AssertFills(match, "Anglais B2, français langue maternelle");
+    }
+
+    [Fact]
+    public void NamedInfoOfTheProfile_NeverFillsAFieldThatAsksForANumber()
+    {
+        var match = MatchOne(TestFields.Text("permis", "Numéro de permis"), PageContext.Empty, Profile("B, véhiculé", CandidateKind.Text, "Permis"));
+
+        Assert.False(match.IsConfident);
+        Assert.DoesNotContain(match.Suggestions, candidate => candidate.Value == "B, véhiculé");
+    }
+
+    [Fact]
+    public void NamedInfoOfTheProfile_NeverGoesIntoSomeoneElsesField()
+    {
+        var match = MatchOne(TestFields.Text("langues", "Langues du candidat"), NewCustomerPage, Profile("Anglais B2", CandidateKind.Text, "Langues"));
+
+        Assert.False(match.IsConfident);
+        Assert.DoesNotContain(match.Suggestions, candidate => candidate.IsFromProfile);
+    }
+
     private static FieldMatch MatchOne(FormField field, PageContext page, params Candidate[] candidates)
     {
         return FormMatcher.MatchAll(new[] { field }, candidates, ReferenceData.Empty, MatchingOptions.Balanced, new[] { field }, page)[0];

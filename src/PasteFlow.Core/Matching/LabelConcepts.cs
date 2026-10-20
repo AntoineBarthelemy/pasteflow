@@ -146,6 +146,11 @@ public static class LabelConcepts
         "a", "to", "pour", "cc", "cci", "bcc", "destinataire", "destinataires", "recipient", "recipients",
     };
 
+    private static readonly HashSet<string> NumberWords = new(StringComparer.Ordinal)
+    {
+        "n", "no", "num", "numero", "number", "nr", "nombre",
+    };
+
     private static readonly HashSet<string> StopWords = new(StringComparer.Ordinal)
     {
         "de", "du", "des", "la", "le", "les", "l", "d", "un", "une", "a", "au", "aux", "en", "et", "ou", "par", "pour",
@@ -379,8 +384,32 @@ public static class LabelConcepts
             return 0;
         }
 
-        var common = first.Count(second.Contains);
+        // "Langue" and "Langues" talk about the same thing: plain words are compared without their plural mark
+        var secondFolded = second.Select(FoldPlural).ToHashSet(StringComparer.Ordinal);
+        var common = first.Count(concept => second.Contains(concept) || secondFolded.Contains(FoldPlural(concept)));
         return 2.0 * common / (first.Count + second.Count);
+    }
+
+    /// <summary>
+    /// Tells whether a label asks for a number, such as "Numéro de permis" or "N° de dossier".
+    /// </summary>
+    /// <param name="label">The label of the field.</param>
+    /// <returns><see langword="true"/> if the label asks for a number; otherwise <see langword="false"/>.</returns>
+    public static bool AsksForNumber(string label)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+
+        return Words(label).Exists(NumberWords.Contains);
+    }
+
+    /// <summary>
+    /// Removes the plural mark of a plain word of more than three letters, such as "langues" or "travaux".
+    /// </summary>
+    /// <param name="concept">A concept or a plain word.</param>
+    /// <returns>The word without its final "s" or "x".</returns>
+    private static string FoldPlural(string concept)
+    {
+        return concept.Length > 3 && (concept.EndsWith('s') || concept.EndsWith('x')) ? concept[..^1] : concept;
     }
 
     private static bool IsConfirmation(List<string> words)

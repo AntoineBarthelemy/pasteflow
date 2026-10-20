@@ -250,6 +250,13 @@ public static class FieldMatcher
             return false;
         }
 
+        // An info of the profile named by the user, such as "Permis : B, véhiculé", never fills a field that asks
+        // for a number, such as "Numéro de permis"
+        if (candidate is { IsFromProfile: true, Kind: CandidateKind.Text } && clues.AsksForNumber && !candidate.Value.Any(char.IsDigit))
+        {
+            return false;
+        }
+
         // Safety net: a postal code field only takes a real French postal code
         return candidate.Kind != CandidateKind.Number
             || !clues.Mentions(LabelConcepts.PostalCode)

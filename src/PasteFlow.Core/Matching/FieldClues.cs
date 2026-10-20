@@ -19,11 +19,12 @@ public sealed partial class FieldClues
 
     private readonly IReadOnlySet<string>[] _conceptSets;
 
-    private FieldClues(IReadOnlySet<string>[] conceptSets, IReadOnlySet<CandidateKind> expectedKinds, bool isConfirmation)
+    private FieldClues(IReadOnlySet<string>[] conceptSets, IReadOnlySet<CandidateKind> expectedKinds, bool isConfirmation, bool asksForNumber)
     {
         _conceptSets = conceptSets;
         ExpectedKinds = expectedKinds;
         IsConfirmation = isConfirmation;
+        AsksForNumber = asksForNumber;
     }
 
     /// <summary>
@@ -36,6 +37,11 @@ public sealed partial class FieldClues
     /// such as "Confirmez votre email".
     /// </summary>
     public bool IsConfirmation { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the field asks for a number, such as "Numéro de permis" or "N° de dossier".
+    /// </summary>
+    public bool AsksForNumber { get; }
 
     /// <summary>
     /// Gathers the clues of a field.
@@ -87,7 +93,9 @@ public sealed partial class FieldClues
 
         var isConfirmation = LabelConcepts.IsConfirmation(field.Label) || LabelConcepts.IsConfirmation(technicalName);
 
-        return new FieldClues(conceptSets, expectedKinds, isConfirmation);
+        var asksForNumber = LabelConcepts.AsksForNumber(field.Label) || LabelConcepts.AsksForNumber(technicalName);
+
+        return new FieldClues(conceptSets, expectedKinds, isConfirmation, asksForNumber);
     }
 
     /// <summary>
