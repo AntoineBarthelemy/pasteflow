@@ -21,6 +21,12 @@
     <ProjectReference Include="..\PasteFlow.Core\PasteFlow.Core.csproj" />
   </ItemGroup>
 
+  <!-- The styles of the controls, read at run time so that windows built in code (and in the tests) can use them -->
+  <ItemGroup>
+    <Page Remove="Design\Controls.xaml" />
+    <EmbeddedResource Include="Design\Controls.xaml" LogicalName="PasteFlow.App.Design.Controls.xaml" />
+  </ItemGroup>
+
   <!-- Installation per user, without administrator rights, and automatic updates -->
   <ItemGroup>
     <PackageReference Include="Velopack" />

@@ -1,0 +1,195 @@
+using System.IO;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
+using PasteFlow.App.Design;
+using PasteFlow.App.Highlights;
+using PasteFlow.App.Hints;
+using PasteFlow.App.Logins;
+using PasteFlow.App.Notifications;
+using PasteFlow.App.Picking;
+using PasteFlow.App.Profile;
+using PasteFlow.App.Settings;
+using PasteFlow.App.Tests.Fakes;
+using PasteFlow.App.Tests.TestWindows;
+using PasteFlow.App.Tray;
+using PasteFlow.Core.Candidates;
+using PasteFlow.Core.Forms;
+using PasteFlow.Core.Hints;
+using PasteFlow.Core.Logins;
+using PasteFlow.Core.Picking;
+using PasteFlow.Core.Profile;
+using PasteFlow.Core.Screen;
+using PasteFlow.Core.Security;
+using PasteFlow.Core.Settings;
+
+namespace PasteFlow.App.Tests.Design;
+
+/// <summary>
+/// Pictures of every window and popup of PasteFlow, in the light and dark themes, to look at the design without a
+/// screen: only run on demand by the "Snapshots" workflow, which sets PASTEFLOW_SNAPSHOTS to the folder of the pictures.
+/// </summary>
+public sealed class DesignSnapshots
+{
+    private static readonly string? Folder = Environment.GetEnvironmentVariable("PASTEFLOW_SNAPSHOTS");
+    private static readonly string Themes = Environment.GetEnvironmentVariable("PASTEFLOW_SNAPSHOT_THEMES") ?? "clair,sombre";
+
+    [SkippableFact]
+    public void Render_EveryWindowAndPopup()
+    {
+        Skip.If(string.IsNullOrEmpty(Folder), "Les captures ne sont faites qu'à la demande.");
+        _ = Directory.CreateDirectory(Folder!);
+
+        try
+        {
+            foreach (var theme in Themes.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                Theme.ForcedDark = theme == "sombre";
+                RenderAll(theme);
+            }
+        }
+        finally
+        {
+            Theme.ForcedDark = null;
+        }
+    }
+
+    private static void RenderAll(string theme)
+    {
+        Snap(theme, "parametres", () => new SettingsWindow(new AppSettings { LearnFromFills = true, ReadImages = true }, _ => { }));
+        Snap(theme, "fiche", () => new ProfileWindow(Book(), new SensitiveGate(new FakePresenceCheck()), _ => new FakeProfileTransferPrompts()));
+        Snap(theme, "bitwarden", () => new BitwardenUnlockWindow(_ => Task.FromResult(false)));
+        Snap(theme, "comptes", () => new LoginPickerWindow(new[]
+        {
+            new VaultLogin { Id = "1", Name = "GitHub", UserName = "antoine.b@orange.fr" },
+            new VaultLogin { Id = "2", Name = "GitHub (école)", UserName = "antoine.barthelemy@etudiant.univ-reims.fr" },
+        }));
+        Snap(theme, "mot-de-passe", () => new PasswordPromptWindow(isNew: true));
+        Snap(theme, "menu", () => new MenuWindow(new MenuEntry[]
+        {
+            new('F', "Ma fiche…", () => { }),
+            new('A', "Annuler le dernier ajout à ma fiche", () => { }, IsEnabled: false),
+            new('B', "Verrouiller Bitwarden", () => { }),
+            new('P', "Paramètres…", () => { }),
+            new('H', "Effacer l'historique…", () => { }),
+            new('Q', "Quitter PasteFlow", () => { }),
+        }));
+        Snap(theme, "notification", () => new NotificationPopup("Bitwarden déverrouillé. Sur une page de connexion, clique dans l'identifiant puis Ctrl+Alt+V."));
+        Snap(theme, "recapitulatif", () => new NotificationPopup(RecapView.Create(FillRecap.From(Report())), TimeSpan.FromSeconds(30)));
+        Snap(theme, "bulle", () =>
+        {
+            var bubble = new SuggestionBubble();
+            bubble.SetSuggestions(
+                new[] { new SuggestedValue { Value = "lea.martin@atelier-nova.fr", SourceName = "Claude" }, new SuggestedValue { Value = "hugo@atelier-nova.fr", SourceName = "Claude" } },
+                new[] { "Ctrl+Maj+1", "Ctrl+Maj+2" },
+                "Deux valeurs aussi probables : « lea.martin@atelier-nova.fr » et « hugo@atelier-nova.fr ».");
+            return bubble;
+        });
+        Snap(theme, "liste", () =>
+        {
+            var suggestions = new[]
+            {
+                new Candidate { Value = "lea.martin@atelier-nova.fr", Kind = CandidateKind.Email, SourceName = "Claude", SourceRank = 1 },
+                new Candidate { Value = "06 12 48 30 77", Kind = CandidateKind.Phone, SourceName = "Claude", SourceRank = 1 },
+                new Candidate { Value = "hugo@atelier-nova.fr", Kind = CandidateKind.Email, SourceName = "Claude", SourceRank = 1 },
+            };
+            var picker = new PastePickerWindow(new PickRequest
+            {
+                Suggestions = suggestions,
+                Finder = new PassageFinder(new[] { new WindowText { Title = "Claude", Rank = 1, Text = "Léa Martin" } }, suggestions),
+            });
+            picker.CancelsWhenDeactivated = false;
+            return picker;
+        });
+        Snap(theme, "lettres", () => new HintOverlayWindow(
+            new[]
+            {
+                Target("lea.martin@atelier-nova.fr", "F", 40, 40),
+                Target("06 12 48 30 77", "J", 40, 90),
+                Target("Atelier Nova", "D", 40, 140),
+            },
+            new Rect(0, 0, 420, 200)));
+    }
+
+    private static HintTarget Target(string value, string code, double left, double top)
+    {
+        return new HintTarget { Value = value, Code = code, Place = new ScreenText { Text = value, Left = left, Top = top, Width = 200, Height = 20 } };
+    }
+
+    private static ProfileBook Book()
+    {
+        return new ProfileBook(new InMemoryProfileStore(
+            new ProfileValue { Topic = ProfileTopic.FirstName, Value = "Antoine" },
+            new ProfileValue { Topic = ProfileTopic.LastName, Value = "Barthélémy" },
+            new ProfileValue { Topic = ProfileTopic.Email, Value = "antoine.b@orange.fr", Label = "Perso" },
+            new ProfileValue { Topic = ProfileTopic.City, Value = "Taissy", Origin = ProfileOrigin.Learned },
+            new ProfileValue { Topic = ProfileTopic.Iban, Value = "FR76 3000 6000 0112 3456 7890 189" },
+            new ProfileValue { Topic = ProfileTopic.Other, Value = "Anglais B2, français langue maternelle", Label = "Langues" }));
+    }
+
+    private static FillReport Report()
+    {
+        return new FillReport
+        {
+            FilledCount = 3,
+            UncertainCount = 1,
+            AlreadyFilledCount = 0,
+            FailedCount = 0,
+            Sources = new[] { new SourceSummary { Name = "Mail de Marie Lefèvre", CandidateCount = 9 } },
+            Elapsed = TimeSpan.FromMilliseconds(184),
+            UndoHotkey = PasteFlow.Core.Hotkeys.Hotkey.DefaultUndo,
+            FilledValues = new[]
+            {
+                new FilledValue { FieldLabel = "Prénom", Value = "Marie", SourceName = "Mail de Marie Lefèvre" },
+                new FilledValue { FieldLabel = "E-mail", Value = "marie.lefevre@boulangerie-martin.fr", SourceName = "Mail de Marie Lefèvre" },
+                new FilledValue { FieldLabel = "Téléphone", Value = "0326472185", SourceName = "Mail de Marie Lefèvre" },
+            },
+            FieldsToCheck = new[]
+            {
+                new FieldToCheck
+                {
+                    Field = new FormField { Id = "cp", Label = "Code postal", Kind = FieldKind.Text, HasValue = false },
+                    Suggestions = new[] { new SuggestedValue { Value = "51500", SourceName = "Bon de livraison" } },
+                    Reason = "51500 ne correspond pas à Reims selon La Poste.",
+                },
+            },
+        };
+    }
+
+    private static void Snap(string theme, string name, Func<Window> create)
+    {
+        using var host = new WindowHost<Window>(create);
+        Thread.Sleep(600);
+        host.Invoke(window =>
+        {
+            window.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            window.UpdateLayout();
+            Save(window, Path.Combine(Folder!, $"{theme}-{name}.png"));
+            return true;
+        });
+    }
+
+    private static void Save(Window window, string path)
+    {
+        var root = window.Content as FrameworkElement ?? window;
+        var width = (int)Math.Ceiling(root.ActualWidth + root.Margin.Left + root.Margin.Right);
+        var height = (int)Math.Ceiling(root.ActualHeight + root.Margin.Top + root.Margin.Bottom);
+        var picture = new RenderTargetBitmap(Math.Max(width, 1), Math.Max(height, 1), 96, 96, PixelFormats.Pbgra32);
+        var visual = new DrawingVisual();
+        using (var context = visual.RenderOpen())
+        {
+            // Behind transparent popups, the background of the theme, so that their shadow can be seen
+            var background = window.Background is SolidColorBrush { Color.A: 255 } solid ? solid : Theme.Brush(palette => palette.Background);
+            context.DrawRectangle(background, null, new Rect(0, 0, width, height));
+            context.DrawRectangle(new VisualBrush(root) { Stretch = Stretch.None, AlignmentX = AlignmentX.Left, AlignmentY = AlignmentY.Top },
+                null, new Rect(root.Margin.Left, root.Margin.Top, root.ActualWidth, root.ActualHeight));
+        }
+
+        picture.Render(visual);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(picture));
+        using var file = File.Create(path);
+        encoder.Save(file);
+    }
+}

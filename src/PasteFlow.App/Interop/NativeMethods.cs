@@ -306,4 +306,16 @@ internal static partial class NativeMethods
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool AssignProcessToJobObject(IntPtr hJob, IntPtr hProcess);
+
+    /// <summary>
+    /// Sets an attribute of the frame of a window drawn by Windows, such as the color of its title bar.
+    /// </summary>
+    /// <param name="hwnd">The window.</param>
+    /// <param name="dwAttribute">The attribute, such as 35 (DWMWA_CAPTION_COLOR).</param>
+    /// <param name="pvAttribute">The value.</param>
+    /// <param name="cbAttribute">The size of the value, in bytes.</param>
+    /// <returns>0 on success; an error code otherwise, such as on Windows 10 for the colors.</returns>
+    [LibraryImport("dwmapi.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    internal static partial int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
 }

@@ -1,0 +1,52 @@
+name: Snapshots
+
+# Pictures of every window and popup, in a light and a dark theme, printed as annotations of the run.
+# Run by hand only.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  snapshots:
+    name: Snapshots ${{ matrix.theme }}
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        theme: [clair, sombre]
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      HUSKY: 0
+      PASTEFLOW_SNAPSHOTS: ${{ github.workspace }}\snapshots
+      PASTEFLOW_SNAPSHOT_THEMES: ${{ matrix.theme }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Render the windows
+        run: dotnet test tests/PasteFlow.App.Tests --configuration Release --filter "FullyQualifiedName~DesignSnapshots"
+
+      - name: Pieces 1
+        shell: pwsh
+        run: ./tools/snapshots/emit.ps1 -Folder $env:PASTEFLOW_SNAPSHOTS -Step 0
+      - name: Pieces 2
+        shell: pwsh
+        run: ./tools/snapshots/emit.ps1 -Folder $env:PASTEFLOW_SNAPSHOTS -Step 1
+      - name: Pieces 3
+        shell: pwsh
+        run: ./tools/snapshots/emit.ps1 -Folder $env:PASTEFLOW_SNAPSHOTS -Step 2
+      - name: Pieces 4
+        shell: pwsh
+        run: ./tools/snapshots/emit.ps1 -Folder $env:PASTEFLOW_SNAPSHOTS -Step 3
+      - name: Pieces 5
+        shell: pwsh
+        run: ./tools/snapshots/emit.ps1 -Folder $env:PASTEFLOW_SNAPSHOTS -Step 4
