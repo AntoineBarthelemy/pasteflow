@@ -21,6 +21,8 @@ internal static class BrowserHostRegistration
     /// </summary>
     public const string ExtensionId = "kdmkgjlkgadkmjjcjfcpgpdiiadnflkn";
 
+    private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
+
     private static readonly string[] BrowserKeys =
     {
         @"Software\Google\Chrome\NativeMessagingHosts",
@@ -79,6 +81,6 @@ internal static class BrowserHostRegistration
                 ["type"] = "stdio",
                 ["allowed_origins"] = new[] { $"chrome-extension://{ExtensionId}/" },
             },
-            new JsonSerializerOptions { WriteIndented = true });
+            Indented);
     }
 }
