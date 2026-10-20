@@ -56,6 +56,61 @@ public static class BitwardenJson
     }
 
     /// <summary>
+    /// Reads the password in an answer of the local service of Bitwarden (bw serve), such as
+    /// {"success":true,"data":{"object":"string","data":"…"}}.
+    /// </summary>
+    /// <param name="json">The answer.</param>
+    /// <returns>The password, or <see langword="null"/> if the answer is a failure or unreadable.</returns>
+    public static string? ServedPassword(string json)
+    {
+        ArgumentNullException.ThrowIfNull(json);
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            var isSuccess = root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("success", out var success) && success.ValueKind == JsonValueKind.True;
+            return isSuccess
+                && root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object
+                && data.TryGetProperty("data", out var password) && password.ValueKind == JsonValueKind.String
+                && password.GetString() is { Length: > 0 } text
+                ? text
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Reads the state of the vault in an answer of the local service of Bitwarden (bw serve) to /status.
+    /// </summary>
+    /// <param name="json">The answer.</param>
+    /// <returns>"unlocked", "locked"…, or an empty string if the answer is unreadable.</returns>
+    public static string ServedStatus(string json)
+    {
+        ArgumentNullException.ThrowIfNull(json);
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            return root.ValueKind == JsonValueKind.Object
+                && root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object
+                && data.TryGetProperty("template", out var template) && template.ValueKind == JsonValueKind.Object
+                && template.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.String
+                ? status.GetString() ?? string.Empty
+                : string.Empty;
+        }
+        catch (JsonException)
+        {
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
     /// Reads the accounts from the answer of "bw list items".
     /// </summary>
     /// <param name="json">The answer.</param>

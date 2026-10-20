@@ -72,4 +72,26 @@ public sealed class BitwardenJsonTests
         Assert.Empty(BitwardenJson.Logins(json));
         Assert.Empty(BitwardenJson.Identity(json));
     }
+
+    [Fact]
+    public void ServedPassword_ReadsThePasswordOfASuccessfulAnswer()
+    {
+        Assert.Equal("s3cr3t!", BitwardenJson.ServedPassword("""{"success":true,"data":{"object":"string","data":"s3cr3t!"}}"""));
+    }
+
+    [Theory]
+    [InlineData("""{"success":false,"message":"Not found."}""")]
+    [InlineData("""{"success":true,"data":{"object":"string","data":""}}""")]
+    [InlineData("pas du json")]
+    public void ServedPassword_GivesNothingForAFailure(string json)
+    {
+        Assert.Null(BitwardenJson.ServedPassword(json));
+    }
+
+    [Fact]
+    public void ServedStatus_ReadsTheStateOfTheVault()
+    {
+        Assert.Equal("unlocked", BitwardenJson.ServedStatus("""{"success":true,"data":{"object":"template","template":{"status":"unlocked"}}}"""));
+        Assert.Empty(BitwardenJson.ServedStatus("{}"));
+    }
 }

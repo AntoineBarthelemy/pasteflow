@@ -272,4 +272,38 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll")]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     internal static partial IntPtr GetAncestor(IntPtr hwnd, uint gaFlags);
+
+    /// <summary>
+    /// Creates a group of processes (job object).
+    /// </summary>
+    /// <param name="lpJobAttributes">Security attributes, or <see cref="IntPtr.Zero"/>.</param>
+    /// <param name="lpName">The name of the group, or <see cref="IntPtr.Zero"/> for none.</param>
+    /// <returns>The group, or <see cref="IntPtr.Zero"/> on failure.</returns>
+    [LibraryImport("kernel32.dll", EntryPoint = "CreateJobObjectW", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    internal static partial IntPtr CreateJobObject(IntPtr lpJobAttributes, IntPtr lpName);
+
+    /// <summary>
+    /// Sets the limits of a group of processes.
+    /// </summary>
+    /// <param name="hJob">The group.</param>
+    /// <param name="jobObjectInfoClass">9 (JobObjectExtendedLimitInformation).</param>
+    /// <param name="lpJobObjectInfo">The limits.</param>
+    /// <param name="cbJobObjectInfoLength">The size of the limits, in bytes.</param>
+    /// <returns><see langword="true"/> on success; otherwise <see langword="false"/>.</returns>
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool SetInformationJobObject(IntPtr hJob, int jobObjectInfoClass, ref JobLimits lpJobObjectInfo, uint cbJobObjectInfoLength);
+
+    /// <summary>
+    /// Puts a process in a group of processes; the processes it starts afterwards join the group too.
+    /// </summary>
+    /// <param name="hJob">The group.</param>
+    /// <param name="hProcess">The process.</param>
+    /// <returns><see langword="true"/> on success; otherwise <see langword="false"/>.</returns>
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool AssignProcessToJobObject(IntPtr hJob, IntPtr hProcess);
 }

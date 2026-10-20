@@ -19,7 +19,8 @@ namespace PasteFlow.App.Logins;
 /// <para>Each run of bw starts a program and decrypts the vault again, about a second. So the list of accounts, without
 /// their passwords, is read once when the vault is unlocked and kept in memory, refreshed in the background every few
 /// minutes: finding the account of a site then takes no time. Only the password is asked for at the moment it is
-/// written.</para>
+/// written, to the local service of Bitwarden (see <see cref="BitwardenServe"/>) in a few tens of milliseconds, or to
+/// bw itself when the service is not there.</para>
 /// </remarks>
 internal sealed partial class BitwardenCli : IPasswordManager, IDisposable
 {
@@ -34,6 +35,7 @@ internal sealed partial class BitwardenCli : IPasswordManager, IDisposable
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private volatile string? _session;
     private volatile LoginsCache? _logins;
+    private volatile BitwardenServe? _serve;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BitwardenCli"/> class with the bw found on this computer.
@@ -123,14 +125,17 @@ internal sealed partial class BitwardenCli : IPasswordManager, IDisposable
             new Dictionary<string, string> { ["BW_PASSWORD"] = masterPassword },
             cancellationToken);
         session = session?.Trim();
-        _session = string.IsNullOrEmpty(session) || session.Any(char.IsWhiteSpace) ? null : session;
-        if (_session is null)
+        var unlocked = string.IsNullOrEmpty(session) || session.Any(char.IsWhiteSpace) ? null : session;
+        _session = unlocked;
+        if (unlocked is null)
         {
             return false;
         }
 
-        // The accounts are read now, in the background, so that the first sign-in does not wait for them
+        // The accounts are read now, in the background, so that the first sign-in does not wait for them; the local
+        // service starts too, so that passwords come in a few tens of milliseconds
         _ = RefreshLoginsAsync(withSync: true, CancellationToken.None);
+        _ = StartServeAsync(unlocked);
         return true;
     }
 
@@ -141,6 +146,7 @@ internal sealed partial class BitwardenCli : IPasswordManager, IDisposable
     {
         _session = null;
         _logins = null;
+        Interlocked.Exchange(ref _serve, null)?.Dispose();
     }
 
     /// <inheritdoc/>
@@ -174,6 +180,12 @@ internal sealed partial class BitwardenCli : IPasswordManager, IDisposable
         if (!IsSafeArgument(id) || id.Contains(' ', StringComparison.Ordinal))
         {
             return null;
+        }
+
+        // The local service first, much faster; bw itself when the service is not there
+        if (_serve is { IsRunning: true } serve && await serve.GetPasswordAsync(id, cancellationToken) is { } served)
+        {
+            return served;
         }
 
         var output = await RunWithSessionAsync(new[] { "get", "password", id }, cancellationToken);
@@ -264,6 +276,27 @@ internal sealed partial class BitwardenCli : IPasswordManager, IDisposable
         return cache.Logins;
     }
 
+    /// <summary>
+    /// Starts the local service of Bitwarden for the session given, unless the vault was locked in the meantime.
+    /// </summary>
+    /// <param name="session">The session key of the unlocked vault.</param>
+    /// <returns>A task completed once the service answers, or could not start.</returns>
+    private async Task StartServeAsync(string session)
+    {
+        var start = CreateStartInfo(Array.Empty<string>(), new Dictionary<string, string> { ["BW_SESSION"] = session }, withNoInteraction: false);
+        var serve = start is null ? null : await BitwardenServe.StartAsync(start, CancellationToken.None);
+        if (serve is null)
+        {
+            return;
+        }
+
+        // Locked, or unlocked again, while the service was starting: this one is not kept
+        if (!ReferenceEquals(_session, session) || Interlocked.CompareExchange(ref _serve, serve, null) is not null)
+        {
+            serve.Dispose();
+        }
+    }
+
     private Task<string?> RunWithSessionAsync(IReadOnlyList<string> arguments, CancellationToken cancellationToken)
     {
         var session = _session;
@@ -273,13 +306,13 @@ internal sealed partial class BitwardenCli : IPasswordManager, IDisposable
     }
 
     /// <summary>
-    /// Runs bw and reads its answer.
+    /// Prepares the start of bw, with the secrets in its environment.
     /// </summary>
     /// <param name="arguments">The words given to bw, already checked.</param>
     /// <param name="environment">The secrets given through the environment.</param>
-    /// <param name="cancellationToken">A token to cancel the command.</param>
-    /// <returns>The answer, or <see langword="null"/> if bw is missing, fails or takes too long.</returns>
-    private async Task<string?> RunAsync(IReadOnlyList<string> arguments, Dictionary<string, string> environment, CancellationToken cancellationToken)
+    /// <param name="withNoInteraction">Whether to add --nointeraction after the words.</param>
+    /// <returns>How to start bw, or <see langword="null"/> if bw is not installed.</returns>
+    private ProcessStartInfo? CreateStartInfo(IReadOnlyList<string> arguments, Dictionary<string, string> environment, bool withNoInteraction)
     {
         if (_executable is null)
         {
@@ -309,12 +342,33 @@ internal sealed partial class BitwardenCli : IPasswordManager, IDisposable
         }
 
         // Never a question asked in a hidden window: bw answers at once, or fails
-        start.ArgumentList.Add("--nointeraction");
+        if (withNoInteraction)
+        {
+            start.ArgumentList.Add("--nointeraction");
+        }
 
         start.Environment["BW_NOINTERACTION"] = "true";
         foreach (var (name, value) in environment)
         {
             start.Environment[name] = value;
+        }
+
+        return start;
+    }
+
+    /// <summary>
+    /// Runs bw and reads its answer.
+    /// </summary>
+    /// <param name="arguments">The words given to bw, already checked.</param>
+    /// <param name="environment">The secrets given through the environment.</param>
+    /// <param name="cancellationToken">A token to cancel the command.</param>
+    /// <returns>The answer, or <see langword="null"/> if bw is missing, fails or takes too long.</returns>
+    private async Task<string?> RunAsync(IReadOnlyList<string> arguments, Dictionary<string, string> environment, CancellationToken cancellationToken)
+    {
+        var start = CreateStartInfo(arguments, environment, withNoInteraction: true);
+        if (start is null)
+        {
+            return null;
         }
 
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
