@@ -922,6 +922,46 @@
         "Windows Hello te demande ton visage, ton empreinte ou ton PIN (sauf si tu l'as déjà fait il y a moins de 30 min).",
         "Clique sur Vérifier."
       ]
+    },
+    {
+      "id": "lien-video",
+      "group": "Liens",
+      "title": "Lien d'une vidéo derrière son titre",
+      "checks": "Le message montre le titre de la vidéo, pas son adresse. Le champ « Lien de la vidéo » reçoit l'adresse cachée derrière le titre ; le lien de la chaîne n'est pas pris, son texte ne parle pas de la vidéo.",
+      "sources": [
+        {
+          "title": "Message de Léa",
+          "text": "Salut ! Voilà ma dernière vidéo, tu peux la mettre dans le formulaire ?",
+          "links": [
+            {
+              "text": "Ma vidéo de rentrée",
+              "href": "https://www.youtube.com/watch?v=Xy12AbCdEfG"
+            },
+            {
+              "text": "Ma chaîne Success Story",
+              "href": "https://www.youtube.com/@successstory"
+            }
+          ]
+        }
+      ],
+      "form": [
+        {
+          "id": "lien",
+          "label": "Lien de la vidéo"
+        },
+        {
+          "id": "commentaire",
+          "label": "Commentaire",
+          "kind": "textarea"
+        }
+      ],
+      "expected": {
+        "lien": "https://www.youtube.com/watch?v=Xy12AbCdEfG",
+        "commentaire": ""
+      },
+      "after": [
+        "Dans une zone de texte libre, tape « vidéo » dans la liste de Ctrl+Alt+V : le titre et l'adresse sont proposés tous les deux."
+      ]
     }
   ]
 }

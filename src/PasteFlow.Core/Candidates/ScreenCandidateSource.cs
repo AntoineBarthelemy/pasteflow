@@ -14,9 +14,13 @@ public sealed class ScreenCandidateSource : ICandidateSource, IScreenTextSource
     /// The farthest a value can be below the name of its owner, as the email at the bottom of a signature.
     /// </summary>
     private const int MaxLinesFromOwner = 8;
+    private const int MaxLinksPerWindow = 100;
+    private const int MaxLinkLabelLength = 80;
+    private const int MaxAddressLength = 2000;
 
     private static readonly char[] LineBreaks = { '\r', '\n' };
     private static readonly char[] NameSeparators = { ' ', ',', ';', ':', '(', ')' };
+    private static readonly (string Scheme, CandidateKind Kind)[] ValueSchemes = { ("mailto:", CandidateKind.Email), ("tel:", CandidateKind.Phone) };
 
     private static readonly HashSet<CandidateKind> OwnerKinds = new()
     {
@@ -40,6 +44,30 @@ public sealed class ScreenCandidateSource : ICandidateSource, IScreenTextSource
     /// <inheritdoc/>
     public IReadOnlyList<WindowText> LastWindows => Volatile.Read(ref _lastWindows);
 
+    /// <summary>
+    /// Gets the whole address of a web page, with its scheme, such as "https://github.com/login" for "github.com/login"
+    /// as browsers show it.
+    /// </summary>
+    /// <param name="address">The address, with or without its scheme.</param>
+    /// <returns>The whole address, or <see langword="null"/> if it is not the address of a web page.</returns>
+    public static string? FullAddress(string address)
+    {
+        ArgumentNullException.ThrowIfNull(address);
+
+        var trimmed = address.Trim();
+        if (trimmed.Length == 0 || trimmed.Length > MaxAddressLength || trimmed.Any(char.IsWhiteSpace))
+        {
+            return null;
+        }
+
+        var whole = trimmed.Contains("://", StringComparison.Ordinal) ? trimmed : $"https://{trimmed}";
+        return Uri.TryCreate(whole, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttps || uri.Scheme == Uri.UriSchemeHttp)
+            && uri.Host.Contains('.', StringComparison.Ordinal)
+            ? whole
+            : null;
+    }
+
     /// <inheritdoc/>
     public async Task<IReadOnlyList<Candidate>> GetCandidatesAsync(CancellationToken cancellationToken)
     {
@@ -48,7 +76,7 @@ public sealed class ScreenCandidateSource : ICandidateSource, IScreenTextSource
 
         return windows
             .OrderBy(window => window.Rank)
-            .SelectMany(window => FromText(window).Concat(FromFields(window)))
+            .SelectMany(window => FromText(window).Concat(FromFields(window)).Concat(FromLinks(window)))
             .ToList();
     }
 
@@ -156,6 +184,88 @@ public sealed class ScreenCandidateSource : ICandidateSource, IScreenTextSource
         }
 
         return string.Empty;
+    }
+
+    /// <summary>
+    /// Gets, in the windows behind, the addresses the user does not see as text: the page open in a browser, under its
+    /// title, and the addresses behind the links, under their text. The e-mail or phone number behind a "mailto:" or "tel:" link is
+    /// an ordinary value.
+    /// </summary>
+    /// <param name="window">The window read.</param>
+    /// <returns>The values found behind the links.</returns>
+    private static List<Candidate> FromLinks(WindowText window)
+    {
+        var found = new List<Candidate>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // The window being filled is never a source of addresses for itself: its links are its own menus
+        if (window.Rank == 0)
+        {
+            return found;
+        }
+
+        if (FullAddress(window.Address) is { } page && seen.Add(page))
+        {
+            found.Add(LinkCandidate(page, window.Title, CandidateKind.Url, window));
+        }
+
+        foreach (var link in window.Links)
+        {
+            if (found.Count >= MaxLinksPerWindow)
+            {
+                break;
+            }
+
+            var text = link.Text.Trim();
+            if (text.Length == 0 || ValueBehind(link.Address) is not { } behind || !seen.Add(behind.Value))
+            {
+                continue;
+            }
+
+            // A link that shows its own address or e-mail is already found in the text
+            if (!string.Equals(WithoutScheme(text), WithoutScheme(behind.Value), StringComparison.OrdinalIgnoreCase))
+            {
+                found.Add(LinkCandidate(behind.Value, text, behind.Kind, window));
+            }
+        }
+
+        return found;
+    }
+
+    private static (string Value, CandidateKind Kind)? ValueBehind(string address)
+    {
+        var trimmed = address.Trim();
+        foreach (var (scheme, kind) in ValueSchemes)
+        {
+            if (trimmed.StartsWith(scheme, StringComparison.OrdinalIgnoreCase))
+            {
+                var value = Uri.UnescapeDataString(trimmed[scheme.Length..].Split('?')[0]).Trim();
+                return ValueValidator.IsValid(kind, value) ? (value, kind) : null;
+            }
+        }
+
+        return FullAddress(trimmed) is { } page ? (page, CandidateKind.Url) : null;
+    }
+
+    private static string WithoutScheme(string address)
+    {
+        var start = address.IndexOf("://", StringComparison.Ordinal);
+        var rest = start >= 0 ? address[(start + 3)..] : address;
+        rest = rest.StartsWith("www.", StringComparison.OrdinalIgnoreCase) ? rest[4..] : rest;
+        return rest.TrimEnd('/');
+    }
+
+    private static Candidate LinkCandidate(string value, string label, CandidateKind kind, WindowText window)
+    {
+        return new Candidate
+        {
+            Value = value,
+            Kind = kind,
+            Label = label.Length > MaxLinkLabelLength ? label[..MaxLinkLabelLength].TrimEnd() : label,
+            SourceName = window.Title,
+            SourceRank = window.Rank,
+            IsLinkAddress = kind == CandidateKind.Url,
+        };
     }
 
     private static IEnumerable<Candidate> FromFields(WindowText window)

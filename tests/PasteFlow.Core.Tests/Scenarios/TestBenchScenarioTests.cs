@@ -159,6 +159,9 @@ public sealed class TestBenchScenarioTests
                     .Where(field => field.Kind != "password" && !string.IsNullOrEmpty(field.Value))
                     .Select(field => new FieldText { Label = field.Label, Value = field.Value! })
                     .ToList(),
+                Links = (source.Links ?? new List<BenchLink>())
+                    .Select(link => new LinkText { Text = link.Text, Address = link.Href })
+                    .ToList(),
             });
             var reader = new FakeWindowTextReader { Windows = sources.Prepend(page).ToList() };
             var profileStore = new FakeProfileStore();

@@ -193,6 +193,11 @@
       } else {
         block.append(el("pre", { className: "text", text: source.text }));
       }
+      if (source.links) {
+        const list = el("ul", { className: "links" });
+        source.links.forEach((link) => list.append(el("li", {}, [el("a", { href: link.href, target: "_blank", rel: "noopener", text: link.text })])));
+        block.append(list);
+      }
       box.append(block);
     });
   }

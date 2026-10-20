@@ -109,4 +109,29 @@ public sealed class PickerStateTests
 
         Assert.Equal("lea.martin@atelier-nova.fr", _state.Selected?.Text);
     }
+
+    [Fact]
+    public void SetQuery_OffersTheAddressBehindALinkWhoseTextMatches()
+    {
+        var link = new Candidate
+        {
+            Value = "https://www.youtube.com/watch?v=abc123",
+            Kind = CandidateKind.Url,
+            Label = "Ma vidéo de rentrée",
+            SourceName = "YouTube",
+            SourceRank = 1,
+            IsLinkAddress = true,
+        };
+        var state = new PickerState(new PickRequest
+        {
+            Suggestions = Suggestions,
+            Finder = new PassageFinder(new[] { new WindowText { Title = "YouTube", Rank = 1, Text = "Ma vidéo de rentrée" } }, Suggestions),
+            Links = new[] { link },
+        });
+
+        state.SetQuery("video");
+
+        Assert.Equal(new[] { "vidéo", "https://www.youtube.com/watch?v=abc123" }, state.Items.Select(item => item.Text));
+        Assert.Equal("lien : Ma vidéo de rentrée", state.Items[1].Description);
+    }
 }

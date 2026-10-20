@@ -534,6 +534,7 @@ public sealed class ShortcutActivationService : IDisposable
                 ScreenContext.From(screenCandidates),
                 PassageFinder.MaxResults),
             Finder = new PassageFinder(WithProfile(windows, profileCandidates), screenCandidates.Concat(profileCandidates).ToList()),
+            Links = screenCandidates.Where(candidate => candidate.IsLinkAddress).ToList(),
         };
         var chosen = await Picker.PickAsync(request, cancellationToken);
         if (chosen is not null && !await Inserter.InsertAsync(chosen, cancellationToken))

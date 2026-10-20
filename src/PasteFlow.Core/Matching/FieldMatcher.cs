@@ -49,6 +49,7 @@ public static class FieldMatcher
     private const double UniqueKindBonus = 0.2;
     private const double ContextBonus = 0.2;
     private const double RankPenalty = 0.03;
+    private const double LinkPenalty = 0.05;
 
     /// <summary>
     /// Finds the best value for a field.
@@ -209,7 +210,9 @@ public static class FieldMatcher
     {
         // Only the values the field can accept compete, so "the only value of its kind" means the only acceptable one
         var eligible = candidates.Where(candidate => IsEligible(candidate, clues)).ToList();
+        // An address behind a link is not seen as such: it never makes a value written on screen less unique
         var distinctValuesByKind = eligible
+            .Where(candidate => !candidate.IsLinkAddress)
             .GroupBy(candidate => candidate.Kind)
             .ToDictionary(group => group.Key, group => group.Select(candidate => candidate.Value).Distinct(StringComparer.Ordinal).Count());
 
@@ -238,6 +241,12 @@ public static class FieldMatcher
     {
         var expectedKinds = clues.ExpectedKinds;
         if (expectedKinds.Count > 0 && !expectedKinds.Contains(candidate.Kind))
+        {
+            return false;
+        }
+
+        // The address behind a link only goes where a link is expected; elsewhere, the text of the link is the value
+        if (candidate.IsLinkAddress && !expectedKinds.Contains(CandidateKind.Url))
         {
             return false;
         }
@@ -278,7 +287,13 @@ public static class FieldMatcher
         else
         {
             score = ExpectedKindScore;
-            if (distinctValuesByKind[candidate.Kind] == 1)
+
+            // An address behind a link is only sure when the text of its link talks about the field
+            if (candidate.IsLinkAddress)
+            {
+                score -= LinkPenalty;
+            }
+            else if (distinctValuesByKind.GetValueOrDefault(candidate.Kind) == 1)
             {
                 score += UniqueKindBonus;
             }

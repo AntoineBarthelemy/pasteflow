@@ -76,4 +76,11 @@ public sealed record Candidate
     /// so such a value is only proposed, never written without the user.
     /// </summary>
     public bool IsReadFromImage { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the value is the address behind a link or the address of a page open behind,
+    /// which the user does not see as such: it only goes where a link is expected, and its label is the text of the
+    /// link or the title of the page.
+    /// </summary>
+    public bool IsLinkAddress { get; init; }
 }

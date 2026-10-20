@@ -9,4 +9,6 @@ internal sealed record BenchSource
     public bool Image { get; init; }
 
     public List<BenchField>? Fields { get; init; }
+
+    public List<BenchLink>? Links { get; init; }
 }

@@ -136,16 +136,40 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
         var title = accessible is { Title: { } accessibleTitle } && !string.IsNullOrWhiteSpace(accessibleTitle)
             ? accessibleTitle
             : UntitledWindow;
-        return new WindowText { Title = title, Text = fromImage, Rank = rank, IsReadFromImage = true };
+        return new WindowText
+        {
+            Title = title,
+            Text = fromImage,
+            Rank = rank,
+            IsReadFromImage = true,
+            Address = accessible?.Address ?? string.Empty,
+            Links = accessible?.Links ?? Array.Empty<LinkText>(),
+        };
     }
 
     private static async Task<WindowText?> ReadWithTimeoutAsync(IntPtr window, int rank, CancellationToken cancellationToken)
     {
+        // The links of a window behind are read aside, in the same time: a page full of links never delays its text
         var reading = Task.Run(() => ReadWindow(window, rank), cancellationToken);
-        var finished = await Task.WhenAny(reading, Task.Delay(WindowTimeout, cancellationToken)).ConfigureAwait(false);
+        var linksReading = rank == 0
+            ? Task.FromResult<(string Address, IReadOnlyList<LinkText> Links)>((string.Empty, Array.Empty<LinkText>()))
+            : Task.Run(() => WindowLinks.Read(window), cancellationToken);
+        var deadline = Task.Delay(WindowTimeout, cancellationToken);
+        var finished = await Task.WhenAny(reading, deadline).ConfigureAwait(false);
 
         // A late window is ignored: UI Automation calls cannot be interrupted, the reading ends in the background
-        return finished == reading ? await reading.ConfigureAwait(false) : null;
+        if (finished != reading || await reading.ConfigureAwait(false) is not { } text)
+        {
+            return null;
+        }
+
+        if (rank == 0 || await Task.WhenAny(linksReading, deadline).ConfigureAwait(false) != linksReading)
+        {
+            return text;
+        }
+
+        var (address, links) = await linksReading.ConfigureAwait(false);
+        return text with { Address = address, Links = links };
     }
 
     private static async Task<string?> ReadImageWithTimeoutAsync(OcrTextRecognizer ocr, IntPtr handle, CancellationToken cancellationToken)

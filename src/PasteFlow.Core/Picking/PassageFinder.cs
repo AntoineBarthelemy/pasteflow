@@ -218,6 +218,16 @@ public sealed partial class PassageFinder
         return new string(folded);
     }
 
+    /// <summary>
+    /// Folds what the user typed, as <see cref="Fold"/> does, with single spaces between the words.
+    /// </summary>
+    /// <param name="query">The words typed.</param>
+    /// <returns>The folded words.</returns>
+    internal static string FoldQuery(string query)
+    {
+        return string.Join(' ', Fold(query).Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
     private static char FoldCharacter(char character)
     {
         if (character < 128)
@@ -237,11 +247,6 @@ public sealed partial class PassageFinder
 
         var decomposed = character.ToString().Normalize(NormalizationForm.FormD);
         return char.ToLowerInvariant(decomposed[0]);
-    }
-
-    private static string FoldQuery(string query)
-    {
-        return string.Join(' ', Fold(query).Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     private static string[] Lines(string text)

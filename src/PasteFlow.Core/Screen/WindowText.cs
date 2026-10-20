@@ -33,9 +33,14 @@ public sealed record WindowText
 
     /// <summary>
     /// Gets the address shown in the address bar when the window is a browser, such as "github.com/login"; empty for
-    /// other windows. Only read for the active window.
+    /// other windows.
     /// </summary>
     public string Address { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets the links of the window, each with its text and its address, in reading order.
+    /// </summary>
+    public IReadOnlyList<LinkText> Links { get; init; } = Array.Empty<LinkText>();
 
     /// <summary>
     /// Gets the name of the program the window belongs to, such as "steam" or "chrome", read from the program really

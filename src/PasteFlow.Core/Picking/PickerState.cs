@@ -12,6 +12,13 @@ namespace PasteFlow.Core.Picking;
 /// </remarks>
 public sealed class PickerState
 {
+    /// <summary>
+    /// The number of addresses behind links offered at most next to the passages found.
+    /// </summary>
+    public const int MaxLinkResults = 2;
+
+    private const int MaxLinkTextLength = 40;
+
     private static readonly PassageCut[] Cuts = { PassageCut.Words, PassageCut.Sentence, PassageCut.Line };
 
     private readonly PickRequest _request;
@@ -149,22 +156,74 @@ public sealed class PickerState
         };
     }
 
+    private static string DescribeLink(Candidate link)
+    {
+        var text = link.Label.Trim();
+        return text.Length == 0
+            ? "lien"
+            : $"lien : {(text.Length > MaxLinkTextLength ? $"{text[..(MaxLinkTextLength - 1)]}…" : text)}";
+    }
+
+    private static bool IsAtWordStart(string folded, string query)
+    {
+        for (var index = folded.IndexOf(query, StringComparison.Ordinal); index >= 0; index = folded.IndexOf(query, index + 1, StringComparison.Ordinal))
+        {
+            if (index == 0 || !char.IsLetterOrDigit(folded[index - 1]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private List<PickItem> SuggestedItems()
     {
         return _request.Suggestions
             .Take(PassageFinder.MaxResults)
-            .Select(candidate => new PickItem { Text = candidate.Value, SourceName = candidate.SourceName, Description = Describe(candidate.Kind) })
+            .Select(candidate => new PickItem
+            {
+                Text = candidate.Value,
+                SourceName = candidate.SourceName,
+                Description = candidate.IsLinkAddress ? DescribeLink(candidate) : Describe(candidate.Kind),
+            })
             .ToList();
     }
 
     private void Refresh()
     {
-        _items = IsSearching
-            ? _request.Finder.Find(Query, Cut)
+        if (!IsSearching)
+        {
+            _items = SuggestedItems();
+        }
+        else
+        {
+            // The text found comes first; the address behind a link or of a page whose words match follows it
+            var links = LinksFound(Query);
+            _items = _request.Finder.Find(Query, Cut)
+                .Take(PassageFinder.MaxResults - links.Count)
                 .Select(passage => new PickItem { Text = passage.Text, SourceName = passage.SourceName, Passage = passage })
-                .ToList()
-            : SuggestedItems();
+                .Concat(links)
+                .ToList();
+        }
+
         SelectedIndex = _items.Count > 0 ? 0 : -1;
+    }
+
+    private List<PickItem> LinksFound(string query)
+    {
+        var folded = PassageFinder.FoldQuery(query);
+        if (folded.Length == 0)
+        {
+            return new List<PickItem>();
+        }
+
+        return _request.Links
+            .Where(link => IsAtWordStart(PassageFinder.Fold(link.Label), folded) || IsAtWordStart(PassageFinder.Fold(link.Value), folded))
+            .DistinctBy(link => link.Value, StringComparer.Ordinal)
+            .Take(MaxLinkResults)
+            .Select(link => new PickItem { Text = link.Value, SourceName = link.SourceName, Description = DescribeLink(link) })
+            .ToList();
     }
 
     private void ChangeSelectedPassage(Func<Passage, Passage> change)

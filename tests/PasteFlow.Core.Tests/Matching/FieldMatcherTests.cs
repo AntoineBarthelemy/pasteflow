@@ -46,6 +46,37 @@ public sealed class FieldMatcherTests
     }
 
     [Fact]
+    public void Match_TheAddressBehindALink_OnlyGoesWhereALinkIsExpected()
+    {
+        var link = Candidate("https://www.youtube.com/watch?v=abc123", CandidateKind.Url, "Ma vidéo de rentrée") with { IsLinkAddress = true };
+
+        Assert.Null(Match("Commentaire", link).Candidate);
+        Assert.Equal(link.Value, Assert.Single(Match("Lien", link).Suggestions).Value);
+    }
+
+    [Fact]
+    public void Match_TheAddressBehindALink_IsSureWhenItsTextTalksAboutTheField()
+    {
+        var match = Match(
+            "Lien de la vidéo",
+            Candidate("https://www.youtube.com/watch?v=abc123", CandidateKind.Url, "Ma vidéo de rentrée") with { IsLinkAddress = true },
+            Candidate("https://www.youtube.com/@successstory", CandidateKind.Url, "Success Story") with { IsLinkAddress = true });
+
+        AssertFills(match, "https://www.youtube.com/watch?v=abc123");
+    }
+
+    [Fact]
+    public void Match_TheAddressBehindALink_NeverMakesAWrittenAddressLessSure()
+    {
+        var match = Match(
+            "Site web",
+            Candidate("https://garage-martin.fr", CandidateKind.Url, string.Empty),
+            Candidate("https://www.facebook.com/garage", CandidateKind.Url, "Facebook") with { IsLinkAddress = true });
+
+        AssertFills(match, "https://garage-martin.fr");
+    }
+
+    [Fact]
     public void Match_NoValue_SaysNothingWasFound()
     {
         var match = Match("Email");

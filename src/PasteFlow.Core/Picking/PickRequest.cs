@@ -16,4 +16,10 @@ public sealed record PickRequest
     /// Gets the search in the text of the windows read, used as soon as the user types.
     /// </summary>
     public required PassageFinder Finder { get; init; }
+
+    /// <summary>
+    /// Gets the addresses behind the links and the pages open behind, offered next to the passages found when the
+    /// text of their link or the title of their page matches the search.
+    /// </summary>
+    public IReadOnlyList<Candidate> Links { get; init; } = Array.Empty<Candidate>();
 }

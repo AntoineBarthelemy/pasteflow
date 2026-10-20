@@ -179,6 +179,78 @@ public sealed class ScreenCandidateSourceTests
         Assert.Empty(candidates);
     }
 
+    [Fact]
+    public async Task GetCandidatesAsync_OffersThePageBehindAndTheAddressesBehindItsLinks()
+    {
+        var reader = new FakeWindowTextReader
+        {
+            Windows = new[]
+            {
+                new WindowText
+                {
+                    Title = "Ma vidéo de rentrée - YouTube",
+                    Rank = 1,
+                    Text = "Ma vidéo de rentrée",
+                    Address = "youtube.com/watch?v=abc123",
+                    Links = new[]
+                    {
+                        new LinkText { Text = "Success Story", Address = "https://www.youtube.com/@successstory" },
+                        new LinkText { Text = "Contacter Léa", Address = "mailto:lea.martin@atelier-nova.fr?subject=Bonjour" },
+                        new LinkText { Text = "https://www.youtube.com/@successstory", Address = "https://www.youtube.com/@successstory" },
+                        new LinkText { Text = "Menu", Address = "javascript:void(0)" },
+                    },
+                },
+            },
+        };
+
+        var candidates = await new ScreenCandidateSource(reader).GetCandidatesAsync(CancellationToken.None);
+
+        var page = Single(candidates, "https://youtube.com/watch?v=abc123");
+        Assert.True(page.IsLinkAddress);
+        Assert.Equal("Ma vidéo de rentrée - YouTube", page.Label);
+        var channel = Single(candidates, "https://www.youtube.com/@successstory");
+        Assert.True(channel.IsLinkAddress);
+        Assert.Equal("Success Story", channel.Label);
+        var email = Single(candidates, "lea.martin@atelier-nova.fr");
+        Assert.Equal(CandidateKind.Email, email.Kind);
+        Assert.False(email.IsLinkAddress);
+        Assert.DoesNotContain(candidates, candidate => candidate.Value.StartsWith("javascript", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task GetCandidatesAsync_LeavesTheLinksOfTheWindowBeingFilledAside()
+    {
+        var reader = new FakeWindowTextReader
+        {
+            Windows = new[]
+            {
+                new WindowText
+                {
+                    Title = "Formulaire",
+                    Rank = 0,
+                    Text = "Votre site",
+                    Address = "exemple.fr/inscription",
+                    Links = new[] { new LinkText { Text = "Accueil", Address = "https://exemple.fr/" } },
+                },
+            },
+        };
+
+        var candidates = await new ScreenCandidateSource(reader).GetCandidatesAsync(CancellationToken.None);
+
+        Assert.DoesNotContain(candidates, candidate => candidate.IsLinkAddress);
+    }
+
+    [Theory]
+    [InlineData("github.com/login", "https://github.com/login")]
+    [InlineData("http://exemple.fr/a", "http://exemple.fr/a")]
+    [InlineData("localhost:3000", null)]
+    [InlineData("ftp://exemple.fr", null)]
+    [InlineData("pas une adresse", null)]
+    public void FullAddress_GivesTheWholeAddressOfAWebPage(string address, string? expected)
+    {
+        Assert.Equal(expected, ScreenCandidateSource.FullAddress(address));
+    }
+
     private static Candidate Single(IEnumerable<Candidate> candidates, string value)
     {
         return Assert.Single(candidates, candidate => candidate.Value == value);
