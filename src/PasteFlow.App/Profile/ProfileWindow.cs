@@ -90,11 +90,11 @@ internal sealed class ProfileWindow : ThemedWindow
         _status.Margin = new Thickness(2, 10, 0, 6);
         AutomationProperties.SetName(_status, "État");
 
-        var page = new StackPanel { Margin = new Thickness(28, 24, 28, 22), Width = ContentWidth };
-        page.Children.Add(Ui.Header(
+        var header = Ui.Header(
             Icons.Person,
             "Ma fiche",
-            "Les infos que PasteFlow peut écrire pour toi, chiffrées sur ce PC. Les infos sensibles ne s'affichent en entier qu'avec Windows Hello."));
+            "Les infos que PasteFlow peut écrire pour toi, chiffrées sur ce PC. Les infos sensibles ne s'affichent en entier qu'avec Windows Hello.");
+        var page = new StackPanel { Width = ContentWidth };
 
         // The list, with a sentence in its middle while it is empty
         var listTitle = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
@@ -142,9 +142,10 @@ internal sealed class ProfileWindow : ThemedWindow
         transfer.Children.Add(export);
         transfer.Children.Add(import);
         footer.Children.Add(transfer);
-        page.Children.Add(Ui.Divider(new Thickness(0, 4, 0, 14)));
-        page.Children.Add(footer);
-        Content = page;
+        var bottom = new StackPanel();
+        bottom.Children.Add(Ui.Divider(new Thickness(0, 4, 0, 14)));
+        bottom.Children.Add(footer);
+        SetPage(header, page, bottom);
 
         // With the keyboard: Entrée in the value or the name adds it, or corrects the info chosen; Suppr in the list
         // removes the info chosen

@@ -63,9 +63,9 @@ internal sealed class SettingsWindow : ThemedWindow
         var cancel = Ui.ActionButton("Annuler", isCancel: true);
         cancel.Click += (_, _) => Close();
 
-        var page = new StackPanel { Margin = new Thickness(28, 24, 28, 22), Width = ContentWidth };
-        page.Children.Add(Ui.Header(Icons.Settings, "Paramètres", "Comment PasteFlow remplit, apprend et démarre."));
-
+        var header = Ui.Header(Icons.Settings, "Paramètres", "Comment PasteFlow remplit, apprend et démarre.");
+        header.Margin = new Thickness(0, 0, 0, 4);
+        var page = new StackPanel { Width = ContentWidth };
         page.Children.Add(SectionTitle("Remplissage"));
         var segments = new StackPanel { Orientation = Orientation.Horizontal };
         segments.Children.Add(_cautious);
@@ -102,7 +102,7 @@ internal sealed class SettingsWindow : ThemedWindow
         AddShortcut(shortcuts, "Menu de PasteFlow", "Ctrl+Alt+P");
         page.Children.Add(Ui.Card(shortcuts, new Thickness(16, 10, 16, 10)));
 
-        var footer = new DockPanel { Margin = new Thickness(0, 20, 0, 0) };
+        var footer = new DockPanel { Margin = new Thickness(0, 18, 0, 0) };
         var buttons = Ui.ButtonRow(cancel, save);
         buttons.Margin = new Thickness(0);
         DockPanel.SetDock(buttons, Dock.Right);
@@ -110,9 +110,7 @@ internal sealed class SettingsWindow : ThemedWindow
         var version = Ui.Line($"PasteFlow {AppUpdates.CurrentVersion}", TextRole.Hint);
         version.VerticalAlignment = VerticalAlignment.Center;
         footer.Children.Add(version);
-        page.Children.Add(footer);
-
-        Content = page;
+        SetPage(header, page, footer);
         ShowPrudence();
 
         // The keyboard starts on the prudence chosen: the arrows change it, Tab goes on, Entrée saves
