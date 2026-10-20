@@ -45,11 +45,15 @@ internal sealed class BitwardenUnlockWindow : ThemedWindow
         AutomationProperties.SetName(_eye, "Afficher le mot de passe");
         _eye.Checked += (_, _) => ShowPassword(true);
         _eye.Unchecked += (_, _) => ShowPassword(false);
-        var passwordRow = new DockPanel { Width = 380 };
-        DockPanel.SetDock(_eye, Dock.Right);
-        passwordRow.Children.Add(_eye);
+
+        // The hidden and the shown password take the same place, the eye sits on their right
+        var passwordRow = new Grid { Width = 380 };
+        passwordRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        passwordRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(_eye, 1);
         passwordRow.Children.Add(_password);
         passwordRow.Children.Add(_shownPassword);
+        passwordRow.Children.Add(_eye);
         _error = Ui.Text(string.Empty, TextRole.Caption);
         _error.Margin = new Thickness(0, 8, 0, 0);
         AutomationProperties.SetName(_error, "Erreur");

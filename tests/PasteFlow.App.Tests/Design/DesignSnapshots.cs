@@ -35,7 +35,24 @@ public sealed class DesignSnapshots
     private static readonly string? Folder = Environment.GetEnvironmentVariable("PASTEFLOW_SNAPSHOTS");
     private static readonly string Themes = Environment.GetEnvironmentVariable("PASTEFLOW_SNAPSHOT_THEMES") ?? "clair,sombre";
     private static readonly string Group = Environment.GetEnvironmentVariable("PASTEFLOW_SNAPSHOT_GROUP") ?? "all";
-    private static int _count;
+
+    // The pictures are shared out in groups, so that each job of the workflow stays under the limits of GitHub for
+    // annotations (about 50 per job)
+    private static readonly Dictionary<string, string> Groups = new()
+    {
+        ["parametres"] = "1",
+        ["notification"] = "1",
+        ["fiche"] = "2",
+        ["bitwarden"] = "3",
+        ["comptes"] = "3",
+        ["mot-de-passe"] = "3",
+        ["confirmation"] = "4",
+        ["menu"] = "4",
+        ["bulle"] = "4",
+        ["liste"] = "5",
+        ["recapitulatif"] = "5",
+        ["lettres"] = "5",
+    };
 
     [SkippableFact]
     public void Render_EveryWindowAndPopup()
@@ -163,9 +180,7 @@ public sealed class DesignSnapshots
 
     private static void Snap(string theme, string name, Func<Window> create)
     {
-        // The pictures are shared out in two groups, so that each run of the workflow stays under the limits of GitHub
-        var group = Interlocked.Increment(ref _count) % 2 == 1 ? "1" : "2";
-        if (Group != "all" && group != Group)
+        if (Group != "all" && Groups.GetValueOrDefault(name, "1") != Group)
         {
             return;
         }
@@ -193,8 +208,18 @@ public sealed class DesignSnapshots
             // Behind transparent popups, the background of the theme, so that their shadow can be seen
             var background = window.Background is SolidColorBrush { Color.A: 255 } solid ? solid : Theme.Brush(palette => palette.Background);
             context.DrawRectangle(background, null, new Rect(0, 0, width, height));
-            var content = new VisualBrush(root) { Stretch = Stretch.None, AlignmentX = AlignmentX.Left, AlignmentY = AlignmentY.Top };
-            context.DrawRectangle(content, null, new Rect(root.Margin.Left, root.Margin.Top, root.ActualWidth, root.ActualHeight));
+
+            // The whole window, margin included: the shadow of a popup spreads into it
+            var area = new Rect(0, 0, width, height);
+            var content = new VisualBrush(root)
+            {
+                Stretch = Stretch.None,
+                ViewboxUnits = BrushMappingMode.Absolute,
+                Viewbox = new Rect(-root.Margin.Left, -root.Margin.Top, width, height),
+                ViewportUnits = BrushMappingMode.Absolute,
+                Viewport = area,
+            };
+            context.DrawRectangle(content, null, area);
         }
 
         picture.Render(visual);
