@@ -212,7 +212,8 @@ public sealed class BrowserBenchTests
         return string.Join(
             "\n",
             windows.Select(window => $"--- Fenêtre {window.Rank} « {window.Title} » :\n{Visible(window.Text)}"
-                + string.Concat(window.Fields.Select(field => $"\n[champ] {field.Label} = {Visible(field.Value)}"))));
+                + string.Concat(window.Fields.Select(field => $"\n[champ] {field.Label} = {Visible(field.Value)}"))
+                + string.Concat(window.Links.Select(link => $"\n[lien] {link.Text} -> {link.Address}"))));
     }
 
     private static void AssertValues(Scenario scenario, Dictionary<string, string> expected, BrowserWindow form, string screen)
@@ -294,7 +295,9 @@ public sealed class BrowserBenchTests
                     : await imageReader.ReadWithFallbackAsync(handle, 1, cancellationToken);
                 if (sourceText is not null)
                 {
-                    windows.Add(sourceText);
+                    // The links of a window behind are read as PasteFlow reads them, aside from its text
+                    var (pageAddress, links) = await Task.Run(() => WindowLinks.Read(handle), cancellationToken);
+                    windows.Add(sourceText with { Address = pageAddress, Links = links });
                 }
             }
 
