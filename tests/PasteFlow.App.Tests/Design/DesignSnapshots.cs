@@ -165,7 +165,7 @@ public sealed class DesignSnapshots
     {
         // The pictures are shared out in two groups, so that each run of the workflow stays under the limits of GitHub
         var group = Interlocked.Increment(ref _count) % 2 == 1 ? "1" : "2";
-        if (Group != "all" && Group != group)
+        if (Group != "all" && group != Group)
         {
             return;
         }
