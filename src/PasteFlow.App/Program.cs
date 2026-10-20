@@ -66,7 +66,7 @@ internal static class Program
         application.DispatcherUnhandledException += (_, e) =>
         {
             ErrorLog.Write("Erreur inattendue", e.Exception);
-            notifier.Notify($"Erreur inattendue, PasteFlow continue. Détail dans {ErrorLog.DefaultPath}");
+            notifier.ShowContent(ErrorNotice.Create(), ErrorNotice.DisplayTime);
             e.Handled = true;
         };
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
@@ -276,6 +276,7 @@ internal static class Program
                 new('P', "Paramètres…", OpenSettings, Icon: Icons.Settings),
                 new('H', "Effacer l'historique…", ClearHistoryAfterAsking, Icon: Icons.History),
                 UpdateEntry(updates),
+                ErrorLogEntry(notifier),
                 new('Q', "Quitter PasteFlow", application.Shutdown, Icon: Icons.Power),
             });
             if (isNearTray)
@@ -404,6 +405,25 @@ internal static class Program
         if (added > 0)
         {
             notifier.Notify($"Ton identité Bitwarden a complété ta fiche ({added} infos).");
+        }
+    }
+
+    private static MenuEntry ErrorLogEntry(PopupNotifier notifier)
+    {
+        // The journal opens in Notepad, to read it or copy it without looking for its folder
+        if (!ErrorLog.HasErrors)
+        {
+            return new MenuEntry('J', "Journal des erreurs : aucune erreur", () => { }, IsEnabled: false, Icon: Icons.Warning);
+        }
+
+        return new MenuEntry('J', "Journal des erreurs…", () => OpenErrorLog(notifier), Icon: Icons.Warning);
+    }
+
+    private static void OpenErrorLog(PopupNotifier notifier)
+    {
+        if (!ErrorLog.Open())
+        {
+            notifier.Notify($"Impossible d'ouvrir le journal des erreurs. Il est ici : {ErrorLog.DefaultPath}");
         }
     }
 

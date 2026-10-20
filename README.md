@@ -99,9 +99,11 @@ Raccourcis :
 | Ctrl+Alt+Z | Annule le dernier remplissage : vide les champs remplis par l'outil et remet les valeurs remplacées, sauf les champs modifiés depuis |
 | Ctrl+Maj+1, 2, 3 | Dans un champ encadré en orange, choisit une des valeurs proposées (actif seulement quand la bulle est affichée) |
 | Ctrl+Alt+F | Met des lettres (F, J, D, K… ou deux lettres) sur les valeurs visibles à l'écran : taper les lettres colle la valeur au curseur, Retour arrière efface une lettre, Échap annule |
-| Ctrl+Alt+P | Ouvre le menu de PasteFlow au clavier : F Ma fiche, A annuler le dernier ajout à la fiche, B Bitwarden, P Paramètres, H effacer l'historique, Q Quitter |
+| Ctrl+Alt+P | Ouvre le menu de PasteFlow au clavier : F Ma fiche, A annuler le dernier ajout à la fiche, B Bitwarden, P Paramètres, H effacer l'historique, U mise à jour, J journal des erreurs, Q Quitter |
 
 Clic sur l'icône près de l'horloge (ou Ctrl+Alt+P) : le même menu, une lettre par action. « Ma fiche… » (voir, corriger, exporter ou importer ses infos), « Déverrouiller Bitwarden… », « Paramètres… » (prudence, apprentissage, démarrage avec Windows), « Effacer l'historique… » (avec confirmation), « Quitter ».
+
+Une erreur imprévue ne ferme pas PasteFlow : elle est gardée dans `%LOCALAPPDATA%\PasteFlow\erreurs.log` (type et endroit de l'erreur, jamais une valeur lue). La notification qui l'annonce a deux boutons, « Ouvrir le journal » (dans le Bloc-notes) et « Copier les dernières erreurs » ; le menu l'ouvre aussi (Ctrl+Alt+P puis J).
 
 Le style de l'interface est dans `src/PasteFlow.App/Design` (palette, polices, styles des contrôles, briques communes) ; l'icône est dessinée par `tools/icon/make_icon.py`. Pour voir toutes les fenêtres sans Windows : workflow « Snapshots » (onglet Actions, Run workflow), qui les dessine en clair et en sombre.
 

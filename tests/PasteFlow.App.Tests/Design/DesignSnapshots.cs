@@ -49,6 +49,7 @@ public sealed class DesignSnapshots
         ["confirmation"] = "4",
         ["menu"] = "4",
         ["bulle"] = "4",
+        ["erreur"] = "4",
         ["liste"] = "5",
         ["recapitulatif"] = "5",
         ["lettres"] = "5",
@@ -88,13 +89,16 @@ public sealed class DesignSnapshots
         Snap(theme, "confirmation", () => new ConfirmWindow(Icons.History, "Effacer l'historique ?", "PasteFlow oubliera les valeurs apprises de tes remplissages. Ta fiche, elle, est gardée.", "Effacer", "Annuler", isDestructive: true));
         Snap(theme, "menu", () => new MenuWindow(new MenuEntry[]
         {
-            new('F', "Ma fiche…", () => { }),
-            new('A', "Annuler le dernier ajout à ma fiche", () => { }, IsEnabled: false),
-            new('B', "Verrouiller Bitwarden", () => { }),
-            new('P', "Paramètres…", () => { }),
-            new('H', "Effacer l'historique…", () => { }),
-            new('Q', "Quitter PasteFlow", () => { }),
+            new('F', "Ma fiche…", () => { }, Icon: Icons.Person),
+            new('A', "Annuler le dernier ajout à ma fiche", () => { }, IsEnabled: false, Icon: Icons.Undo),
+            new('B', "Verrouiller Bitwarden", () => { }, Icon: Icons.Lock),
+            new('P', "Paramètres…", () => { }, Icon: Icons.Settings),
+            new('H', "Effacer l'historique…", () => { }, Icon: Icons.History),
+            new('U', "Rechercher une mise à jour", () => { }, Icon: Icons.Download),
+            new('J', "Journal des erreurs…", () => { }, Icon: Icons.Warning),
+            new('Q', "Quitter PasteFlow", () => { }, Icon: Icons.Power),
         }));
+        Snap(theme, "erreur", () => new NotificationPopup(ErrorNotice.Create(), ErrorNotice.DisplayTime));
         Snap(theme, "notification", () => new NotificationPopup("Bitwarden déverrouillé. Sur une page de connexion, clique dans l'identifiant puis Ctrl+Alt+V."));
         Snap(theme, "recapitulatif", () => new NotificationPopup(RecapView.Create(FillRecap.From(Report())), TimeSpan.FromSeconds(30)));
         Snap(theme, "bulle", () =>

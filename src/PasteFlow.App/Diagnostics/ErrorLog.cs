@@ -1,5 +1,8 @@
+using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace PasteFlow.App.Diagnostics;
 
@@ -10,9 +13,13 @@ namespace PasteFlow.App.Diagnostics;
 /// <remarks>
 /// Only the kind of error and where it happened are written: never a value read on screen or from the profile.
 /// </remarks>
-internal static class ErrorLog
+internal static partial class ErrorLog
 {
     private const long MaxBytes = 512 * 1024;
+
+    // Enough for the last errors, small enough to be pasted in a message
+    private const int MaxCopiedLength = 30_000;
+    private const int RegexTimeoutMilliseconds = 500;
 
     /// <summary>
     /// Gets the file of the errors: %LOCALAPPDATA%\PasteFlow\erreurs.log.
@@ -21,6 +28,65 @@ internal static class ErrorLog
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "PasteFlow",
         "erreurs.log");
+
+    /// <summary>
+    /// Gets a value indicating whether an error was written in the file.
+    /// </summary>
+    public static bool HasErrors
+    {
+        get
+        {
+            try
+            {
+                return File.Exists(DefaultPath) && new FileInfo(DefaultPath).Length > 0;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Opens the file of the errors in the Notepad of Windows.
+    /// </summary>
+    /// <returns><see langword="true"/> if the file was opened; otherwise <see langword="false"/>.</returns>
+    public static bool Open()
+    {
+        if (!HasErrors)
+        {
+            return false;
+        }
+
+        try
+        {
+            // Notepad rather than the program tied to ".log", which may be none and ask the user to choose
+            var start = new ProcessStartInfo("notepad.exe") { UseShellExecute = false };
+            start.ArgumentList.Add(DefaultPath);
+            using var notepad = Process.Start(start);
+            return notepad is not null;
+        }
+        catch (Exception exception) when (exception is Win32Exception or InvalidOperationException or IOException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Reads the last errors of the file, to be copied and pasted in a message.
+    /// </summary>
+    /// <returns>The last errors, or an empty string if there is none.</returns>
+    public static string ReadRecent()
+    {
+        try
+        {
+            return HasErrors ? Recent(File.ReadAllText(DefaultPath), MaxCopiedLength) : string.Empty;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return string.Empty;
+        }
+    }
 
     /// <summary>
     /// Adds an error to the file.
@@ -72,4 +138,35 @@ internal static class ErrorLog
 
         return string.Join(Environment.NewLine, lines);
     }
+
+    /// <summary>
+    /// Keeps the end of the text of the file, starting at the beginning of an error.
+    /// </summary>
+    /// <param name="text">The whole text of the file.</param>
+    /// <param name="maxLength">The longest text kept.</param>
+    /// <returns>The last whole errors that fit.</returns>
+    internal static string Recent(string text, int maxLength)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        if (text.Length <= maxLength)
+        {
+            return text;
+        }
+
+        // Every error starts with its date at the beginning of a line: the cut lands on one
+        var tail = text[^maxLength..];
+        try
+        {
+            var start = EntryStart().Match(tail);
+            return start.Success ? tail[start.Index..] : tail;
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return tail;
+        }
+    }
+
+    [GeneratedRegex(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} ", RegexOptions.Multiline | RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex EntryStart();
 }
