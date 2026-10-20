@@ -89,7 +89,7 @@ Raccourcis :
 
 Clic droit sur l'icône près de l'horloge (ou Ctrl+Alt+P) : « Ma fiche… » (voir, corriger, exporter ou importer ses infos), « Déverrouiller Bitwarden… », « Paramètres… » (prudence, apprentissage, démarrage avec Windows), « Effacer l'historique », « Quitter ».
 
-Pages de connexion avec Bitwarden (facultatif) : installer une fois l'outil en ligne de commande (`winget install Bitwarden.CLI`, ou `npm install -g @bitwarden/cli`), puis `bw login` dans un terminal. Au lancement, PasteFlow demande le mot de passe maître (il va directement à Bitwarden et n'est jamais gardé) ; ensuite Windows Hello est demandé avant chaque mot de passe, une fois par demi-heure.
+Pages de connexion avec Bitwarden (facultatif) : installer une fois l'outil en ligne de commande (`winget install Bitwarden.CLI`, ou `npm install -g @bitwarden/cli`), puis `bw login` dans un terminal. Au lancement, PasteFlow demande le mot de passe maître (il va directement à Bitwarden et n'est jamais gardé) ; ensuite Windows Hello est demandé avant chaque mot de passe, une fois par demi-heure. Une fois le coffre déverrouillé, PasteFlow lance le service local de Bitwarden (`bw serve`, joignable seulement depuis ce PC) pour obtenir chaque mot de passe en quelques dizaines de millisecondes ; il est arrêté au verrouillage et à la fermeture de PasteFlow. Contrepartie : tant qu'il tourne, un autre programme de ce PC pourrait lire le coffre.
 
 ## Terrain d'essai
 
