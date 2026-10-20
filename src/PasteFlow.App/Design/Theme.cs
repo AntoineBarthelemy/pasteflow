@@ -181,6 +181,7 @@ internal static class Theme
         Add("Background", palette.Background);
         Add("Surface", palette.Surface);
         Add("Sunken", palette.Sunken);
+        Add("Hover", palette.Hover);
         Add("Border", palette.Border);
         Add("BorderStrong", palette.BorderStrong);
         Add("Text", palette.Text);

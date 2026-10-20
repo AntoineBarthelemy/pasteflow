@@ -86,8 +86,8 @@ internal sealed class ProfileWindow : ThemedWindow
         close.Click += (_, _) => Close();
 
         _status = Ui.Text(string.Empty, TextRole.Caption);
-        _status.MinHeight = 34;
-        _status.Margin = new Thickness(2, 10, 0, 0);
+        _status.MinHeight = 18;
+        _status.Margin = new Thickness(2, 10, 0, 6);
         AutomationProperties.SetName(_status, "État");
 
         var page = new StackPanel { Margin = new Thickness(28, 24, 28, 22), Width = ContentWidth };

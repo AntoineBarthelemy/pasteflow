@@ -9,6 +9,7 @@ namespace PasteFlow.App.Design;
 /// <param name="Background">The background of the windows.</param>
 /// <param name="Surface">Cards, popups and fields.</param>
 /// <param name="Sunken">Areas set back, such as a search box or a hovered row.</param>
+/// <param name="Hover">The wash under a row or a quiet control pointed at with the mouse.</param>
 /// <param name="Border">Fine separations.</param>
 /// <param name="BorderStrong">The outline of fields and buttons.</param>
 /// <param name="Text">The main text.</param>
@@ -28,6 +29,7 @@ internal sealed record Palette(
     Color Background,
     Color Surface,
     Color Sunken,
+    Color Hover,
     Color Border,
     Color BorderStrong,
     Color Text,
@@ -51,6 +53,7 @@ internal sealed record Palette(
         Background: Rgb(0xFA, 0xF9, 0xF5),
         Surface: Rgb(0xFF, 0xFF, 0xFF),
         Sunken: Rgb(0xF1, 0xEF, 0xE8),
+        Hover: Rgb(0xF3, 0xF1, 0xEB),
         Border: Rgb(0xEA, 0xE7, 0xDE),
         BorderStrong: Rgb(0xD6, 0xD2, 0xC6),
         Text: Rgb(0x1F, 0x1E, 0x1C),
@@ -74,6 +77,7 @@ internal sealed record Palette(
         Background: Rgb(0x26, 0x26, 0x24),
         Surface: Rgb(0x30, 0x30, 0x2E),
         Sunken: Rgb(0x1F, 0x1F, 0x1D),
+        Hover: Rgb(0x3A, 0x3A, 0x37),
         Border: Rgb(0x3D, 0x3D, 0x3A),
         BorderStrong: Rgb(0x4E, 0x4D, 0x49),
         Text: Rgb(0xF2, 0xF0, 0xEA),

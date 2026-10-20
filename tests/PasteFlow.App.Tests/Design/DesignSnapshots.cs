@@ -208,13 +208,14 @@ public sealed class DesignSnapshots
             var background = window.Background is SolidColorBrush { Color.A: 255 } solid ? solid : Theme.Brush(palette => palette.Background);
             context.DrawRectangle(background, null, new Rect(0, 0, width, height));
 
-            // The whole window, margin included: the shadow of a popup spreads into it
+            // The whole window, margin included: the shadow of a popup spreads into it. The coordinates of the brush
+            // already start at the window, before the margin
             var area = new Rect(0, 0, width, height);
             var content = new VisualBrush(root)
             {
                 Stretch = Stretch.None,
                 ViewboxUnits = BrushMappingMode.Absolute,
-                Viewbox = new Rect(-root.Margin.Left, -root.Margin.Top, width, height),
+                Viewbox = area,
                 ViewportUnits = BrushMappingMode.Absolute,
                 Viewport = area,
             };
