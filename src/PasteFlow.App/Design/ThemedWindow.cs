@@ -43,6 +43,15 @@ internal class ThemedWindow : Window
         ArgumentNullException.ThrowIfNull(middle);
         ArgumentNullException.ThrowIfNull(bottom);
 
+        // The top and the bottom keep the width of the middle: a long sentence wraps instead of widening the window
+        if (!double.IsNaN(middle.Width))
+        {
+            foreach (var part in new[] { top, bottom }.OfType<FrameworkElement>())
+            {
+                part.MaxWidth = middle.Width;
+            }
+        }
+
         var header = new Border { Padding = new Thickness(28, 24, 28, 0), Child = top };
         DockPanel.SetDock(header, Dock.Top);
         var footer = new Border { Padding = new Thickness(28, 0, 28, 22), Child = bottom };
