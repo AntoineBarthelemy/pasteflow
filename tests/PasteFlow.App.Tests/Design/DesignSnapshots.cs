@@ -65,7 +65,6 @@ public sealed class DesignSnapshots
             foreach (var theme in Themes.Split(',', StringSplitOptions.RemoveEmptyEntries))
             {
                 Theme.ForcedDark = theme == "sombre";
-                _count = 0;
                 RenderAll(theme);
             }
         }
