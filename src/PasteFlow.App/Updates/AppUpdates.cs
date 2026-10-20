@@ -10,7 +10,8 @@ namespace PasteFlow.App.Updates;
 
 /// <summary>
 /// Keeps PasteFlow up to date: a new version published on the public repository of the versions is downloaded in the
-/// background, then installed at the next launch of PasteFlow, or at once from the menu (Ctrl+Alt+P, then U).
+/// background, then installed at the next launch of PasteFlow, or at once from the menu (Ctrl+Alt+P, then U). The
+/// menu can also look for one at once.
 /// </summary>
 /// <remarks>
 /// <para>Only an installed PasteFlow updates itself; started from the code (dotnet run), it never looks for updates.</para>
@@ -24,12 +25,13 @@ internal sealed class AppUpdates : IDisposable
     public const string ReleasesRepository = "https://github.com/AntoineBarthelemy/pasteflow-releases";
 
     private static readonly TimeSpan FirstCheckDelay = TimeSpan.FromMinutes(1);
-    private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(6);
+    private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(1);
 
     private readonly UpdateManager _manager;
     private readonly PopupNotifier _notifier;
     private readonly CancellationTokenSource _stop = new();
     private UpdateInfo? _ready;
+    private int _isChecking;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AppUpdates"/> class.
@@ -64,6 +66,16 @@ internal sealed class AppUpdates : IDisposable
     public bool IsUpdateReady => _ready is not null;
 
     /// <summary>
+    /// Gets the version downloaded and waiting to be installed, or an empty string.
+    /// </summary>
+    public string ReadyVersion => _ready?.TargetFullRelease.Version.ToString() ?? string.Empty;
+
+    /// <summary>
+    /// Gets a value indicating whether PasteFlow runs installed, the only way it updates itself.
+    /// </summary>
+    public bool IsInstalled => _manager.IsInstalled;
+
+    /// <summary>
     /// Starts looking for new versions: a minute after the launch, then every few hours.
     /// </summary>
     public void Start()
@@ -72,6 +84,15 @@ internal sealed class AppUpdates : IDisposable
         {
             _ = CheckRegularlyAsync(_stop.Token);
         }
+    }
+
+    /// <summary>
+    /// Looks for a new version at once, as asked from the menu, and tells the result.
+    /// </summary>
+    /// <returns>A task that ends when the new version is downloaded, or when there is none.</returns>
+    public Task CheckNowAsync()
+    {
+        return _manager.IsInstalled ? CheckOnceAsync(isAsked: true) : Task.CompletedTask;
     }
 
     /// <summary>
@@ -99,7 +120,7 @@ internal sealed class AppUpdates : IDisposable
             await Task.Delay(FirstCheckDelay, cancellationToken);
             while (!cancellationToken.IsCancellationRequested)
             {
-                await CheckOnceAsync();
+                await CheckOnceAsync(isAsked: false);
                 await Task.Delay(CheckInterval, cancellationToken);
             }
         }
@@ -109,14 +130,40 @@ internal sealed class AppUpdates : IDisposable
         }
     }
 
-    private async Task CheckOnceAsync()
+    private async Task CheckOnceAsync(bool isAsked)
     {
+        if (_ready is not null)
+        {
+            if (isAsked)
+            {
+                _notifier.Notify($"PasteFlow {ReadyVersion} est déjà prêt : Ctrl+Alt+P puis U pour l'installer.");
+            }
+
+            return;
+        }
+
+        // One check at a time: the menu can ask while the regular check runs
+        if (Interlocked.Exchange(ref _isChecking, 1) == 1)
+        {
+            return;
+        }
+
         try
         {
             var update = await _manager.CheckForUpdatesAsync();
-            if (update is null || _ready is not null)
+            if (update is null)
             {
+                if (isAsked)
+                {
+                    _notifier.Notify($"PasteFlow est à jour ({CurrentVersion}).");
+                }
+
                 return;
+            }
+
+            if (isAsked)
+            {
+                _notifier.Notify($"PasteFlow {update.TargetFullRelease.Version} se télécharge…");
             }
 
             await _manager.DownloadUpdatesAsync(update);
@@ -127,6 +174,14 @@ internal sealed class AppUpdates : IDisposable
         {
             // Offline, or the repository does not answer: tried again later, the error is kept for understanding
             ErrorLog.Write("Recherche de mise à jour", exception);
+            if (isAsked)
+            {
+                _notifier.Notify("Impossible de joindre le serveur des mises à jour. Réessaie plus tard.");
+            }
+        }
+        finally
+        {
+            _ = Interlocked.Exchange(ref _isChecking, 0);
         }
     }
 }

@@ -275,7 +275,7 @@ internal static class Program
                 new('B', bitwarden.IsUnlocked ? "Verrouiller Bitwarden" : "Déverrouiller Bitwarden…", OpenBitwardenUnlock, Icon: bitwarden.IsUnlocked ? Icons.Lock : Icons.Unlock),
                 new('P', "Paramètres…", OpenSettings, Icon: Icons.Settings),
                 new('H', "Effacer l'historique…", ClearHistoryAfterAsking, Icon: Icons.History),
-                new('U', "Installer la mise à jour et redémarrer", updates.InstallNowAndRestart, updates.IsUpdateReady, Icons.Download),
+                UpdateEntry(updates),
                 new('Q', "Quitter PasteFlow", application.Shutdown, Icon: Icons.Power),
             });
             if (isNearTray)
@@ -405,6 +405,19 @@ internal static class Program
         {
             notifier.Notify($"Ton identité Bitwarden a complété ta fiche ({added} infos).");
         }
+    }
+
+    private static MenuEntry UpdateEntry(AppUpdates updates)
+    {
+        // A version ready is installed at once; otherwise the menu looks for one now, or says why it cannot
+        if (updates.IsUpdateReady)
+        {
+            return new MenuEntry('U', $"Installer PasteFlow {updates.ReadyVersion} et redémarrer", updates.InstallNowAndRestart, Icon: Icons.Download);
+        }
+
+        return updates.IsInstalled
+            ? new MenuEntry('U', "Rechercher une mise à jour", () => _ = updates.CheckNowAsync(), Icon: Icons.Download)
+            : new MenuEntry('U', "Mises à jour : seulement pour PasteFlow installé", () => { }, IsEnabled: false, Icon: Icons.Download);
     }
 
     private static async Task ClearHistoryAsync(FillHistory history, PopupNotifier notifier)
