@@ -9,6 +9,11 @@
     <GlobalPackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
   </ItemGroup>
 
+  <!-- Installation and updates of the application -->
+  <ItemGroup>
+    <PackageVersion Include="Velopack" Version="1.2.161" />
+  </ItemGroup>
+
   <!-- Test dependencies -->
   <ItemGroup>
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />

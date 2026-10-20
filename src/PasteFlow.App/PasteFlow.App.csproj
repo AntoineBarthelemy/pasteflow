@@ -21,6 +21,11 @@
     <ProjectReference Include="..\PasteFlow.Core\PasteFlow.Core.csproj" />
   </ItemGroup>
 
+  <!-- Installation per user, without administrator rights, and automatic updates -->
+  <ItemGroup>
+    <PackageReference Include="Velopack" />
+  </ItemGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="PasteFlow.App.Tests" />
   </ItemGroup>

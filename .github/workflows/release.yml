@@ -1,0 +1,72 @@
+name: Release
+
+# Builds the installer of PasteFlow (per user, without administrator rights) and its update packages.
+# A tag such as v0.1.0, or a manual run, makes a version. With the RELEASES_TOKEN secret, the version is published on
+# the public repository of the versions, where installed copies of PasteFlow find their updates; without it, the files
+# are only kept as an artifact of the run.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version, such as 0.1.0'
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_ROLL_FORWARD: Major
+  HUSKY: 0
+  RELEASES_REPOSITORY: https://github.com/AntoineBarthelemy/pasteflow-releases
+  RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+
+jobs:
+  release:
+    name: Installer and update packages
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Choose the version
+        shell: pwsh
+        run: |
+          $version = if ('${{ github.event_name }}' -eq 'push') { '${{ github.ref_name }}'.TrimStart('v') } else { '${{ inputs.version }}' }
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Version invalide : $version" }
+          "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Publish the application
+        run: dotnet publish src/PasteFlow.App/PasteFlow.App.csproj --configuration Release --runtime win-x64 --self-contained -p:Version=${{ env.VERSION }} --output publish
+
+      - name: Install vpk
+        run: dotnet tool install --global vpk --version 1.2.161
+
+      - name: Get the previous version, for smaller updates
+        if: env.RELEASES_TOKEN != ''
+        continue-on-error: true
+        run: vpk download github --repoUrl ${{ env.RELEASES_REPOSITORY }} --token ${{ env.RELEASES_TOKEN }}
+
+      - name: Build the installer
+        run: vpk pack --packId PasteFlow.App --packVersion ${{ env.VERSION }} --packDir publish --mainExe PasteFlow.App.exe --packTitle PasteFlow --packAuthors "Antoine Barthélémy"
+
+      - name: Keep the files of the version
+        uses: actions/upload-artifact@v7
+        with:
+          name: pasteflow-${{ env.VERSION }}
+          path: Releases
+          retention-days: 30
+
+      - name: Publish the version
+        if: env.RELEASES_TOKEN != ''
+        run: vpk upload github --repoUrl ${{ env.RELEASES_REPOSITORY }} --publish --releaseName "PasteFlow ${{ env.VERSION }}" --tag v${{ env.VERSION }} --token ${{ env.RELEASES_TOKEN }}

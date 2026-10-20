@@ -15,6 +15,7 @@ using PasteFlow.App.Screen;
 using PasteFlow.App.Security;
 using PasteFlow.App.Settings;
 using PasteFlow.App.Tray;
+using PasteFlow.App.Updates;
 using PasteFlow.Core.Activation;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
@@ -26,6 +27,7 @@ using PasteFlow.Core.Reference;
 using PasteFlow.Core.Security;
 using PasteFlow.Core.Settings;
 using PasteFlow.Core.Undo;
+using Velopack;
 
 namespace PasteFlow.App;
 
@@ -45,6 +47,9 @@ internal static class Program
         {
             return NativeHost.Run(BrowserBridge.PipeName);
         }
+
+        // Installation, update and removal steps of the installer end here; a downloaded version is installed now
+        VelopackApp.Build().Run();
 
         // Only one instance may own the global shortcut
         using var singleInstance = new Mutex(initiallyOwned: false, SingleInstanceMutexName, out var isFirstInstance);
@@ -251,6 +256,9 @@ internal static class Program
                 : "Rien à retirer : aucun ajout récent à ta fiche.");
         }
 
+        // New versions are downloaded in the background and installed at the next launch
+        using var updates = new AppUpdates(notifier);
+
         MenuWindow? menuWindow = null;
         void OpenMenu()
         {
@@ -267,6 +275,7 @@ internal static class Program
                 new('B', bitwarden.IsUnlocked ? "Verrouiller Bitwarden" : "Déverrouiller Bitwarden…", OpenBitwardenUnlock),
                 new('P', "Paramètres…", OpenSettings),
                 new('H', "Effacer l'historique…", ClearHistoryAfterAsking),
+                new('U', "Installer la mise à jour et redémarrer", updates.InstallNowAndRestart, updates.IsUpdateReady),
                 new('Q', "Quitter PasteFlow", application.Shutdown),
             });
             menuWindow.Show();
@@ -316,6 +325,8 @@ internal static class Program
                 OpenBitwardenUnlock();
             }
         });
+
+        updates.Start();
 
         // The official lists are loaded now, in the background, rather than at the first fill
         _ = Task.Run(() => ReferenceData.Shared);

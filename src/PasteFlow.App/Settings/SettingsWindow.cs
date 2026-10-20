@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using PasteFlow.App.Updates;
 using PasteFlow.Core.Matching;
 using PasteFlow.Core.Settings;
 
@@ -83,6 +84,12 @@ internal sealed class SettingsWindow : Window
             TextWrapping = TextWrapping.Wrap,
         });
         panel.Children.Add(buttons);
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"PasteFlow {AppUpdates.CurrentVersion}",
+            Foreground = SystemColors.GrayTextBrush,
+            Margin = new Thickness(0, 12, 0, 0),
+        });
         Content = panel;
 
         // The keyboard starts on the prudence chosen: the arrows change it, Tab goes on, Entrée saves
