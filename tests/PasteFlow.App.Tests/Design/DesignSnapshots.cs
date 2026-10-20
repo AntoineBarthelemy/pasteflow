@@ -182,8 +182,8 @@ public sealed class DesignSnapshots
             // Behind transparent popups, the background of the theme, so that their shadow can be seen
             var background = window.Background is SolidColorBrush { Color.A: 255 } solid ? solid : Theme.Brush(palette => palette.Background);
             context.DrawRectangle(background, null, new Rect(0, 0, width, height));
-            context.DrawRectangle(new VisualBrush(root) { Stretch = Stretch.None, AlignmentX = AlignmentX.Left, AlignmentY = AlignmentY.Top },
-                null, new Rect(root.Margin.Left, root.Margin.Top, root.ActualWidth, root.ActualHeight));
+            var content = new VisualBrush(root) { Stretch = Stretch.None, AlignmentX = AlignmentX.Left, AlignmentY = AlignmentY.Top };
+            context.DrawRectangle(content, null, new Rect(root.Margin.Left, root.Margin.Top, root.ActualWidth, root.ActualHeight));
         }
 
         picture.Render(visual);

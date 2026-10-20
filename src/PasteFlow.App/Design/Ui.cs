@@ -68,9 +68,9 @@ internal static class Ui
     /// <summary>
     /// Builds a text on one line, cut with "…" when too long.
     /// </summary>
-    /// <param name="text">The text.</param>
+    /// <param name="text">The text to show.</param>
     /// <param name="role">Its kind.</param>
-    /// <returns>The text.</returns>
+    /// <returns>The text on one line.</returns>
     public static TextBlock Line(string text, TextRole role)
     {
         var block = Text(text, role);
