@@ -210,6 +210,7 @@ public static class FieldMatcher
     {
         // Only the values the field can accept compete, so "the only value of its kind" means the only acceptable one
         var eligible = candidates.Where(candidate => IsEligible(candidate, clues)).ToList();
+
         // An address behind a link is not seen as such: it never makes a value written on screen less unique
         var distinctValuesByKind = eligible
             .Where(candidate => !candidate.IsLinkAddress)
