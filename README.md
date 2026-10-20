@@ -31,9 +31,10 @@ Feuille de route :
 15. [x] Fiche perso et connexions : une fiche unique, chiffrée sur le PC (« Ma fiche… » dans le menu de l'icône), qui remplit les champs qui parlent de l'utilisateur (« Votre e-mail », page « Créer un compte ») et jamais ceux d'un autre (« E-mail du contact », page « Nouveau client ») ; en cas de doute avec l'écran, champ vide et les deux valeurs proposées. Plusieurs e-mails : celui utilisé sur le site, sinon le plus utilisé. Le sensible (IBAN, n° de sécu…) est reconnu à sa clé, jamais affiché en entier, et protégé par Windows Hello (30 min, reverrouillé au verrouillage du PC). La fiche apprend de ce que l'utilisateur remplit (deux fois, avec « Annuler »), démarre avec le compte Windows et l'identité Bitwarden, s'exporte avec un mot de passe. Pages de connexion : identifiant et mot de passe demandés à Bitwarden (même site que la barre d'adresse, liste de choix dans les applications), jamais stockés
 16. [x] Tout au clavier : chaque champ laissé à vérifier dit pourquoi (« 51500 ne correspond pas à Reims selon La Poste ») dans sa bulle et dans le récapitulatif ; Ctrl+Alt+P ouvre le menu de PasteFlow (une lettre par action) ; Ctrl+Alt+F met des lettres sur les valeurs visibles à l'écran, à la façon de Vimium, et taper les lettres d'une valeur la colle au curseur
 17. [x] Liens : l'adresse cachée derrière un lien, ou celle d'une page ouverte derrière, va seulement là où un lien est attendu (« Lien de la vidéo », « le lien : ») ; dans la liste de Ctrl+Alt+V, chercher le texte d'un lien propose aussi son adresse
-18. [x] Extension Chrome/Edge (dossier `extension`) : à l'appui du raccourci, PasteFlow lit aussi les 5 onglets consultés le plus récemment, même cachés derrière un autre onglet
+18. [x] Extension Chrome/Edge (dossier `extension`) : à l'appui du raccourci, PasteFlow lit aussi les 5 onglets consultés le plus récemment, même cachés derrière un autre onglet, avec ce qui est tapé dans leurs champs (jamais les mots de passe ni les cartes)
 19. [x] Installateur sans droits administrateur et mises à jour automatiques
-20. [ ] Plus tard : extension Chrome pour lire les autres onglets, envoi optionnel vers l'historique Win+V, choix des raccourcis
+20. [x] Interface : un seul style pour toutes les fenêtres et popups (ivoire chaud et terre cuite, titres en serif, cartes arrondies, touches dessinées), clair ou sombre comme Windows ; menu en palette de commandes, ouvert par un clic sur l'icône ou Ctrl+Alt+P
+21. [ ] Plus tard : envoi optionnel vers l'historique Win+V, choix des raccourcis
 
 Les informations à coller viennent de **sources** interchangeables (interface commune posée à l'étape 4). Sources prévues :
 
@@ -100,7 +101,9 @@ Raccourcis :
 | Ctrl+Alt+F | Met des lettres (F, J, D, K… ou deux lettres) sur les valeurs visibles à l'écran : taper les lettres colle la valeur au curseur, Retour arrière efface une lettre, Échap annule |
 | Ctrl+Alt+P | Ouvre le menu de PasteFlow au clavier : F Ma fiche, A annuler le dernier ajout à la fiche, B Bitwarden, P Paramètres, H effacer l'historique, Q Quitter |
 
-Clic droit sur l'icône près de l'horloge (ou Ctrl+Alt+P) : « Ma fiche… » (voir, corriger, exporter ou importer ses infos), « Déverrouiller Bitwarden… », « Paramètres… » (prudence, apprentissage, démarrage avec Windows), « Effacer l'historique », « Quitter ».
+Clic sur l'icône près de l'horloge (ou Ctrl+Alt+P) : le même menu, une lettre par action. « Ma fiche… » (voir, corriger, exporter ou importer ses infos), « Déverrouiller Bitwarden… », « Paramètres… » (prudence, apprentissage, démarrage avec Windows), « Effacer l'historique… » (avec confirmation), « Quitter ».
+
+Le style de l'interface est dans `src/PasteFlow.App/Design` (palette, polices, styles des contrôles, briques communes) ; l'icône est dessinée par `tools/icon/make_icon.py`. Pour voir toutes les fenêtres sans Windows : workflow « Snapshots » (onglet Actions, Run workflow), qui les dessine en clair et en sombre.
 
 Pages de connexion avec Bitwarden (facultatif) : installer une fois l'outil en ligne de commande (`winget install Bitwarden.CLI`, ou `npm install -g @bitwarden/cli`), puis `bw login` dans un terminal. Au lancement, PasteFlow demande le mot de passe maître (il va directement à Bitwarden et n'est jamais gardé) ; ensuite Windows Hello est demandé avant chaque mot de passe, une fois par demi-heure. Une fois le coffre déverrouillé, PasteFlow lance le service local de Bitwarden (`bw serve`, joignable seulement depuis ce PC) pour obtenir chaque mot de passe en quelques dizaines de millisecondes ; il est arrêté au verrouillage et à la fermeture de PasteFlow. Contrepartie : tant qu'il tourne, un autre programme de ce PC pourrait lire le coffre.
 
