@@ -52,7 +52,8 @@ internal static class VisibleTextReader
         var texts = new List<ScreenText>();
         try
         {
-            var request = new CacheRequest { AutomationElementMode = AutomationElementMode.None };
+            // The elements themselves are kept with their values: without them, UI Automation fails to return the list
+            var request = new CacheRequest();
             request.Add(AutomationElement.NameProperty);
             request.Add(AutomationElement.BoundingRectangleProperty);
             request.Add(AutomationElement.IsOffscreenProperty);
@@ -86,7 +87,7 @@ internal static class VisibleTextReader
                 }
             }
         }
-        catch (Exception exception) when (exception is ElementNotAvailableException or COMException or InvalidOperationException)
+        catch (Exception exception) when (exception is ElementNotAvailableException or COMException or InvalidOperationException or ArgumentException)
         {
             // The window was closed or does not answer accessibility requests: what was read is kept
         }
