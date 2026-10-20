@@ -59,12 +59,16 @@ jobs:
           GH_TOKEN: ${{ env.RELEASES_TOKEN }}
         run: |
           # A release needs a first commit: an empty repository gets a short README
-          gh api repos/AntoineBarthelemy/pasteflow-releases/contents/README.md --silent 2>$null
-          if ($LASTEXITCODE -ne 0) {
-            $text = "# PasteFlow`n`nLes versions de PasteFlow. Pour l'installer : télécharger PasteFlow.App-win-Setup.exe dans la dernière version (Releases), puis le lancer.`n"
-            $content = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($text))
-            gh api -X PUT repos/AntoineBarthelemy/pasteflow-releases/contents/README.md -f message="Premier commit" -f content=$content --silent
-          }
+          $ErrorActionPreference = 'Continue'
+          $found = gh api repos/AntoineBarthelemy/pasteflow-releases/contents/README.md --jq .name 2>&1
+          if ($LASTEXITCODE -eq 0) { Write-Output "Le dépôt des versions a déjà un README."; exit 0 }
+          Write-Output "::notice title=Dépôt des versions::Pas encore de README ($($found -join ' ')), création du premier commit."
+          $text = "# PasteFlow`n`nLes versions de PasteFlow. Pour l'installer : télécharger PasteFlow.App-win-Setup.exe dans la dernière version (Releases), puis le lancer.`n"
+          $content = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($text))
+          $result = gh api -X PUT repos/AntoineBarthelemy/pasteflow-releases/contents/README.md -f message="Premier commit" -f content=$content --jq .commit.sha 2>&1
+          if ($LASTEXITCODE -ne 0) { Write-Output "::error title=Dépôt des versions::$($result -join ' ')"; exit 1 }
+          Write-Output "Premier commit : $result"
+          exit 0
 
       - name: Get the previous version, for smaller updates
         if: env.RELEASES_TOKEN != ''
