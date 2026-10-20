@@ -30,6 +30,16 @@ public static class BrowserTabs
     public const int MaxLinks = 300;
 
     /// <summary>
+    /// The largest number of filled fields kept for a tab.
+    /// </summary>
+    public const int MaxFields = 100;
+
+    /// <summary>
+    /// The longest value kept for a field.
+    /// </summary>
+    public const int MaxFieldValueLength = 5000;
+
+    /// <summary>
     /// Writes the request sent to the extension.
     /// </summary>
     /// <param name="id">The number of the request, given back in the answer.</param>
@@ -128,6 +138,7 @@ public static class BrowserTabs
                 Rank = nextRank++,
                 Address = tab.Url,
                 Links = tab.Links,
+                Fields = tab.Fields,
             });
         }
 
@@ -155,6 +166,19 @@ public static class BrowserTabs
             }
         }
 
+        var fields = new List<FieldText>();
+        if (item.TryGetProperty("fields", out var fieldItems) && fieldItems.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var field in fieldItems.EnumerateArray().Take(MaxFields))
+            {
+                if (field.ValueKind == JsonValueKind.Object && StringOf(field, "label") is { Length: > 0 } label
+                    && StringOf(field, "value") is { Length: > 0 and <= MaxFieldValueLength } value && value.Trim().Length > 0)
+                {
+                    fields.Add(new FieldText { Label = label.Trim(), Value = value });
+                }
+            }
+        }
+
         var lastAccessed = item.TryGetProperty("lastAccessed", out var time) && time.ValueKind == JsonValueKind.Number ? time.GetDouble() : 0;
         text ??= string.Empty;
         return new BrowserTab
@@ -163,6 +187,7 @@ public static class BrowserTabs
             Url = StringOf(item, "url") ?? string.Empty,
             Text = text.Length > MaxTextLength ? text[..MaxTextLength] : text,
             Links = links,
+            Fields = fields,
             LastAccessed = lastAccessed,
         };
     }

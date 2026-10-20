@@ -7,7 +7,7 @@ public sealed class BrowserTabsTests
 {
     private const string Answer = """
         {"type":"tabs","id":7,"tabs":[
-          {"title":"Ancien onglet","url":"https://exemple.fr/","text":"Vieux texte","links":[],"lastAccessed":100},
+          {"title":"Ancien onglet","url":"https://exemple.fr/","text":"Vieux texte","links":[],"fields":[{"label":"Titre (obligatoire)","value":"Mon tuto PasteFlow"},{"label":"","value":"sans étiquette"},{"label":"Vide","value":"  "}],"lastAccessed":100},
           {"title":"Boîte de réception - Gmail","url":"https://mail.google.com/","text":"Léa : lea.martin@atelier-nova.fr","links":[{"text":"Ma vidéo","href":"https://youtu.be/abc"},{"text":"","href":"https://vide.fr"}],"lastAccessed":300},
           {"title":"Formulaire - Inscription","url":"https://exemple.fr/inscription","text":"Nom\nE-mail","links":[],"lastAccessed":200},
           "pas un onglet"
@@ -38,6 +38,14 @@ public sealed class BrowserTabsTests
     }
 
     [Fact]
+    public void Read_KeepsTheFilledFieldsWithALabel()
+    {
+        var tab = BrowserTabs.Read(Answer).Single(read => read.Title == "Ancien onglet");
+
+        Assert.Equal(new FieldText { Label = "Titre (obligatoire)", Value = "Mon tuto PasteFlow" }, Assert.Single(tab.Fields));
+    }
+
+    [Fact]
     public void Merge_AddsTheHiddenTabsAfterTheWindowsAndLeavesTheVisibleOnesToTheScreen()
     {
         var windows = new[]
@@ -51,5 +59,6 @@ public sealed class BrowserTabsTests
         Assert.Equal(new[] { "Formulaire - Inscription - Google Chrome", "Bloc-notes", "Boîte de réception - Gmail", "Ancien onglet" }, merged.Select(window => window.Title));
         Assert.Equal(new[] { 0, 1, 2, 3 }, merged.Select(window => window.Rank));
         Assert.Equal("https://mail.google.com/", merged[2].Address);
+        Assert.Equal("Mon tuto PasteFlow", Assert.Single(merged[3].Fields).Value);
     }
 }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PasteFlow",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Laisse PasteFlow lire les onglets récents quand tu appuies sur son raccourci. Rien n'est lu en continu, rien ne quitte ton ordinateur.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq/XGJ5Sm5s/zNMd/E9cJKn9c/FzddhZOjGLbGpk5EDBGI7+f8PliNUsJpsSg4jaZhd0lKzW5FK8KtGAS9ClI1GWCiazm2zG8NLIx9mLC4z65U+931YwoUn9a/C20YhH2y88gclmbikgighxOsBCDu3rdpReePP4OJh4IzEq8Kot5Nwf15ClIx9VmtOX6ojMYu05u4CQ9/Bfn9+P+NBaifzh4I4psYMWjPTKippiz6A0lMtTLThr5yIsy/UAtPxDiF//Btz5xRVxY8xp2eZjQUa8YQmIDXWdtbdxgTESwBQ0JRCSKZHn02xZoWIFQkZY7zLVcA3R8umpW4vVhJajTpwIDAQAB",
   "minimum_chrome_version": "121",
