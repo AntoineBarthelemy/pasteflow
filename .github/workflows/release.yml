@@ -46,12 +46,6 @@ jobs:
           if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Version invalide : $version" }
           "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Publish the application
-        run: dotnet publish src/PasteFlow.App/PasteFlow.App.csproj --configuration Release --runtime win-x64 --self-contained -p:Version=${{ env.VERSION }} --output publish
-
-      - name: Install vpk
-        run: dotnet tool install --global vpk --version 1.2.161
-
       - name: Start the repository of the versions if it is still empty
         if: env.RELEASES_TOKEN != ''
         shell: pwsh
@@ -66,9 +60,20 @@ jobs:
           $text = "# PasteFlow`n`nLes versions de PasteFlow. Pour l'installer : télécharger PasteFlow.App-win-Setup.exe dans la dernière version (Releases), puis le lancer.`n"
           $content = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($text))
           $result = gh api -X PUT repos/AntoineBarthelemy/pasteflow-releases/contents/README.md -f message="Premier commit" -f content=$content --jq .commit.sha 2>&1
-          if ($LASTEXITCODE -ne 0) { Write-Output "::error title=Dépôt des versions::$($result -join ' ')"; exit 1 }
+          if ($LASTEXITCODE -ne 0) {
+            # What the token may do on the repository, to tell which right is missing
+            $rights = gh api repos/AntoineBarthelemy/pasteflow-releases --jq '.permissions | tostring' 2>&1
+            Write-Output "::error title=Dépôt des versions::$($result -join ' ') Droits du jeton : $($rights -join ' ')"
+            exit 1
+          }
           Write-Output "Premier commit : $result"
           exit 0
+
+      - name: Publish the application
+        run: dotnet publish src/PasteFlow.App/PasteFlow.App.csproj --configuration Release --runtime win-x64 --self-contained -p:Version=${{ env.VERSION }} --output publish
+
+      - name: Install vpk
+        run: dotnet tool install --global vpk --version 1.2.161
 
       - name: Get the previous version, for smaller updates
         if: env.RELEASES_TOKEN != ''
