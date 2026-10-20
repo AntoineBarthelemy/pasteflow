@@ -81,7 +81,7 @@ jobs:
         run: vpk download github --repoUrl ${{ env.RELEASES_REPOSITORY }} --token ${{ env.RELEASES_TOKEN }}
 
       - name: Build the installer
-        run: vpk pack --packId PasteFlow.App --packVersion ${{ env.VERSION }} --packDir publish --mainExe PasteFlow.App.exe --packTitle PasteFlow --packAuthors "Antoine Barthélémy"
+        run: vpk pack --packId PasteFlow.App --packVersion ${{ env.VERSION }} --packDir publish --mainExe PasteFlow.App.exe --packTitle PasteFlow --packAuthors "Antoine Barthélémy" --icon src/PasteFlow.App/Assets/PasteFlow.ico
 
       - name: Keep the files of the version
         uses: actions/upload-artifact@v7

@@ -7,4 +7,5 @@ namespace PasteFlow.App.Tray;
 /// <param name="Text">What the entry does, such as "Ma fiche…".</param>
 /// <param name="Run">The action run.</param>
 /// <param name="IsEnabled">Whether the entry can be run now.</param>
-internal sealed record MenuEntry(char Letter, string Text, Action Run, bool IsEnabled = true);
+/// <param name="Icon">The icon of the entry, a glyph of the icon font of Windows, or an empty string.</param>
+internal sealed record MenuEntry(char Letter, string Text, Action Run, bool IsEnabled = true, string Icon = "");

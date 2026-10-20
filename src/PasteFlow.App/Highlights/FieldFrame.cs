@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
+using PasteFlow.App.Design;
 
 namespace PasteFlow.App.Highlights;
 
@@ -16,8 +17,6 @@ internal sealed class FieldFrame : Window
     internal const int FrameMargin = 3;
 
     private const double HiddenPosition = -32000;
-
-    private static readonly Brush FrameBrush = CreateFrameBrush();
 
     /// <summary>
     /// Initializes a new instance of the <see cref="FieldFrame"/> class, not shown yet.
@@ -43,9 +42,10 @@ internal sealed class FieldFrame : Window
 
         Content = new Border
         {
-            BorderBrush = FrameBrush,
+            // The accent of PasteFlow, a little transparent, with soft corners
+            BorderBrush = FrameBrush(),
             BorderThickness = new Thickness(FrameMargin),
-            CornerRadius = new CornerRadius(4),
+            CornerRadius = new CornerRadius(6),
         };
 
         SourceInitialized += OnSourceInitialized;
@@ -91,9 +91,10 @@ internal sealed class FieldFrame : Window
         PixelBounds = bounds;
     }
 
-    private static SolidColorBrush CreateFrameBrush()
+    private static SolidColorBrush FrameBrush()
     {
-        var brush = new SolidColorBrush(Color.FromRgb(0xF5, 0x9E, 0x0B));
+        var accent = Theme.Current.Warning;
+        var brush = new SolidColorBrush(Color.FromArgb(0xE6, accent.R, accent.G, accent.B));
         brush.Freeze();
         return brush;
     }

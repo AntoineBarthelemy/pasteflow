@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using PasteFlow.App.Design;
 using PasteFlow.Core.Forms;
 
 namespace PasteFlow.App.Notifications;
@@ -13,7 +14,7 @@ namespace PasteFlow.App.Notifications;
 /// </summary>
 internal static class RecapView
 {
-    private const double MaxWidth = 440;
+    private const double MaxWidth = 460;
     private const double DotSize = 8;
 
     // Display time grows with the number of lines, to leave time to read them
@@ -59,16 +60,23 @@ internal static class RecapView
             panel.Children.Add(Text(others, PopupColors.SecondaryText, 12, new Thickness(18, 2, 0, 0)));
         }
 
-        panel.Children.Add(new Border { Height = 1, Background = PopupColors.Separator, Margin = new Thickness(0, 10, 0, 8) });
+        panel.Children.Add(Ui.Divider(new Thickness(0, 12, 0, 10)));
 
-        if (recap.UndoHint is not null)
+        // How to undo, with the key drawn as a key: "Ctrl+Alt+Z  tout annuler"
+        if (recap.UndoHint is { } undo)
         {
-            panel.Children.Add(Text(recap.UndoHint, PopupColors.Text, 12, new Thickness(0, 0, 0, 4)));
+            var parts = undo.Split(" pour ", 2, StringSplitOptions.TrimEntries);
+            var hints = Ui.KeyHints((parts[0], parts.Length > 1 ? parts[1] : string.Empty));
+            hints.Margin = new Thickness(0, 0, 0, 6);
+            panel.Children.Add(hints);
         }
 
         foreach (var detail in recap.Details)
         {
-            panel.Children.Add(Text(detail, PopupColors.DiscreetText, 11, default));
+            var line = Text(detail, PopupColors.DiscreetText, 11, new Thickness(0, 1, 0, 1));
+            line.TextWrapping = TextWrapping.Wrap;
+            line.TextTrimming = TextTrimming.None;
+            panel.Children.Add(line);
         }
 
         return panel;
@@ -81,8 +89,23 @@ internal static class RecapView
         DockPanel.SetDock(duration, Dock.Right);
         header.Children.Add(duration);
 
+        // A check when everything is filled, a warning when something is left to the user
+        var isComplete = recap.Lines.All(line => line.Kind == RecapLineKind.Filled);
+        var badge = new Border
+        {
+            Width = 22,
+            Height = 22,
+            CornerRadius = new CornerRadius(11),
+            Background = isComplete ? PopupColors.Filled : PopupColors.ToCheck,
+            Margin = new Thickness(0, 0, 10, 0),
+            Child = Ui.Icon(isComplete ? Icons.Check : Icons.Warning, 11, Theme.Brush(palette => palette.OnAccent)),
+        };
+        DockPanel.SetDock(badge, Dock.Left);
+        header.Children.Add(badge);
+
         var title = Text(recap.Title, PopupColors.Text, 14, default);
         title.FontWeight = FontWeights.SemiBold;
+        title.FontFamily = Theme.DisplayFont;
         header.Children.Add(title);
         return header;
     }
@@ -155,6 +178,7 @@ internal static class RecapView
         {
             Text = text,
             Foreground = color,
+            FontFamily = Theme.UiFont,
             FontSize = size,
             Margin = margin,
             TextTrimming = TextTrimming.CharacterEllipsis,

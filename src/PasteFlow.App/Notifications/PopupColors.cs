@@ -1,56 +1,50 @@
 using System.Windows.Media;
+using PasteFlow.App.Design;
 
 namespace PasteFlow.App.Notifications;
 
 /// <summary>
-/// Colors of the popups, on a dark background.
+/// Colors of the popups, taken from the palette of the theme when a popup is built.
 /// </summary>
 internal static class PopupColors
 {
     /// <summary>
     /// Gets the background of the popups.
     /// </summary>
-    public static Brush Background { get; } = Create(0x20, 0x20, 0x20);
+    public static Brush Background => Theme.Brush(palette => palette.Surface);
 
     /// <summary>
     /// Gets the color of the main text.
     /// </summary>
-    public static Brush Text { get; } = Brushes.White;
+    public static Brush Text => Theme.Brush(palette => palette.Text);
 
     /// <summary>
-    /// Gets the color of secondary text, such as labels.
+    /// Gets the color of the labels.
     /// </summary>
-    public static Brush SecondaryText { get; } = Create(0xB4, 0xB4, 0xB4);
+    public static Brush SecondaryText => Theme.Brush(palette => palette.TextSecondary);
 
     /// <summary>
-    /// Gets the color of discreet text, such as details.
+    /// Gets the color of the hints and sources.
     /// </summary>
-    public static Brush DiscreetText { get; } = Create(0x8C, 0x8C, 0x8C);
+    public static Brush DiscreetText => Theme.Brush(palette => palette.TextTertiary);
 
     /// <summary>
-    /// Gets the color of separators.
+    /// Gets the color of the separations.
     /// </summary>
-    public static Brush Separator { get; } = Create(0x3A, 0x3A, 0x3A);
+    public static Brush Separator => Theme.Brush(palette => palette.Border);
 
     /// <summary>
-    /// Gets the color of fields filled.
+    /// Gets the color of a field filled.
     /// </summary>
-    public static Brush Filled { get; } = Create(0x22, 0xC5, 0x5E);
+    public static Brush Filled => Theme.Brush(palette => palette.Success);
 
     /// <summary>
-    /// Gets the color of fields to check, the same as their frame on screen.
+    /// Gets the color of a field to check.
     /// </summary>
-    public static Brush ToCheck { get; } = Create(0xF5, 0x9E, 0x0B);
+    public static Brush ToCheck => Theme.Brush(palette => palette.Warning);
 
     /// <summary>
-    /// Gets the color of fields that refused their value.
+    /// Gets the color of a field that could not be written.
     /// </summary>
-    public static Brush Failed { get; } = Create(0xEF, 0x44, 0x44);
-
-    private static SolidColorBrush Create(byte red, byte green, byte blue)
-    {
-        var brush = new SolidColorBrush(Color.FromRgb(red, green, blue));
-        brush.Freeze();
-        return brush;
-    }
+    public static Brush Failed => Theme.Brush(palette => palette.Danger);
 }

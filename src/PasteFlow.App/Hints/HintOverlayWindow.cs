@@ -4,6 +4,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using PasteFlow.App.Design;
 using PasteFlow.App.Highlights;
 using PasteFlow.Core.Hints;
 
@@ -19,10 +20,8 @@ internal sealed class HintOverlayWindow : Window
     private const double LetterWidth = 9;
     private const double LabelPadding = 10;
 
-    private static readonly Brush LabelBackground = Freeze(new SolidColorBrush(Color.FromRgb(0xFF, 0xD5, 0x4F)));
-    private static readonly Brush LabelBorder = Freeze(new SolidColorBrush(Color.FromRgb(0xC5, 0x8B, 0x00)));
-    private static readonly Brush TypedLetters = Freeze(new SolidColorBrush(Color.FromRgb(0xA0, 0x7A, 0x10)));
-    private static readonly Brush ShadeBrush = Freeze(new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0x00, 0x00)));
+    private static readonly Brush ShadeBrush = Freeze(new SolidColorBrush(Color.FromArgb(0x18, 0x00, 0x00, 0x00)));
+    private static readonly Brush TypedLetters = Freeze(new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF)));
 
     private readonly IReadOnlyList<HintTarget> _targets;
     private readonly List<string> _codes;
@@ -156,18 +155,20 @@ internal sealed class HintOverlayWindow : Window
 
             var text = new TextBlock
             {
-                FontFamily = new FontFamily("Consolas"),
+                FontFamily = Theme.MonoFont,
                 FontSize = 13,
                 FontWeight = FontWeights.Bold,
-                Foreground = Brushes.Black,
+                Foreground = Theme.Brush(palette => palette.OnAccent),
             };
             var label = new Border
             {
-                Background = LabelBackground,
-                BorderBrush = LabelBorder,
+                // The accent of PasteFlow, so that the letters stand out on any page
+                Background = Theme.Brush(palette => palette.Accent),
+                BorderBrush = Theme.Brush(palette => palette.OnAccent),
                 BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(3),
-                Padding = new Thickness(3, 0, 3, 0),
+                CornerRadius = new CornerRadius(5),
+                Padding = new Thickness(5, 1, 5, 1),
+                Effect = new System.Windows.Media.Effects.DropShadowEffect { BlurRadius = 6, ShadowDepth = 1, Opacity = 0.3 },
                 Child = text,
                 ToolTip = target.Value,
             };

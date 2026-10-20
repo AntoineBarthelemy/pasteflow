@@ -7,6 +7,8 @@
     <UseWPF>true</UseWPF>
     <!-- Only used for the notification area icon (NotifyIcon) -->
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- The icon of the program, of its windows and of the installer; drawn by tools/icon/make_icon.py -->
+    <ApplicationIcon>Assets\PasteFlow.ico</ApplicationIcon>
     <!-- Required by the LibraryImport source generator -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
@@ -25,6 +27,7 @@
   <ItemGroup>
     <Page Remove="Design\Controls.xaml" />
     <EmbeddedResource Include="Design\Controls.xaml" LogicalName="PasteFlow.App.Design.Controls.xaml" />
+    <EmbeddedResource Include="Assets\PasteFlow.ico" LogicalName="PasteFlow.App.Assets.PasteFlow.ico" />
   </ItemGroup>
 
   <!-- Installation per user, without administrator rights, and automatic updates -->

@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using PasteFlow.App.Design;
 using PasteFlow.App.Notifications;
 using PasteFlow.Core.Forms;
 
@@ -25,7 +26,6 @@ internal sealed class SuggestionBubble : Window
     private const double MaxValueWidth = 320;
     private const double MaxContentWidth = 460;
 
-    private static readonly Brush HoverBackground = CreateBrush(0x33, 0x33, 0x33);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SuggestionBubble"/> class, not shown yet.
@@ -79,33 +79,43 @@ internal sealed class SuggestionBubble : Window
         if (reason.Length > 0)
         {
             // Why the field was not filled comes first: it is what lets the user choose with confidence
-            var why = Text($"Pourquoi : {reason}", PopupColors.Text, 12, new Thickness(8, 0, 8, suggestions.Count > 0 ? 8 : 0));
-            why.TextWrapping = TextWrapping.Wrap;
-            why.TextTrimming = TextTrimming.None;
+            var why = new Grid { Margin = new Thickness(8, 2, 8, suggestions.Count > 0 ? 10 : 2) };
+            why.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            why.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            var icon = Ui.Icon(Icons.Info, 13, PopupColors.ToCheck);
+            icon.VerticalAlignment = VerticalAlignment.Top;
+            icon.Margin = new Thickness(0, 2, 8, 0);
+            why.Children.Add(icon);
+            var text = Text($"Pourquoi : {reason}", PopupColors.SecondaryText, 12, default);
+            text.TextWrapping = TextWrapping.Wrap;
+            text.TextTrimming = TextTrimming.None;
+            Grid.SetColumn(text, 1);
+            why.Children.Add(text);
             panel.Children.Add(why);
         }
 
         if (suggestions.Count > 0)
         {
-            panel.Children.Add(Text("Propositions", PopupColors.DiscreetText, 11, new Thickness(8, 0, 8, 4)));
+            panel.Children.Add(Text("PROPOSITIONS", PopupColors.DiscreetText, 10, new Thickness(8, 0, 8, 4)));
             for (var index = 0; index < suggestions.Count; index++)
             {
                 var shortcut = index < shortcutNames.Count ? shortcutNames[index] : string.Empty;
                 panel.Children.Add(CreateRow(index, suggestions[index], shortcut));
             }
 
-            panel.Children.Add(Text("Ou tape ta propre valeur", PopupColors.DiscreetText, 11, new Thickness(8, 4, 8, 0)));
+            panel.Children.Add(Text("Ou tape ta propre valeur", PopupColors.DiscreetText, 11, new Thickness(8, 6, 8, 0)));
         }
 
-        Content = new Border
-        {
-            Background = PopupColors.Background,
-            BorderBrush = PopupColors.ToCheck,
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(4, 8, 4, 8),
-            Child = panel,
-        };
+        // A card with a soft shadow, the accent in a thin line on its left
+        Content = Ui.PopupRoot(
+            new Border
+            {
+                BorderBrush = PopupColors.ToCheck,
+                BorderThickness = new Thickness(2, 0, 0, 0),
+                Padding = new Thickness(6, 0, 0, 0),
+                Child = panel,
+            },
+            new Thickness(8, 10, 10, 10));
     }
 
     /// <summary>
@@ -122,16 +132,11 @@ internal sealed class SuggestionBubble : Window
         var position = new Point(fieldBounds.Left, fieldBounds.Bottom + Gap);
         if (position != PixelPosition)
         {
-            OverlayWindows.Move(Handle, position);
+            // The window holds room for the shadow around the card: it is moved so that the card itself is in place
+            var shadow = Ui.ShadowMargin * VisualTreeHelper.GetDpi(this).DpiScaleX;
+            OverlayWindows.Move(Handle, new Point(position.X - shadow, position.Y - shadow));
             PixelPosition = position;
         }
-    }
-
-    private static SolidColorBrush CreateBrush(byte red, byte green, byte blue)
-    {
-        var brush = new SolidColorBrush(Color.FromRgb(red, green, blue));
-        brush.Freeze();
-        return brush;
     }
 
     private static TextBlock Text(string text, Brush color, double size, Thickness margin)
@@ -140,6 +145,7 @@ internal sealed class SuggestionBubble : Window
         {
             Text = text,
             Foreground = color,
+            FontFamily = Theme.UiFont,
             FontSize = size,
             Margin = margin,
             VerticalAlignment = VerticalAlignment.Center,
@@ -150,28 +156,33 @@ internal sealed class SuggestionBubble : Window
     private Border CreateRow(int index, SuggestedValue suggestion, string shortcut)
     {
         var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MaxWidth = MaxValueWidth });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, MaxWidth = MaxValueWidth });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var key = Text(shortcut, PopupColors.ToCheck, 11, new Thickness(0, 0, 10, 0));
-        var value = Text(suggestion.Value, PopupColors.Text, 13, new Thickness(0, 0, 10, 0));
-        var source = Text(suggestion.SourceName, PopupColors.DiscreetText, 11, default);
-        Grid.SetColumn(value, 1);
-        Grid.SetColumn(source, 2);
-        grid.Children.Add(key);
+        var value = Text(suggestion.Value, PopupColors.Text, 13, new Thickness(0, 0, 12, 0));
+        var source = Text(suggestion.SourceName, PopupColors.DiscreetText, 11, new Thickness(0, 0, 12, 0));
+        source.MaxWidth = 140;
         grid.Children.Add(value);
+        Grid.SetColumn(source, 1);
         grid.Children.Add(source);
+        if (shortcut.Length > 0)
+        {
+            // The shortcut drawn as a key, on the right as in the menus of a Mac
+            var key = Ui.Keycap(shortcut);
+            Grid.SetColumn(key, 2);
+            grid.Children.Add(key);
+        }
 
         var row = new Border
         {
             Background = Brushes.Transparent,
-            CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(8, 4, 8, 4),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(8, 6, 8, 6),
             Cursor = Cursors.Hand,
             Child = grid,
         };
-        row.MouseEnter += (_, _) => row.Background = HoverBackground;
+        row.MouseEnter += (_, _) => row.Background = Theme.Brush(palette => palette.Sunken);
         row.MouseLeave += (_, _) => row.Background = Brushes.Transparent;
         row.MouseLeftButtonUp += (_, _) => ValueClicked?.Invoke(this, index);
         return row;

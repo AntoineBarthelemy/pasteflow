@@ -11,17 +11,19 @@ permissions:
 
 jobs:
   snapshots:
-    name: Snapshots ${{ matrix.theme }}
+    name: Snapshots ${{ matrix.theme }} ${{ matrix.group }}
     runs-on: windows-latest
     strategy:
       matrix:
         theme: [clair, sombre]
+        group: ['1', '2']
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
       HUSKY: 0
       PASTEFLOW_SNAPSHOTS: ${{ github.workspace }}\snapshots
       PASTEFLOW_SNAPSHOT_THEMES: ${{ matrix.theme }}
+      PASTEFLOW_SNAPSHOT_GROUP: ${{ matrix.group }}
 
     steps:
       - name: Checkout

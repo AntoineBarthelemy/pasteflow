@@ -34,6 +34,8 @@ public sealed class DesignSnapshots
 {
     private static readonly string? Folder = Environment.GetEnvironmentVariable("PASTEFLOW_SNAPSHOTS");
     private static readonly string Themes = Environment.GetEnvironmentVariable("PASTEFLOW_SNAPSHOT_THEMES") ?? "clair,sombre";
+    private static readonly string Group = Environment.GetEnvironmentVariable("PASTEFLOW_SNAPSHOT_GROUP") ?? "all";
+    private static int _count;
 
     [SkippableFact]
     public void Render_EveryWindowAndPopup()
@@ -46,6 +48,7 @@ public sealed class DesignSnapshots
             foreach (var theme in Themes.Split(',', StringSplitOptions.RemoveEmptyEntries))
             {
                 Theme.ForcedDark = theme == "sombre";
+                _count = 0;
                 RenderAll(theme);
             }
         }
@@ -66,6 +69,7 @@ public sealed class DesignSnapshots
             new VaultLogin { Id = "2", Name = "GitHub (école)", UserName = "antoine.barthelemy@etudiant.univ-reims.fr" },
         }));
         Snap(theme, "mot-de-passe", () => new PasswordPromptWindow(isNew: true));
+        Snap(theme, "confirmation", () => new ConfirmWindow(Icons.History, "Effacer l'historique ?", "PasteFlow oubliera les valeurs apprises de tes remplissages. Ta fiche, elle, est gardée.", "Effacer", "Annuler", isDestructive: true));
         Snap(theme, "menu", () => new MenuWindow(new MenuEntry[]
         {
             new('F', "Ma fiche…", () => { }),
@@ -159,6 +163,13 @@ public sealed class DesignSnapshots
 
     private static void Snap(string theme, string name, Func<Window> create)
     {
+        // The pictures are shared out in two groups, so that each run of the workflow stays under the limits of GitHub
+        var group = Interlocked.Increment(ref _count) % 2 == 1 ? "1" : "2";
+        if (Group != "all" && Group != group)
+        {
+            return;
+        }
+
         using var host = new WindowHost<Window>(create);
         Thread.Sleep(600);
         host.Invoke(window =>
@@ -187,8 +198,11 @@ public sealed class DesignSnapshots
         }
 
         picture.Render(visual);
+
+        // 256 colors are enough for an interface and make the picture several times lighter
+        var indexed = new FormatConvertedBitmap(picture, PixelFormats.Indexed8, new BitmapPalette(picture, 256), 0);
         var encoder = new PngBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(picture));
+        encoder.Frames.Add(BitmapFrame.Create(indexed));
         using var file = File.Create(path);
         encoder.Save(file);
     }

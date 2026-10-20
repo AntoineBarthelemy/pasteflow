@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
+using PasteFlow.App.Design;
 using PasteFlow.Core.Profile;
 using PasteFlow.Core.Security;
 
@@ -15,10 +16,12 @@ namespace PasteFlow.App.Profile;
 /// Sensitive values are never shown whole without Windows Hello: only their last characters. Exporting a profile with
 /// sensitive values also asks for Windows Hello.
 /// </remarks>
-internal sealed class ProfileWindow : Window
+internal sealed class ProfileWindow : ThemedWindow
 {
     // An export holds a few hundred values at most: anything far bigger is not one
     private const int MaxArchiveBytes = 1024 * 1024;
+
+    private const double ContentWidth = 520;
 
     private readonly ProfileBook _book;
     private readonly SensitiveGate _gate;
@@ -31,6 +34,7 @@ internal sealed class ProfileWindow : Window
     private readonly Button _remove;
     private readonly Button _show;
     private readonly TextBlock _status;
+    private readonly TextBlock _empty;
     private IReadOnlyList<ProfileValue> _values = Array.Empty<ProfileValue>();
 
     /// <summary>
@@ -49,59 +53,98 @@ internal sealed class ProfileWindow : Window
         _gate = gate;
         _prompts = createPrompts(this);
         Title = "Ma fiche PasteFlow";
-        SizeToContent = SizeToContent.WidthAndHeight;
-        ResizeMode = ResizeMode.NoResize;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
 
-        _list = new ListBox { Height = 260, Margin = new Thickness(0, 4, 0, 8) };
+        _list = new ListBox { Height = 250 };
         AutomationProperties.SetName(_list, "Infos de ma fiche");
         _list.SelectionChanged += (_, _) => ShowSelected();
+        _empty = Ui.Text("Ta fiche est vide. Ajoute ta première info juste en dessous.", TextRole.Secondary);
+        _empty.HorizontalAlignment = HorizontalAlignment.Center;
+        _empty.VerticalAlignment = VerticalAlignment.Center;
+        _empty.IsHitTestVisible = false;
 
-        _topic = new ComboBox { ItemsSource = ProfileTopics.All.Select(ProfileTopics.DisplayName).ToList(), SelectedIndex = 0, Margin = new Thickness(0, 2, 0, 6) };
+        _topic = new ComboBox { ItemsSource = ProfileTopics.All.Select(ProfileTopics.DisplayName).ToList(), SelectedIndex = 0 };
         AutomationProperties.SetName(_topic, "Sujet");
-        _value = new TextBox { Margin = new Thickness(0, 2, 0, 6) };
+        _value = new TextBox();
         AutomationProperties.SetName(_value, "Valeur");
-        _label = new TextBox { Margin = new Thickness(0, 2, 0, 6) };
+        _label = new TextBox();
         AutomationProperties.SetName(_label, "Nom (facultatif)");
 
-        var add = ActionButton("_Ajouter");
+        var add = Ui.ActionButton("_Ajouter");
+        add.SetResourceReference(StyleProperty, "Pf.PrimaryButton");
         add.Click += async (_, _) => await AddAsync();
-        _correct = ActionButton("_Corriger");
+        _correct = Ui.ActionButton("_Corriger");
         _correct.Click += async (_, _) => await CorrectAsync();
-        _remove = ActionButton("Su_pprimer");
+        _remove = Ui.ActionButton("Su_pprimer");
         _remove.Click += async (_, _) => await RemoveAsync();
-        _show = ActionButton("A_fficher");
+        _show = Ui.ActionButton("A_fficher");
         _show.Click += async (_, _) => await ShowSensitiveAsync();
-        var export = ActionButton("_Exporter…");
+        var export = Ui.QuietButton("_Exporter…");
         export.Click += async (_, _) => await ExportAsync();
-        var import = ActionButton("_Importer…");
+        var import = Ui.QuietButton("_Importer…");
         import.Click += async (_, _) => await ImportAsync();
-        var close = ActionButton("Fermer");
-        close.IsCancel = true;
+        var close = Ui.ActionButton("Fermer", isCancel: true);
         close.Click += (_, _) => Close();
 
-        _status = new TextBlock { TextWrapping = TextWrapping.Wrap, MinHeight = 36, Margin = new Thickness(0, 8, 0, 0) };
+        _status = Ui.Text(string.Empty, TextRole.Caption);
+        _status.MinHeight = 34;
+        _status.Margin = new Thickness(2, 10, 0, 0);
         AutomationProperties.SetName(_status, "État");
 
-        var panel = new StackPanel { Margin = new Thickness(20), Width = 460 };
-        panel.Children.Add(new TextBlock
+        var page = new StackPanel { Margin = new Thickness(28, 24, 28, 22), Width = ContentWidth };
+        page.Children.Add(Ui.Header(
+            Icons.Person,
+            "Ma fiche",
+            "Les infos que PasteFlow peut écrire pour toi, chiffrées sur ce PC. Les infos sensibles ne s'affichent en entier qu'avec Windows Hello."));
+
+        // The list, with a sentence in its middle while it is empty
+        var listTitle = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
+        var deleteHint = Ui.KeyHints(("Suppr", "retire l'info choisie"));
+        deleteHint.VerticalAlignment = VerticalAlignment.Center;
+        DockPanel.SetDock(deleteHint, Dock.Right);
+        listTitle.Children.Add(deleteHint);
+        listTitle.Children.Add(new Label { Content = "_Mes infos", Target = _list, Margin = new Thickness(0) });
+        page.Children.Add(listTitle);
+        page.Children.Add(new Grid { Children = { _list, _empty } });
+
+        // The form that adds an info, or corrects the one chosen
+        var form = new Grid { Margin = new Thickness(0, 18, 0, 0) };
+        form.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        form.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        form.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        form.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        form.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var topicField = Ui.Field("_Sujet", _topic);
+        var labelField = Ui.Field("_Nom (facultatif)", _label);
+        Grid.SetColumn(labelField, 2);
+        var valueField = Ui.Field("_Valeur", _value);
+        Grid.SetRow(valueField, 1);
+        Grid.SetColumnSpan(valueField, 3);
+        form.Children.Add(topicField);
+        form.Children.Add(labelField);
+        form.Children.Add(valueField);
+        page.Children.Add(form);
+
+        var actions = new StackPanel { Orientation = Orientation.Horizontal };
+        foreach (var button in new[] { add, _correct, _remove, _show })
         {
-            Text = "Les infos que PasteFlow peut écrire pour toi. Elles restent chiffrées sur ce PC. "
-                + "Les infos sensibles (IBAN, n° de sécu…) ne s'affichent en entier qu'avec Windows Hello.",
-            TextWrapping = TextWrapping.Wrap,
-        });
-        panel.Children.Add(FieldLabel("_Mes infos (Suppr pour en retirer une)", _list));
-        panel.Children.Add(_list);
-        panel.Children.Add(FieldLabel("_Sujet", _topic));
-        panel.Children.Add(_topic);
-        panel.Children.Add(FieldLabel("_Valeur (Entrée pour ajouter, ou corriger l'info choisie)", _value));
-        panel.Children.Add(_value);
-        panel.Children.Add(FieldLabel("_Nom (facultatif, par exemple « E-mail de l'IUT »)", _label));
-        panel.Children.Add(_label);
-        panel.Children.Add(Row(add, _correct, _remove, _show));
-        panel.Children.Add(_status);
-        panel.Children.Add(Row(export, import, close));
-        Content = panel;
+            button.Margin = new Thickness(0, 0, 8, 0);
+            actions.Children.Add(button);
+        }
+
+        page.Children.Add(actions);
+        page.Children.Add(_status);
+
+        var footer = new DockPanel { Margin = new Thickness(0, 6, 0, 0) };
+        close.Margin = new Thickness(8, 0, 0, 0);
+        DockPanel.SetDock(close, Dock.Right);
+        footer.Children.Add(close);
+        var transfer = new StackPanel { Orientation = Orientation.Horizontal };
+        transfer.Children.Add(export);
+        transfer.Children.Add(import);
+        footer.Children.Add(transfer);
+        page.Children.Add(Ui.Divider(new Thickness(0, 4, 0, 14)));
+        page.Children.Add(footer);
+        Content = page;
 
         // With the keyboard: Entrée in the value or the name adds it, or corrects the info chosen; Suppr in the list
         // removes the info chosen
@@ -127,7 +170,7 @@ internal sealed class ProfileWindow : Window
     /// <summary>
     /// Gets the lines of the list, as the user sees them.
     /// </summary>
-    internal IReadOnlyList<string> Lines => _list.Items.Cast<ListBoxItem>().Select(item => (string)item.Content).ToList();
+    internal IReadOnlyList<string> Lines => _list.Items.Cast<ListBoxItem>().Select(item => (string)item.Tag).ToList();
 
     /// <summary>
     /// Gets the last sentence shown to the user.
@@ -145,14 +188,8 @@ internal sealed class ProfileWindow : Window
     /// <returns>The line.</returns>
     internal static string Line(ProfileValue value)
     {
-        var origin = value.Origin switch
-        {
-            ProfileOrigin.Learned => " (appris)",
-            ProfileOrigin.WindowsAccount => " (compte Windows)",
-            ProfileOrigin.PasswordManager => " (Bitwarden)",
-            _ => string.Empty,
-        };
-        return $"{value.ShownLabel} : {value.ShownValue}{origin}";
+        var origin = OriginName(value.Origin);
+        return origin.Length == 0 ? $"{value.ShownLabel} : {value.ShownValue}" : $"{value.ShownLabel} : {value.ShownValue} ({origin})";
     }
 
     /// <summary>
@@ -164,29 +201,57 @@ internal sealed class ProfileWindow : Window
         _topic.SelectedIndex = ProfileTopics.All.ToList().IndexOf(topic);
     }
 
-    private static Button ActionButton(string text)
+    private static DockPanel Row(ProfileValue value)
     {
-        // The underscore marks the letter that clicks the button with Alt, such as Alt+A for "Ajouter"
-        var button = new Button { Content = text, MinWidth = 100, Margin = new Thickness(0, 0, 8, 0) };
-        AutomationProperties.SetName(button, text.Replace("_", string.Empty, StringComparison.Ordinal));
-        return button;
-    }
-
-    private static Label FieldLabel(string text, Control target)
-    {
-        // Alt and the underscored letter put the keyboard in the field
-        return new Label { Content = text, Target = target, Padding = new Thickness(0, 2, 0, 2) };
-    }
-
-    private static StackPanel Row(params Button[] buttons)
-    {
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 0) };
-        foreach (var button in buttons)
+        // The name small above, the value below; where it comes from and whether it is sensitive on the right
+        var row = new DockPanel();
+        var marks = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        var origin = OriginName(value.Origin);
+        if (origin.Length > 0)
         {
-            row.Children.Add(button);
+            marks.Children.Add(new Border
+            {
+                Background = Theme.Brush(palette => palette.Sunken),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(7, 1, 7, 2),
+                Margin = new Thickness(8, 0, 0, 0),
+                Child = Ui.Line(origin, TextRole.Hint),
+            });
         }
 
+        if (value.IsSensitive)
+        {
+            var shield = Ui.Icon(Icons.Shield, 13);
+            shield.Margin = new Thickness(8, 0, 2, 0);
+            shield.ToolTip = "Info sensible : Windows Hello pour l'afficher";
+            marks.Children.Add(shield);
+        }
+
+        DockPanel.SetDock(marks, Dock.Right);
+        row.Children.Add(marks);
+        var texts = new StackPanel();
+        texts.Children.Add(Ui.Line(value.ShownLabel, TextRole.Hint));
+        var shown = Ui.Line(value.ShownValue, TextRole.Body);
+        shown.Margin = new Thickness(0, 1, 0, 0);
+        if (value.IsSensitive)
+        {
+            shown.FontFamily = Theme.MonoFont;
+        }
+
+        texts.Children.Add(shown);
+        row.Children.Add(texts);
         return row;
+    }
+
+    private static string OriginName(ProfileOrigin origin)
+    {
+        return origin switch
+        {
+            ProfileOrigin.Learned => "appris",
+            ProfileOrigin.WindowsAccount => "compte Windows",
+            ProfileOrigin.PasswordManager => "Bitwarden",
+            _ => string.Empty,
+        };
     }
 
     private async Task RefreshAsync()
@@ -197,10 +262,12 @@ internal sealed class ProfileWindow : Window
         foreach (var value in _values)
         {
             var line = Line(value);
-            var item = new ListBoxItem { Content = line };
+            var item = new ListBoxItem { Content = Row(value), Tag = line };
             AutomationProperties.SetName(item, line);
             _ = _list.Items.Add(item);
         }
+
+        _empty.Visibility = _values.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
 
         var index = _values.ToList().FindIndex(value => value.Id == selectedId);
         _list.SelectedIndex = index;

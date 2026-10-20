@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
+using PasteFlow.App.Design;
 using PasteFlow.Core.Logins;
 
 namespace PasteFlow.App.Logins;
@@ -8,7 +9,7 @@ namespace PasteFlow.App.Logins;
 /// <summary>
 /// Small window where the user chooses the account to sign in with.
 /// </summary>
-internal sealed class LoginPickerWindow : Window
+internal sealed class LoginPickerWindow : ThemedWindow
 {
     private readonly IReadOnlyList<VaultLogin> _logins;
     private readonly ListBox _list;
@@ -23,17 +24,28 @@ internal sealed class LoginPickerWindow : Window
 
         _logins = logins;
         Title = "Quel compte Bitwarden ?";
-        SizeToContent = SizeToContent.WidthAndHeight;
-        ResizeMode = ResizeMode.NoResize;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Topmost = true;
 
-        _list = new ListBox { MinWidth = 320, MaxHeight = 260, Margin = new Thickness(0, 8, 0, 8), SelectedIndex = 0 };
+        _list = new ListBox { Width = 380, MaxHeight = 280 };
         AutomationProperties.SetName(_list, "Comptes");
         foreach (var login in logins)
         {
+            // Two lines per account: its name, then its identifier
             var line = Line(login);
-            var item = new ListBoxItem { Content = line };
+            var texts = new StackPanel();
+            texts.Children.Add(Ui.Line(login.Name, TextRole.Body));
+            if (login.UserName.Length > 0)
+            {
+                texts.Children.Add(Ui.Line(login.UserName, TextRole.Caption));
+            }
+
+            var row = new DockPanel();
+            var key = Ui.Icon(Icons.Key, 14);
+            key.Margin = new Thickness(2, 0, 12, 0);
+            DockPanel.SetDock(key, Dock.Left);
+            row.Children.Add(key);
+            row.Children.Add(texts);
+            var item = new ListBoxItem { Content = row };
             AutomationProperties.SetName(item, line);
             _ = _list.Items.Add(item);
         }
@@ -41,18 +53,14 @@ internal sealed class LoginPickerWindow : Window
         _list.SelectedIndex = 0;
         _list.MouseDoubleClick += (_, _) => Choose();
 
-        var choose = new Button { Content = "Remplir", IsDefault = true, MinWidth = 100, Margin = new Thickness(0, 0, 8, 0) };
+        var choose = Ui.ActionButton("Remplir", isDefault: true);
         choose.Click += (_, _) => Choose();
-        var cancel = new Button { Content = "Annuler", IsCancel = true, MinWidth = 100 };
+        var cancel = Ui.ActionButton("Annuler", isCancel: true);
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        buttons.Children.Add(choose);
-        buttons.Children.Add(cancel);
-
-        var panel = new StackPanel { Margin = new Thickness(20) };
-        panel.Children.Add(new TextBlock { Text = "Choisis le compte à utiliser. Windows Hello te sera demandé avant le mot de passe.", TextWrapping = TextWrapping.Wrap, MaxWidth = 360 });
+        var panel = new StackPanel { Margin = new Thickness(28, 24, 28, 22) };
+        panel.Children.Add(Ui.Header(Icons.Key, "Quel compte ?", "Windows Hello te sera demandé avant le mot de passe."));
         panel.Children.Add(_list);
-        panel.Children.Add(buttons);
+        panel.Children.Add(Ui.ButtonRow(cancel, choose));
         Content = panel;
         Loaded += (_, _) => _ = _list.Focus();
     }

@@ -1,10 +1,12 @@
 using System.Drawing;
+using System.Reflection;
 using System.Windows.Forms;
 
 namespace PasteFlow.App.Tray;
 
 /// <summary>
-/// Icon of the application in the notification area of the taskbar.
+/// Icon of the application in the notification area of the taskbar; a click, left or right, opens the menu of
+/// PasteFlow, the same one as its shortcut.
 /// </summary>
 internal sealed class TrayIcon : IDisposable
 {
@@ -13,50 +15,30 @@ internal sealed class TrayIcon : IDisposable
     // Windows truncates notification area tooltips beyond this length
     private const int MaxTooltipLength = 127;
 
-    private readonly ContextMenuStrip _menu;
     private readonly NotifyIcon _notifyIcon;
+    private readonly Icon? _icon;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="TrayIcon"/> class and makes it visible.
     /// </summary>
-    /// <param name="exitRequested">The action to run when the user chooses to quit the application.</param>
-    /// <param name="clearHistoryRequested">The action to run when the user chooses to clear the history of fills.</param>
-    /// <param name="settingsRequested">The action to run when the user chooses to open the settings.</param>
-    /// <param name="profileRequested">The action to run when the user chooses to open their profile.</param>
-    /// <param name="bitwardenRequested">The action to run when the user chooses to unlock or lock Bitwarden.</param>
-    /// <param name="isBitwardenUnlocked">Tells, each time the menu opens, whether Bitwarden is unlocked.</param>
-    public TrayIcon(
-        Action exitRequested,
-        Action clearHistoryRequested,
-        Action settingsRequested,
-        Action profileRequested,
-        Action bitwardenRequested,
-        Func<bool> isBitwardenUnlocked)
+    /// <param name="menuRequested">The action to run when the user clicks the icon.</param>
+    public TrayIcon(Action menuRequested)
     {
-        ArgumentNullException.ThrowIfNull(exitRequested);
-        ArgumentNullException.ThrowIfNull(clearHistoryRequested);
-        ArgumentNullException.ThrowIfNull(settingsRequested);
-        ArgumentNullException.ThrowIfNull(profileRequested);
-        ArgumentNullException.ThrowIfNull(bitwardenRequested);
-        ArgumentNullException.ThrowIfNull(isBitwardenUnlocked);
+        ArgumentNullException.ThrowIfNull(menuRequested);
 
-        _menu = new ContextMenuStrip();
-        _ = _menu.Items.Add("Ma fiche…", image: null, (_, _) => profileRequested());
-        var bitwarden = _menu.Items.Add(BitwardenMenuText(false), image: null, (_, _) => bitwardenRequested());
-        _ = _menu.Items.Add("Paramètres…", image: null, (_, _) => settingsRequested());
-        _ = _menu.Items.Add("Effacer l'historique", image: null, (_, _) => clearHistoryRequested());
-        _ = _menu.Items.Add(new ToolStripSeparator());
-        _ = _menu.Items.Add("Quitter", image: null, (_, _) => exitRequested());
-
-        // The menu tells the real state of Bitwarden each time it opens
-        _menu.Opening += (_, _) => bitwarden.Text = BitwardenMenuText(isBitwardenUnlocked());
-
+        _icon = LoadIcon();
         _notifyIcon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = _icon ?? SystemIcons.Application,
             Text = ProductName,
-            ContextMenuStrip = _menu,
             Visible = true,
+        };
+        _notifyIcon.MouseUp += (_, e) =>
+        {
+            if (e.Button is MouseButtons.Left or MouseButtons.Right)
+            {
+                menuRequested();
+            }
         };
     }
 
@@ -77,16 +59,13 @@ internal sealed class TrayIcon : IDisposable
     {
         _notifyIcon.Visible = false;
         _notifyIcon.Dispose();
-        _menu.Dispose();
+        _icon?.Dispose();
     }
 
-    /// <summary>
-    /// Gets the entry of the menu for Bitwarden, which tells its state.
-    /// </summary>
-    /// <param name="isUnlocked">Whether Bitwarden is unlocked.</param>
-    /// <returns>The text of the entry.</returns>
-    internal static string BitwardenMenuText(bool isUnlocked)
+    private static Icon? LoadIcon()
     {
-        return isUnlocked ? "Bitwarden déverrouillé ✓ (cliquer pour verrouiller)" : "Déverrouiller Bitwarden…";
+        // The size of the notification area, sharp on screens zoomed in
+        using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("PasteFlow.App.Assets.PasteFlow.ico");
+        return stream is null ? null : new Icon(stream, SystemInformation.SmallIconSize);
     }
 }

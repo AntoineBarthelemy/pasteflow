@@ -30,7 +30,8 @@ public sealed class RecapViewTests
         Assert.Contains("antoine.b@orange.fr", text, StringComparison.Ordinal);
         Assert.Contains("Gmail", text, StringComparison.Ordinal);
         Assert.Contains("+ 3 autres champs", text, StringComparison.Ordinal);
-        Assert.Contains("Ctrl+Alt+Z pour tout annuler", text, StringComparison.Ordinal);
+        Assert.Contains("Ctrl+Alt+Z", text, StringComparison.Ordinal);
+        Assert.Contains("tout annuler", text, StringComparison.Ordinal);
         Assert.Contains("Lu à l'écran : Gmail (12).", text, StringComparison.Ordinal);
     }
 

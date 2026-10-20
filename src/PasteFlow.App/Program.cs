@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using PasteFlow.App.Browser;
+using PasteFlow.App.Design;
 using PasteFlow.App.Diagnostics;
 using PasteFlow.App.Forms;
 using PasteFlow.App.Highlights;
@@ -237,13 +238,12 @@ internal static class Program
         void ClearHistoryAfterAsking()
         {
             // From the keyboard, a letter typed by mistake must not erase what PasteFlow learned
-            var answer = MessageBox.Show(
-                "Effacer l'historique ? PasteFlow oubliera les valeurs apprises de tes remplissages. Ta fiche, elle, est gardée.",
-                "PasteFlow",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question,
-                MessageBoxResult.No);
-            if (answer == MessageBoxResult.Yes)
+            if (ConfirmWindow.Ask(
+                Icons.History,
+                "Effacer l'historique ?",
+                "PasteFlow oubliera les valeurs apprises de tes remplissages. Ta fiche, elle, est gardée.",
+                "Effacer",
+                isDestructive: true))
             {
                 _ = ClearHistoryAsync(history, notifier);
             }
@@ -260,7 +260,7 @@ internal static class Program
         using var updates = new AppUpdates(notifier);
 
         MenuWindow? menuWindow = null;
-        void OpenMenu()
+        void OpenMenu(bool isNearTray)
         {
             if (menuWindow is { IsVisible: true })
             {
@@ -270,25 +270,33 @@ internal static class Program
 
             menuWindow = new MenuWindow(new MenuEntry[]
             {
-                new('F', "Ma fiche…", OpenProfile),
-                new('A', "Annuler le dernier ajout à ma fiche", () => _ = UndoLastLearnedAsync(), learningPrompts.CanUndoLast),
-                new('B', bitwarden.IsUnlocked ? "Verrouiller Bitwarden" : "Déverrouiller Bitwarden…", OpenBitwardenUnlock),
-                new('P', "Paramètres…", OpenSettings),
-                new('H', "Effacer l'historique…", ClearHistoryAfterAsking),
-                new('U', "Installer la mise à jour et redémarrer", updates.InstallNowAndRestart, updates.IsUpdateReady),
-                new('Q', "Quitter PasteFlow", application.Shutdown),
+                new('F', "Ma fiche…", OpenProfile, Icon: Icons.Person),
+                new('A', "Annuler le dernier ajout à ma fiche", () => _ = UndoLastLearnedAsync(), learningPrompts.CanUndoLast, Icons.Undo),
+                new('B', bitwarden.IsUnlocked ? "Verrouiller Bitwarden" : "Déverrouiller Bitwarden…", OpenBitwardenUnlock, Icon: bitwarden.IsUnlocked ? Icons.Lock : Icons.Unlock),
+                new('P', "Paramètres…", OpenSettings, Icon: Icons.Settings),
+                new('H', "Effacer l'historique…", ClearHistoryAfterAsking, Icon: Icons.History),
+                new('U', "Installer la mise à jour et redémarrer", updates.InstallNowAndRestart, updates.IsUpdateReady, Icons.Download),
+                new('Q', "Quitter PasteFlow", application.Shutdown, Icon: Icons.Power),
             });
-            menuWindow.Show();
+            if (isNearTray)
+            {
+                menuWindow.ShowNearTray();
+            }
+            else
+            {
+                menuWindow.Show();
+            }
+
             _ = menuWindow.Activate();
         }
 
         Apply(settings);
-        using var trayIcon = new TrayIcon(application.Shutdown, () => _ = ClearHistoryAsync(history, notifier), OpenSettings, OpenProfile, OpenBitwardenUnlock, () => bitwarden.IsUnlocked);
+        using var trayIcon = new TrayIcon(() => OpenMenu(isNearTray: true));
 
         // Everything the icon offers, with the keyboard
         var menuHotkey = Hotkey.DefaultMenu;
         var isMenuReady = menuHotkeyListener.TryRegister(menuHotkey);
-        menuHotkeyListener.HotkeyPressed += (_, _) => OpenMenu();
+        menuHotkeyListener.HotkeyPressed += (_, _) => OpenMenu(isNearTray: false);
 
         // A value seen on screen pasted by typing the letters put on it, as Vimium does
         using var hints = new HintService(labelsHotkeyListener, new KeyboardTextInserter(), notifier);

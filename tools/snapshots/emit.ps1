@@ -5,7 +5,7 @@ param(
     [Parameter(Mandatory = $true)][int]$Step
 )
 
-$size = 30000
+$size = 4000
 $pieces = @()
 foreach ($file in Get-ChildItem -LiteralPath $Folder -Filter *.png | Sort-Object Name) {
     $text = [Convert]::ToBase64String([IO.File]::ReadAllBytes($file.FullName))

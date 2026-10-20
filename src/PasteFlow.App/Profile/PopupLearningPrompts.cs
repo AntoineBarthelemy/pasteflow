@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using PasteFlow.App.Design;
 using PasteFlow.App.Notifications;
 using PasteFlow.Core.Profile;
 
@@ -50,19 +51,23 @@ internal sealed class PopupLearningPrompts : IProfileLearningPrompts
         _ = _dispatcher.InvokeAsync(async () =>
         {
             await Task.Delay(DelayAfterFill);
-            var text = new TextBlock
-            {
-                Text = AddedSentence(value),
-                Foreground = PopupColors.Text,
-                FontSize = 14,
-                MaxWidth = 360,
-                TextWrapping = TextWrapping.Wrap,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            var cancel = new Button { Content = "Annuler", Margin = new Thickness(12, 0, 0, 0), Padding = new Thickness(10, 2, 10, 2) };
-            var panel = new StackPanel { Orientation = Orientation.Horizontal };
-            panel.Children.Add(text);
+
+            // An icon of the profile, the sentence, and a quiet "Annuler" on the right
+            var icon = Ui.Icon(Icons.Person, 16, Theme.Brush(palette => palette.Accent));
+            icon.Margin = new Thickness(0, 0, 12, 0);
+            var text = Ui.Text(AddedSentence(value), TextRole.Body);
+            text.MaxWidth = 340;
+            text.VerticalAlignment = VerticalAlignment.Center;
+            var cancel = Ui.QuietButton("Annuler");
+            cancel.Margin = new Thickness(12, 0, -6, 0);
+            cancel.MinHeight = 28;
+            cancel.Foreground = Theme.Brush(palette => palette.Accent);
+            var panel = new DockPanel();
+            DockPanel.SetDock(icon, Dock.Left);
+            DockPanel.SetDock(cancel, Dock.Right);
+            panel.Children.Add(icon);
             panel.Children.Add(cancel);
+            panel.Children.Add(text);
             cancel.Click += async (_, _) =>
             {
                 cancel.IsEnabled = false;
@@ -96,7 +101,7 @@ internal sealed class PopupLearningPrompts : IProfileLearningPrompts
 
         // Shown in front and with the keyboard: the question comes a few seconds after a fill, from the background
         return _dispatcher.InvokeAsync(
-            () => MessageBox.Show(SensitiveQuestion(value), "PasteFlow", MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No, MessageBoxOptions.DefaultDesktopOnly) == MessageBoxResult.Yes,
+            () => ConfirmWindow.Ask(Icons.Shield, "Une info sensible", SensitiveQuestion(value), "Ajouter à ma fiche", "Pas maintenant"),
             DispatcherPriority.Normal,
             cancellationToken).Task;
     }

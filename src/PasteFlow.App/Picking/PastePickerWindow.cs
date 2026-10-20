@@ -1,10 +1,10 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using PasteFlow.App.Design;
 using PasteFlow.App.Highlights;
 using PasteFlow.App.Notifications;
 using PasteFlow.Core.Picking;
@@ -24,17 +24,13 @@ internal sealed class PastePickerWindow : Window
     private const double MaxTextWidth = 460;
     private const double Gap = 6;
 
-    private static readonly Brush SelectedBackground = Frozen(Color.FromRgb(0x3A, 0x3A, 0x3A));
-    private static readonly Brush BadgeBackground = Frozen(Color.FromRgb(0x4A, 0x4A, 0x4A));
-    private static readonly Brush SearchBackground = Frozen(Color.FromRgb(0x2E, 0x2E, 0x2E));
-
     private readonly PickerState _state;
     private readonly TaskCompletionSource<string?> _result = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly TextBox _search;
     private readonly TextBlock _placeholder;
-    private readonly TextBlock _cutLine;
+    private readonly StackPanel _cutLine;
     private readonly StackPanel _list;
-    private readonly TextBlock _help;
+    private readonly ContentControl _help;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PastePickerWindow"/> class, not shown yet.
@@ -54,56 +50,50 @@ internal sealed class PastePickerWindow : Window
         WindowStartupLocation = WindowStartupLocation.Manual;
         Left = -32000;
         Top = -32000;
-        MinWidth = 360;
+        MinWidth = 400;
 
+        // A search field on top, as in Spotlight: a magnifier, then what the user types
         _search = new TextBox
         {
             Background = Brushes.Transparent,
             Foreground = PopupColors.Text,
-            CaretBrush = PopupColors.Text,
+            CaretBrush = Theme.Brush(palette => palette.Accent),
             BorderThickness = new Thickness(0),
-            FontSize = 14,
+            FontFamily = Theme.UiFont,
+            FontSize = 15,
+            Padding = new Thickness(0),
             VerticalContentAlignment = VerticalAlignment.Center,
+            Template = PlainTextBoxTemplate(),
         };
         System.Windows.Automation.AutomationProperties.SetName(_search, "Chercher dans les fenêtres");
-        _placeholder = Text("Tape pour chercher dans les fenêtres", PopupColors.DiscreetText, 14);
+        _placeholder = Text("Chercher dans les fenêtres…", PopupColors.DiscreetText, 15);
         _placeholder.IsHitTestVisible = false;
-        _cutLine = Text(string.Empty, PopupColors.DiscreetText, 12);
+        _cutLine = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(6, 0, 6, 8) };
         _list = new StackPanel();
-        _help = Text(string.Empty, PopupColors.DiscreetText, 11);
+        _help = new ContentControl { Focusable = false };
 
-        var searchBox = new Grid { Margin = new Thickness(2, 0, 2, 6) };
+        var searchRow = new Grid { Margin = new Thickness(10, 4, 10, 10) };
+        searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        searchRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var magnifier = Ui.Icon(Icons.Search, 15, PopupColors.DiscreetText);
+        magnifier.Margin = new Thickness(0, 0, 10, 0);
+        searchRow.Children.Add(magnifier);
+        var searchBox = new Grid();
         searchBox.Children.Add(_placeholder);
         searchBox.Children.Add(_search);
+        Grid.SetColumn(searchBox, 1);
+        searchRow.Children.Add(searchBox);
+
         var panel = new StackPanel();
-        panel.Children.Add(new Border
-        {
-            Background = SearchBackground,
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(10, 6, 10, 6),
-            Margin = new Thickness(0, 0, 0, 6),
-            Child = searchBox,
-        });
+        panel.Children.Add(searchRow);
+        panel.Children.Add(Ui.Divider(new Thickness(0, 0, 0, 8)));
         panel.Children.Add(_cutLine);
         panel.Children.Add(_list);
-        panel.Children.Add(new Border
-        {
-            BorderBrush = PopupColors.Separator,
-            BorderThickness = new Thickness(0, 1, 0, 0),
-            Margin = new Thickness(0, 6, 0, 0),
-            Padding = new Thickness(4, 6, 4, 0),
-            Child = _help,
-        });
+        panel.Children.Add(Ui.Divider(new Thickness(0, 8, 0, 8)));
+        _help.Margin = new Thickness(8, 0, 8, 0);
+        panel.Children.Add(_help);
 
-        Content = new Border
-        {
-            Background = PopupColors.Background,
-            BorderBrush = PopupColors.ToCheck,
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(8),
-            Child = panel,
-        };
+        Content = Ui.PopupRoot(panel, new Thickness(6, 10, 6, 10));
 
         _search.TextChanged += (_, _) =>
         {
@@ -148,8 +138,13 @@ internal sealed class PastePickerWindow : Window
         var scale = VisualTreeHelper.GetDpi(this);
         var size = new Size(ActualWidth * scale.DpiScaleX, ActualHeight * scale.DpiScaleY);
         var area = System.Windows.Forms.Screen.FromPoint(new System.Drawing.Point((int)caret.Left, (int)caret.Bottom)).WorkingArea;
-        var left = Math.Clamp(caret.Left, area.Left, Math.Max(area.Left, area.Right - size.Width));
-        var top = caret.Bottom + Gap + size.Height <= area.Bottom ? caret.Bottom + Gap : Math.Max(area.Top, caret.Top - Gap - size.Height);
+
+        // The window holds room for the shadow around the card: the card itself lands just below the cursor
+        var shadow = Ui.ShadowMargin * scale.DpiScaleX;
+        var left = Math.Clamp(caret.Left - shadow, area.Left, Math.Max(area.Left, area.Right - size.Width));
+        var top = caret.Bottom + Gap + size.Height - shadow <= area.Bottom
+            ? caret.Bottom + Gap - shadow
+            : Math.Max(area.Top, caret.Top - Gap - size.Height + shadow);
         OverlayWindows.Move(new WindowInteropHelper(this).Handle, new Point(left, top));
 
         _ = Activate();
@@ -177,11 +172,14 @@ internal sealed class PastePickerWindow : Window
         }
     }
 
-    private static SolidColorBrush Frozen(Color color)
+    private static ControlTemplate PlainTextBoxTemplate()
     {
-        var brush = new SolidColorBrush(color);
-        brush.Freeze();
-        return brush;
+        // The search field has no frame of its own: the card is its frame
+        var template = new ControlTemplate(typeof(TextBox));
+        var host = new FrameworkElementFactory(typeof(ScrollViewer), "PART_ContentHost");
+        host.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+        template.VisualTree = host;
+        return template;
     }
 
     private static TextBlock Text(string text, Brush color, double size)
@@ -190,6 +188,7 @@ internal sealed class PastePickerWindow : Window
         {
             Text = text,
             Foreground = color,
+            FontFamily = Theme.UiFont,
             FontSize = size,
             VerticalAlignment = VerticalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
@@ -257,23 +256,26 @@ internal sealed class PastePickerWindow : Window
     {
         _placeholder.Visibility = _search.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         _cutLine.Visibility = _state.IsSearching ? Visibility.Visible : Visibility.Collapsed;
-        _cutLine.Inlines.Clear();
+        _cutLine.Children.Clear();
         if (_state.IsSearching)
         {
-            _cutLine.Inlines.Add(new Run("Découpe : "));
+            // The cut of the passages, as a small segmented choice that Tab moves along
+            var label = Text("Découpe", PopupColors.DiscreetText, 11);
+            label.Margin = new Thickness(0, 0, 8, 0);
+            _cutLine.Children.Add(label);
             AddCut(PassageCut.Words, "mots");
-            _cutLine.Inlines.Add(new Run(" · "));
             AddCut(PassageCut.Sentence, "phrase");
-            _cutLine.Inlines.Add(new Run(" · "));
             AddCut(PassageCut.Line, "ligne");
-            _cutLine.Inlines.Add(new Run("   (Tab)"));
+            var tab = Ui.Keycap("Tab");
+            tab.Margin = new Thickness(8, 0, 0, 0);
+            _cutLine.Children.Add(tab);
         }
 
         _list.Children.Clear();
         if (_state.Items.Count == 0)
         {
             var empty = _state.IsSearching ? "Rien trouvé dans les fenêtres ouvertes." : "Aucune valeur reconnue : tape quelques lettres.";
-            _list.Children.Add(new Border { Padding = new Thickness(8, 6, 8, 6), Child = Text(empty, PopupColors.SecondaryText, 13) });
+            _list.Children.Add(new Border { Padding = new Thickness(12, 8, 12, 8), Child = Text(empty, PopupColors.SecondaryText, 13) });
         }
 
         for (var index = 0; index < _state.Items.Count; index++)
@@ -281,21 +283,23 @@ internal sealed class PastePickerWindow : Window
             _list.Children.Add(Row(index, _state.Items[index], index == _state.SelectedIndex));
         }
 
-        _help.Text = _state.IsSearching
-            ? "↑ ↓ choisir · Entrée coller · Ctrl+Maj+flèches : mot par mot · Échap"
-            : "↑ ↓ ou 1 à 5 · Entrée coller · Échap annule";
+        _help.Content = _state.IsSearching
+            ? Ui.KeyHints(("↑↓", "choisir"), ("Entrée", "coller"), ("Ctrl+Maj+flèches", "mot par mot"), ("Échap", "annuler"))
+            : Ui.KeyHints(("↑↓", "choisir"), ("1 à 5", "coller tout de suite"), ("Entrée", "coller"), ("Échap", "annuler"));
     }
 
     private void AddCut(PassageCut cut, string name)
     {
-        var run = new Run(name);
-        if (_state.Cut == cut)
+        var isCurrent = _state.Cut == cut;
+        var chip = Text(name, isCurrent ? PopupColors.Text : PopupColors.DiscreetText, 11);
+        chip.FontWeight = isCurrent ? FontWeights.SemiBold : FontWeights.Normal;
+        _cutLine.Children.Add(new Border
         {
-            run.Foreground = PopupColors.ToCheck;
-            run.FontWeight = FontWeights.SemiBold;
-        }
-
-        _cutLine.Inlines.Add(run);
+            Background = isCurrent ? Theme.Brush(palette => palette.Sunken) : Brushes.Transparent,
+            CornerRadius = new CornerRadius(5),
+            Padding = new Thickness(7, 1, 7, 2),
+            Child = chip,
+        });
     }
 
     private Border Row(int index, PickItem item, bool isSelected)
@@ -305,32 +309,32 @@ internal sealed class PastePickerWindow : Window
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var badge = new Border
-        {
-            Background = isSelected ? PopupColors.ToCheck : BadgeBackground,
-            CornerRadius = new CornerRadius(3),
-            Padding = new Thickness(5, 0, 5, 0),
-            Margin = new Thickness(0, 0, 10, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = Text((index + 1).ToString(CultureInfo.InvariantCulture), isSelected ? PopupColors.Background : PopupColors.Text, 11),
-        };
+        // The value, with what it is and where it comes from below; its number on the right, as a key
+        var texts = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         var value = Text(item.Text.ReplaceLineEndings(" "), PopupColors.Text, 14);
         value.MaxWidth = MaxTextWidth;
-        var origin = item.Description.Length > 0 ? $"{item.Description} · {item.SourceName}" : item.SourceName;
+        texts.Children.Add(value);
+        var origin = item.Description.Length > 0 ? $"{item.Description}, {item.SourceName}" : item.SourceName;
         var source = Text(origin, PopupColors.DiscreetText, 11);
-        source.Margin = new Thickness(12, 0, 0, 0);
-        source.MaxWidth = 180;
-        Grid.SetColumn(value, 1);
-        Grid.SetColumn(source, 2);
-        grid.Children.Add(badge);
-        grid.Children.Add(value);
-        grid.Children.Add(source);
+        source.MaxWidth = MaxTextWidth;
+        texts.Children.Add(source);
+        Grid.SetColumn(texts, 1);
+        grid.Children.Add(texts);
+
+        var number = Ui.Keycap((index + 1).ToString(CultureInfo.InvariantCulture), isAccent: isSelected);
+        number.Margin = new Thickness(14, 0, 0, 0);
+        Grid.SetColumn(number, 2);
+        if (!_state.IsSearching)
+        {
+            grid.Children.Add(number);
+        }
 
         var row = new Border
         {
-            Background = isSelected ? SelectedBackground : Brushes.Transparent,
-            CornerRadius = new CornerRadius(5),
-            Padding = new Thickness(8, 6, 8, 6),
+            Background = isSelected ? Theme.Brush(palette => palette.AccentSoft) : Brushes.Transparent,
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(12, 7, 10, 7),
+            Margin = new Thickness(4, 0, 4, 1),
             Cursor = Cursors.Hand,
             Child = grid,
         };
