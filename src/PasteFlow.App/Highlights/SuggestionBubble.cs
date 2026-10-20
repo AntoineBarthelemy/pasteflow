@@ -26,7 +26,6 @@ internal sealed class SuggestionBubble : Window
     private const double MaxValueWidth = 320;
     private const double MaxContentWidth = 460;
 
-
     /// <summary>
     /// Initializes a new instance of the <see cref="SuggestionBubble"/> class, not shown yet.
     /// </summary>

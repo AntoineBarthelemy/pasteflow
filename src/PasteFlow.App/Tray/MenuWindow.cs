@@ -86,16 +86,6 @@ internal sealed class MenuWindow : Window
     internal IReadOnlyList<string> Lines => _entries.Select(Line).ToList();
 
     /// <summary>
-    /// Shows the menu in the corner of the screen, above the icon of the notification area, as when it was clicked.
-    /// </summary>
-    internal void ShowNearTray()
-    {
-        _isNearTray = true;
-        WindowStartupLocation = WindowStartupLocation.Manual;
-        Show();
-    }
-
-    /// <summary>
     /// Gets the line of an entry: its letter, then what it does.
     /// </summary>
     /// <param name="entry">The entry.</param>
@@ -105,6 +95,16 @@ internal sealed class MenuWindow : Window
         ArgumentNullException.ThrowIfNull(entry);
 
         return $"{entry.Letter}   {entry.Text}";
+    }
+
+    /// <summary>
+    /// Shows the menu in the corner of the screen, above the icon of the notification area, as when it was clicked.
+    /// </summary>
+    internal void ShowNearTray()
+    {
+        _isNearTray = true;
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Show();
     }
 
     /// <summary>

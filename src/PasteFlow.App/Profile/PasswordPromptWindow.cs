@@ -37,13 +37,12 @@ internal sealed class PasswordPromptWindow : ThemedWindow
         ok.Click += (_, _) => Validate();
         var cancel = Ui.ActionButton("Annuler", isCancel: true);
 
+        var title = isNew ? "Protéger l'export" : "Ouvrir un export";
+        var subtitle = isNew
+            ? $"Au moins {ProfileArchive.MinPasswordLength} caractères. Il sera demandé pour importer ta fiche sur un autre PC : sans lui, l'export est illisible."
+            : "Le mot de passe choisi au moment de l'export.";
         var panel = new StackPanel { Margin = new Thickness(28, 24, 28, 22), Width = 340 };
-        panel.Children.Add(Ui.Header(
-            Icons.Lock,
-            isNew ? "Protéger l'export" : "Ouvrir un export",
-            isNew
-                ? $"Au moins {ProfileArchive.MinPasswordLength} caractères. Il sera demandé pour importer ta fiche sur un autre PC : sans lui, l'export est illisible."
-                : "Le mot de passe choisi au moment de l'export."));
+        panel.Children.Add(Ui.Header(Icons.Lock, title, subtitle));
         panel.Children.Add(Ui.Field("_Mot de passe", _password));
         if (isNew)
         {
