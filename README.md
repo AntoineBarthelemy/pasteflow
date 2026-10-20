@@ -30,7 +30,10 @@ Feuille de route :
 14. [x] Coller n'importe où : hors formulaire (message, document, discussion), Ctrl+Alt+V colle au curseur la valeur désignée par les mots juste avant (« son téléphone : »), sinon ouvre une liste sous le curseur avec les 5 valeurs les plus probables et une recherche dans les fenêtres, coupée au bout des mots (Tab : phrase, ligne ; Ctrl+Maj+flèches : mot par mot)
 15. [x] Fiche perso et connexions : une fiche unique, chiffrée sur le PC (« Ma fiche… » dans le menu de l'icône), qui remplit les champs qui parlent de l'utilisateur (« Votre e-mail », page « Créer un compte ») et jamais ceux d'un autre (« E-mail du contact », page « Nouveau client ») ; en cas de doute avec l'écran, champ vide et les deux valeurs proposées. Plusieurs e-mails : celui utilisé sur le site, sinon le plus utilisé. Le sensible (IBAN, n° de sécu…) est reconnu à sa clé, jamais affiché en entier, et protégé par Windows Hello (30 min, reverrouillé au verrouillage du PC). La fiche apprend de ce que l'utilisateur remplit (deux fois, avec « Annuler »), démarre avec le compte Windows et l'identité Bitwarden, s'exporte avec un mot de passe. Pages de connexion : identifiant et mot de passe demandés à Bitwarden (même site que la barre d'adresse, liste de choix dans les applications), jamais stockés
 16. [x] Tout au clavier : chaque champ laissé à vérifier dit pourquoi (« 51500 ne correspond pas à Reims selon La Poste ») dans sa bulle et dans le récapitulatif ; Ctrl+Alt+P ouvre le menu de PasteFlow (une lettre par action) ; Ctrl+Alt+F met des lettres sur les valeurs visibles à l'écran, à la façon de Vimium, et taper les lettres d'une valeur la colle au curseur
-17. [ ] Plus tard : extension Chrome pour lire les autres onglets, envoi optionnel vers l'historique Win+V, choix des raccourcis
+17. [x] Liens : l'adresse cachée derrière un lien, ou celle d'une page ouverte derrière, va seulement là où un lien est attendu (« Lien de la vidéo », « le lien : ») ; dans la liste de Ctrl+Alt+V, chercher le texte d'un lien propose aussi son adresse
+18. [x] Extension Chrome/Edge (dossier `extension`) : à l'appui du raccourci, PasteFlow lit aussi les 5 onglets consultés le plus récemment, même cachés derrière un autre onglet
+19. [x] Installateur sans droits administrateur et mises à jour automatiques
+20. [ ] Plus tard : extension Chrome pour lire les autres onglets, envoi optionnel vers l'historique Win+V, choix des raccourcis
 
 Les informations à coller viennent de **sources** interchangeables (interface commune posée à l'étape 4). Sources prévues :
 
@@ -63,6 +66,16 @@ Pour les mettre à jour (une fois par an) : lancer le workflow « Reference data
 - [SDK .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0) (version fixée dans `global.json`)
 - Git
 - Un IDE : JetBrains Rider ou Visual Studio 2026 (support des solutions `.slnx`)
+
+### Installer PasteFlow (utilisateur)
+
+Télécharger `PasteFlow.App-win-Setup.exe` depuis le dépôt des versions ([pasteflow-releases](https://github.com/AntoineBarthelemy/pasteflow-releases/releases)) et le lancer : PasteFlow s'installe pour l'utilisateur, sans droits administrateur, dans `%LOCALAPPDATA%\PasteFlow.App`. Le programme n'est pas encore signé : Windows affiche « Windows a protégé votre ordinateur », cliquer sur « Informations complémentaires » puis « Exécuter quand même ». Les nouvelles versions se téléchargent seules et s'installent au lancement suivant (ou tout de suite : Ctrl+Alt+P puis U). La fiche, l'historique et les réglages restent dans `%LOCALAPPDATA%\PasteFlow`, même après une désinstallation.
+
+Pour publier une version : pousser un tag `vX.Y.Z` (ou lancer le workflow « Release » dans l'onglet Actions). Le workflow construit l'installateur ; avec le secret `RELEASES_TOKEN` (jeton GitHub qui peut écrire sur `pasteflow-releases`), il le publie sur le dépôt des versions, sinon il le garde comme fichier du workflow.
+
+### Extension Chrome et Edge (facultatif)
+
+Voir `extension/README.md` : lancer PasteFlow une fois, puis charger le dossier `extension` en mode développeur dans `chrome://extensions` ou `edge://extensions`.
 
 ### Récupérer et lancer le projet
 
@@ -101,6 +114,7 @@ Pages de connexion avec Bitwarden (facultatif) : installer une fois l'outil en l
 |---|---|
 | `src/PasteFlow.Core` | Logique métier, sans dépendance à Windows, entièrement testable |
 | `src/PasteFlow.App` | Application Windows : icône, raccourci global (API Win32), notifications |
+| `extension` | Extension Chrome/Edge qui donne à PasteFlow les onglets récents |
 | `tests/PasteFlow.Core.Tests` | Tests unitaires (xUnit) de la logique métier |
 | `tools/PasteFlow.DataBuilder` | Outil qui construit les listes de référence à partir des données officielles |
 | `tests/PasteFlow.App.Tests` | Tests d'intégration Windows : un vrai formulaire de test est affiché, puis lu et rempli via UI Automation |
