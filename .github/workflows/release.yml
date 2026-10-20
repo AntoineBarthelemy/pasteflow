@@ -52,6 +52,20 @@ jobs:
       - name: Install vpk
         run: dotnet tool install --global vpk --version 1.2.161
 
+      - name: Start the repository of the versions if it is still empty
+        if: env.RELEASES_TOKEN != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ env.RELEASES_TOKEN }}
+        run: |
+          # A release needs a first commit: an empty repository gets a short README
+          gh api repos/AntoineBarthelemy/pasteflow-releases/contents/README.md --silent 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            $text = "# PasteFlow`n`nLes versions de PasteFlow. Pour l'installer : télécharger PasteFlow.App-win-Setup.exe dans la dernière version (Releases), puis le lancer.`n"
+            $content = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($text))
+            gh api -X PUT repos/AntoineBarthelemy/pasteflow-releases/contents/README.md -f message="Premier commit" -f content=$content --silent
+          }
+
       - name: Get the previous version, for smaller updates
         if: env.RELEASES_TOKEN != ''
         continue-on-error: true
