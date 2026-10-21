@@ -22,4 +22,16 @@ public sealed class ReferenceTextTests
     {
         Assert.Equal("Chalons-en-Champagne, 51000", ReferenceText.RemoveAccents("Châlons-en-Champagne, 51000"));
     }
+
+    [Fact]
+    public void RemoveAccents_KeepsAWholeEmoji()
+    {
+        Assert.Equal("Lea 👋", ReferenceText.RemoveAccents("Léa 👋"));
+    }
+
+    [Fact]
+    public void RemoveAccents_ReplacesHalfAnEmojiInsteadOfFailing()
+    {
+        Assert.Equal("Lea \uFFFD", ReferenceText.RemoveAccents("Léa \uD83D"));
+    }
 }

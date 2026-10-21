@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using PasteFlow.Core.Candidates;
+using PasteFlow.Core.Reference;
 using PasteFlow.Core.Screen;
 
 namespace PasteFlow.Core.Picking;
@@ -245,7 +246,13 @@ public sealed partial class PassageFinder
             return ' ';
         }
 
-        var decomposed = character.ToString().Normalize(NormalizationForm.FormD);
+        // Half of an emoji cannot be decomposed alone: it stays as it is, the text keeps its length
+        if (char.IsSurrogate(character))
+        {
+            return character;
+        }
+
+        var decomposed = ReferenceText.NormalizeUnicode(character.ToString(), NormalizationForm.FormD);
         return char.ToLowerInvariant(decomposed[0]);
     }
 

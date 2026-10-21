@@ -178,6 +178,23 @@ public sealed class PassageFinderTests
         Assert.Empty(PassageFinder.Empty.Find("lea", PassageCut.Words));
     }
 
+    [Fact]
+    public void Find_ReadsAWindowWithEmoji()
+    {
+        var finder = new PassageFinder(new[] { Window("Discord", 1, "Merci Léa 👋 pour l'agenda d'Hugo 🎉") }, Values);
+
+        Assert.Equal("agenda d'Hugo", finder.Find("agenda d'hu", PassageCut.Words)[0].Text);
+    }
+
+    [Fact]
+    public void Find_ReadsAWindowWithHalfAnEmoji()
+    {
+        // A text cut in the middle of an emoji, as a window can give it
+        var finder = new PassageFinder(new[] { Window("Discord", 1, "Rendez-vous avec Hugo \uD83D") }, Values);
+
+        Assert.Equal("Rendez-vous avec Hugo", finder.Find("rendez-vous avec h", PassageCut.Words)[0].Text);
+    }
+
     private static Candidate Value(string value, CandidateKind kind)
     {
         return new Candidate { Value = value, Kind = kind, SourceName = "Claude", SourceRank = 1 };

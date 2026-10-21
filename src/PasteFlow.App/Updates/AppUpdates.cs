@@ -1,6 +1,7 @@
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Windows.Threading;
 using PasteFlow.App.Diagnostics;
 using PasteFlow.App.Notifications;
 using Velopack;
@@ -29,8 +30,9 @@ internal sealed class AppUpdates : IDisposable
 
     private readonly UpdateManager _manager;
     private readonly PopupNotifier _notifier;
+    private readonly Dispatcher _dispatcher;
     private readonly CancellationTokenSource _stop = new();
-    private UpdateInfo? _ready;
+    private volatile UpdateInfo? _ready;
     private int _isChecking;
 
     /// <summary>
@@ -42,6 +44,9 @@ internal sealed class AppUpdates : IDisposable
         ArgumentNullException.ThrowIfNull(notifier);
 
         _notifier = notifier;
+
+        // Created on the thread of the windows: the checks end on other threads, the popups are shown on this one
+        _dispatcher = Dispatcher.CurrentDispatcher;
         _manager = new UpdateManager(new GithubSource(ReleasesRepository, null, false));
     }
 
@@ -113,6 +118,11 @@ internal sealed class AppUpdates : IDisposable
         _stop.Dispose();
     }
 
+    private void Tell(string message)
+    {
+        _ = _dispatcher.InvokeAsync(() => _notifier.Notify(message));
+    }
+
     private async Task CheckRegularlyAsync(CancellationToken cancellationToken)
     {
         try
@@ -136,7 +146,7 @@ internal sealed class AppUpdates : IDisposable
         {
             if (isAsked)
             {
-                _notifier.Notify($"PasteFlow {ReadyVersion} est déjà prêt : Ctrl+Alt+P puis U pour l'installer.");
+                Tell($"PasteFlow {ReadyVersion} est déjà prêt : Ctrl+Alt+P puis U pour l'installer.");
             }
 
             return;
@@ -155,7 +165,7 @@ internal sealed class AppUpdates : IDisposable
             {
                 if (isAsked)
                 {
-                    _notifier.Notify($"PasteFlow est à jour ({CurrentVersion}).");
+                    Tell($"PasteFlow est à jour ({CurrentVersion}).");
                 }
 
                 return;
@@ -163,12 +173,12 @@ internal sealed class AppUpdates : IDisposable
 
             if (isAsked)
             {
-                _notifier.Notify($"PasteFlow {update.TargetFullRelease.Version} se télécharge…");
+                Tell($"PasteFlow {update.TargetFullRelease.Version} se télécharge…");
             }
 
             await _manager.DownloadUpdatesAsync(update);
             _ready = update;
-            _notifier.Notify($"PasteFlow {update.TargetFullRelease.Version} est prêt : il s'installe au prochain lancement, ou tout de suite avec Ctrl+Alt+P puis U.");
+            Tell($"PasteFlow {update.TargetFullRelease.Version} est prêt : il s'installe au prochain lancement, ou tout de suite avec Ctrl+Alt+P puis U.");
         }
         catch (Exception exception) when (exception is HttpRequestException or IOException or InvalidOperationException or UnauthorizedAccessException)
         {
@@ -176,7 +186,7 @@ internal sealed class AppUpdates : IDisposable
             ErrorLog.Write("Recherche de mise à jour", exception);
             if (isAsked)
             {
-                _notifier.Notify("Impossible de joindre le serveur des mises à jour. Réessaie plus tard.");
+                Tell("Impossible de joindre le serveur des mises à jour. Réessaie plus tard.");
             }
         }
         finally

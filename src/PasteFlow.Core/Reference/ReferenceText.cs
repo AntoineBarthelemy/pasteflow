@@ -45,7 +45,7 @@ public static class ReferenceText
         ArgumentNullException.ThrowIfNull(text);
 
         var builder = new StringBuilder(text.Length);
-        foreach (var character in text.Normalize(NormalizationForm.FormD))
+        foreach (var character in NormalizeUnicode(text, NormalizationForm.FormD))
         {
             if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
             {
@@ -53,6 +53,46 @@ public static class ReferenceText
             }
         }
 
-        return builder.ToString().Normalize(NormalizationForm.FormC);
+        return NormalizeUnicode(builder.ToString(), NormalizationForm.FormC);
+    }
+
+    /// <summary>
+    /// Normalizes the Unicode form of a text, even a text read on screen that holds half of an emoji, which the
+    /// normalization of .NET refuses.
+    /// </summary>
+    /// <param name="text">The text.</param>
+    /// <param name="form">The form wanted.</param>
+    /// <returns>The normalized text; a half character alone is replaced by "\uFFFD".</returns>
+    public static string NormalizeUnicode(string text, NormalizationForm form)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+
+        try
+        {
+            return text.Normalize(form);
+        }
+        catch (ArgumentException)
+        {
+            return RepairHalves(text).Normalize(form);
+        }
+    }
+
+    private static string RepairHalves(string text)
+    {
+        // An emoji is stored as two halves: one without the other is not a character
+        var repaired = text.ToCharArray();
+        for (var index = 0; index < repaired.Length; index++)
+        {
+            if (char.IsHighSurrogate(repaired[index]) && index + 1 < repaired.Length && char.IsLowSurrogate(repaired[index + 1]))
+            {
+                index++;
+            }
+            else if (char.IsSurrogate(repaired[index]))
+            {
+                repaired[index] = '\uFFFD';
+            }
+        }
+
+        return new string(repaired);
     }
 }

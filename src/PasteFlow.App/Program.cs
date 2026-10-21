@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Threading;
 using PasteFlow.App.Browser;
 using PasteFlow.App.Design;
 using PasteFlow.App.Diagnostics;
@@ -60,6 +61,10 @@ internal static class Program
         }
 
         var application = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+
+        // What starts before the application runs (update checks, readers) comes back to the thread of the windows
+        // after an await, as everything started later does
+        SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(application.Dispatcher));
         var notifier = new PopupNotifier();
 
         // An unexpected error is kept in a file and told, instead of closing PasteFlow without a word

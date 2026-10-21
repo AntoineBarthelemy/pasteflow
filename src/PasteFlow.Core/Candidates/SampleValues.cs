@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using PasteFlow.Core.Reference;
 
 namespace PasteFlow.Core.Candidates;
 
@@ -113,7 +114,7 @@ public static partial class SampleValues
     private static string Normalize(string text)
     {
         var builder = new StringBuilder(text.Length);
-        foreach (var character in text.Trim().Normalize(NormalizationForm.FormD))
+        foreach (var character in ReferenceText.NormalizeUnicode(text.Trim(), NormalizationForm.FormD))
         {
             if (CharUnicodeInfo.GetUnicodeCategory(character) != UnicodeCategory.NonSpacingMark)
             {
@@ -121,7 +122,7 @@ public static partial class SampleValues
             }
         }
 
-        return builder.ToString().Normalize(NormalizationForm.FormC).ToLowerInvariant();
+        return ReferenceText.NormalizeUnicode(builder.ToString(), NormalizationForm.FormC).ToLowerInvariant();
     }
 
     [GeneratedRegex(@"\b(?:ex|exemples?|examples?|e\.?\s?g|format|sample|modele|placeholder)\b", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
