@@ -35,4 +35,13 @@ public sealed class ErrorLogTests
 
         Assert.Equal(text, ErrorLog.Recent(text, 1000));
     }
+
+    [Fact]
+    public void Describe_TellsTheAnswerOfTheServer()
+    {
+        var error = new System.Net.Http.HttpRequestException("https://api.github.com/x", null, System.Net.HttpStatusCode.Forbidden);
+
+        Assert.Contains("HTTP 403", ErrorLog.Describe(error), StringComparison.Ordinal);
+        Assert.DoesNotContain("github", ErrorLog.Describe(error), StringComparison.Ordinal);
+    }
 }

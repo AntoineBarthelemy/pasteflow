@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -55,8 +56,15 @@ internal sealed class NotificationPopup : Window
         SizeToContent = SizeToContent.WidthAndHeight;
         WindowStartupLocation = WindowStartupLocation.Manual;
 
-        // A white card with a soft shadow, in the bottom right corner
-        Content = Ui.PopupRoot(content, new Thickness(16, 14, 16, 14));
+        // A white card with a soft shadow, in the bottom right corner, with a cross to close it at once
+        var layout = new Grid();
+        layout.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        layout.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        layout.Children.Add(content);
+        var close = CloseButton();
+        Grid.SetColumn(close, 1);
+        layout.Children.Add(close);
+        Content = Ui.PopupRoot(layout, new Thickness(16, 14, 10, 14));
 
         DisplayTime = displayTime;
         _closeTimer = new DispatcherTimer { Interval = displayTime };
@@ -68,6 +76,33 @@ internal sealed class NotificationPopup : Window
     /// Gets how long the popup stays open when the mouse is not over it.
     /// </summary>
     internal TimeSpan DisplayTime { get; }
+
+    /// <summary>
+    /// Gets or sets how far above the bottom of the screen the popup sits, when other popups are below it.
+    /// </summary>
+    internal double StackOffset { get; set; }
+
+    /// <summary>
+    /// Gets the height of the card itself, without the room of its shadow.
+    /// </summary>
+    internal double CardHeight => IsLoaded ? Math.Max(0, ActualHeight - (2 * Ui.ShadowMargin)) : 0;
+
+    /// <summary>
+    /// Puts the popup in the bottom right corner of the screen, above the popups below it.
+    /// </summary>
+    internal void Place()
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        var workArea = SystemParameters.WorkArea;
+
+        // The room left for the shadow already keeps the card away from the edges
+        Left = workArea.Right - ActualWidth - (ScreenMargin - Ui.ShadowMargin);
+        Top = workArea.Bottom - ActualHeight - (ScreenMargin - Ui.ShadowMargin) - StackOffset;
+    }
 
     /// <inheritdoc/>
     protected override void OnClosed(EventArgs e)
@@ -121,12 +156,24 @@ internal sealed class NotificationPopup : Window
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        var workArea = SystemParameters.WorkArea;
-
-        // The room left for the shadow already keeps the card away from the edges
-        Left = workArea.Right - ActualWidth - (ScreenMargin - Ui.ShadowMargin);
-        Top = workArea.Bottom - ActualHeight - (ScreenMargin - Ui.ShadowMargin);
+        Place();
         _closeTimer.Start();
+    }
+
+    private Button CloseButton()
+    {
+        var close = Ui.QuietButton(string.Empty);
+        close.Content = Ui.Icon(Icons.Close, 10, Theme.Brush(palette => palette.TextTertiary));
+        close.MinHeight = 0;
+        close.Width = 22;
+        close.Height = 22;
+        close.Padding = new Thickness(0);
+        close.VerticalAlignment = VerticalAlignment.Top;
+        close.Margin = new Thickness(10, -4, 0, 0);
+        close.ToolTip = "Fermer";
+        AutomationProperties.SetName(close, "Fermer la notification");
+        close.Click += (_, _) => Close();
+        return close;
     }
 
     private void OnCloseTimerTick(object? sender, EventArgs e)

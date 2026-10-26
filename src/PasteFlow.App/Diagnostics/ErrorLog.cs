@@ -2,6 +2,8 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Text.RegularExpressions;
 
 namespace PasteFlow.App.Diagnostics;
@@ -132,11 +134,29 @@ internal static partial class ErrorLog
         var lines = new List<string>();
         for (var current = exception; current is not null; current = current.InnerException)
         {
-            lines.Add(string.Create(CultureInfo.InvariantCulture, $"{current.GetType().FullName} (0x{current.HResult:X8})"));
+            lines.Add(string.Create(CultureInfo.InvariantCulture, $"{current.GetType().FullName} (0x{current.HResult:X8}){NetworkDetail(current)}"));
             lines.Add(current.StackTrace ?? "(pas de pile)");
         }
 
         return string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>
+    /// Tells why a network request failed, without its address: the answer of the server or the kind of failure.
+    /// </summary>
+    /// <param name="exception">The error.</param>
+    /// <returns>A detail such as " HTTP 403", or an empty string.</returns>
+    internal static string NetworkDetail(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        return exception switch
+        {
+            HttpRequestException { StatusCode: { } status } => string.Create(CultureInfo.InvariantCulture, $" HTTP {(int)status}"),
+            HttpRequestException request => $" {request.HttpRequestError}",
+            SocketException socket => $" {socket.SocketErrorCode}",
+            _ => string.Empty,
+        };
     }
 
     /// <summary>

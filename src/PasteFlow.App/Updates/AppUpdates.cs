@@ -28,11 +28,12 @@ internal sealed class AppUpdates : IDisposable
     private static readonly TimeSpan FirstCheckDelay = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(1);
 
-    private readonly UpdateManager _manager;
+    private readonly UpdateManager[] _managers;
     private readonly PopupNotifier _notifier;
     private readonly Dispatcher _dispatcher;
     private readonly CancellationTokenSource _stop = new();
     private volatile UpdateInfo? _ready;
+    private UpdateManager? _readyManager;
     private int _isChecking;
 
     /// <summary>
@@ -47,7 +48,14 @@ internal sealed class AppUpdates : IDisposable
 
         // Created on the thread of the windows: the checks end on other threads, the popups are shown on this one
         _dispatcher = Dispatcher.CurrentDispatcher;
-        _manager = new UpdateManager(new GithubSource(ReleasesRepository, null, false));
+        _managers = new[]
+        {
+            new UpdateManager(new GithubSource(ReleasesRepository, null, false)),
+
+            // The files of the latest version, read without the API of GitHub: its free quota is shared by all the
+            // computers of a network (a school, a company), and can be used up by others
+            new UpdateManager(new SimpleWebSource($"{ReleasesRepository}/releases/latest/download/")),
+        };
     }
 
     /// <summary>
@@ -78,14 +86,14 @@ internal sealed class AppUpdates : IDisposable
     /// <summary>
     /// Gets a value indicating whether PasteFlow runs installed, the only way it updates itself.
     /// </summary>
-    public bool IsInstalled => _manager.IsInstalled;
+    public bool IsInstalled => _managers[0].IsInstalled;
 
     /// <summary>
     /// Starts looking for new versions: a minute after the launch, then every few hours.
     /// </summary>
     public void Start()
     {
-        if (_manager.IsInstalled)
+        if (_managers[0].IsInstalled)
         {
             _ = CheckRegularlyAsync(_stop.Token);
         }
@@ -97,7 +105,7 @@ internal sealed class AppUpdates : IDisposable
     /// <returns>A task that ends when the new version is downloaded, or when there is none.</returns>
     public Task CheckNowAsync()
     {
-        return _manager.IsInstalled ? CheckOnceAsync(isAsked: true) : Task.CompletedTask;
+        return _managers[0].IsInstalled ? CheckOnceAsync(isAsked: true) : Task.CompletedTask;
     }
 
     /// <summary>
@@ -105,9 +113,9 @@ internal sealed class AppUpdates : IDisposable
     /// </summary>
     public void InstallNowAndRestart()
     {
-        if (_ready is { } ready)
+        if (_ready is { } ready && _readyManager is { } manager)
         {
-            _manager.ApplyUpdatesAndRestart(ready);
+            manager.ApplyUpdatesAndRestart(ready);
         }
     }
 
@@ -160,38 +168,55 @@ internal sealed class AppUpdates : IDisposable
 
         try
         {
-            var update = await _manager.CheckForUpdatesAsync();
-            if (update is null)
+            // The second source is only asked when the first one fails
+            var detail = string.Empty;
+            foreach (var manager in _managers)
             {
-                if (isAsked)
+                try
                 {
-                    Tell($"PasteFlow est à jour ({CurrentVersion}).");
+                    await CheckWithAsync(manager, isAsked);
+                    return;
                 }
-
-                return;
+                catch (Exception exception) when (exception is HttpRequestException or IOException or InvalidOperationException or UnauthorizedAccessException or TaskCanceledException)
+                {
+                    ErrorLog.Write("Recherche de mise à jour", exception);
+                    detail = ErrorLog.NetworkDetail(exception);
+                }
             }
 
             if (isAsked)
             {
-                Tell($"PasteFlow {update.TargetFullRelease.Version} se télécharge…");
-            }
-
-            await _manager.DownloadUpdatesAsync(update);
-            _ready = update;
-            Tell($"PasteFlow {update.TargetFullRelease.Version} est prêt : il s'installe au prochain lancement, ou tout de suite avec Ctrl+Alt+P puis U.");
-        }
-        catch (Exception exception) when (exception is HttpRequestException or IOException or InvalidOperationException or UnauthorizedAccessException)
-        {
-            // Offline, or the repository does not answer: tried again later, the error is kept for understanding
-            ErrorLog.Write("Recherche de mise à jour", exception);
-            if (isAsked)
-            {
-                Tell("Impossible de joindre le serveur des mises à jour. Réessaie plus tard.");
+                var reason = detail.Length > 0 ? detail.Trim() : "serveur injoignable";
+                Tell($"Impossible de vérifier les mises à jour pour l'instant ({reason}). Tu as PasteFlow {CurrentVersion}. Réessaie plus tard.");
             }
         }
         finally
         {
             _ = Interlocked.Exchange(ref _isChecking, 0);
         }
+    }
+
+    private async Task CheckWithAsync(UpdateManager manager, bool isAsked)
+    {
+        var update = await manager.CheckForUpdatesAsync();
+        if (update is null)
+        {
+            if (isAsked)
+            {
+                Tell($"PasteFlow est à jour ({CurrentVersion}).");
+            }
+
+            return;
+        }
+
+        if (isAsked)
+        {
+            Tell($"PasteFlow {update.TargetFullRelease.Version} se télécharge…");
+        }
+
+        await manager.DownloadUpdatesAsync(update);
+        _readyManager = manager;
+        _ready = update;
+        Tell($"PasteFlow {update.TargetFullRelease.Version} est prêt : il s'installe au prochain lancement, ou tout de suite avec Ctrl+Alt+P puis U.");
     }
 }

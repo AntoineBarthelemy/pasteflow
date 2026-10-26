@@ -4,14 +4,19 @@ using PasteFlow.Core.Notifications;
 namespace PasteFlow.App.Notifications;
 
 /// <summary>
-/// Displays messages and recaps of fills in a <see cref="NotificationPopup"/>, one at a time.
+/// Displays messages and recaps of fills in <see cref="NotificationPopup"/> windows, up to three stacked in the bottom
+/// right corner.
 /// </summary>
 /// <remarks>
 /// Must be used from the user interface thread.
 /// </remarks>
 internal sealed class PopupNotifier : IUserNotifier
 {
-    private NotificationPopup? _currentPopup;
+    // A few popups stay on screen at once, newest at the bottom: a new message never hides the one before it
+    private const int MaxPopups = 3;
+    private const double StackGap = 8;
+
+    private readonly List<NotificationPopup> _popups = new();
 
     /// <inheritdoc/>
     public void Notify(string message)
@@ -31,7 +36,7 @@ internal sealed class PopupNotifier : IUserNotifier
     }
 
     /// <summary>
-    /// Displays any content, such as a message with a button, in place of the popup currently displayed.
+    /// Displays any content, such as a message with a button, above the popups already displayed.
     /// </summary>
     /// <param name="content">The content.</param>
     /// <param name="displayTime">How long the popup stays when the mouse is not on it.</param>
@@ -44,18 +49,32 @@ internal sealed class PopupNotifier : IUserNotifier
 
     private void Show(NotificationPopup popup)
     {
-        // A new popup replaces the one currently displayed
-        _currentPopup?.Close();
+        // Past the limit, the oldest popup gives its place
+        if (_popups.Count == MaxPopups)
+        {
+            _popups[0].Close();
+        }
 
         popup.Closed += (_, _) =>
         {
-            if (ReferenceEquals(_currentPopup, popup))
-            {
-                _currentPopup = null;
-            }
+            _ = _popups.Remove(popup);
+            Restack();
         };
-
-        _currentPopup = popup;
+        popup.Loaded += (_, _) => Restack();
+        _popups.Add(popup);
         popup.Show();
+    }
+
+    private void Restack()
+    {
+        // From the newest, at the bottom, upwards
+        var offset = 0.0;
+        for (var index = _popups.Count - 1; index >= 0; index--)
+        {
+            var popup = _popups[index];
+            popup.StackOffset = offset;
+            popup.Place();
+            offset += popup.CardHeight + StackGap;
+        }
     }
 }

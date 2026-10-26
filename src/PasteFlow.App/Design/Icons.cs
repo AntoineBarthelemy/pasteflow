@@ -53,6 +53,9 @@ internal static class Icons
     /// <summary>An exclamation mark in a triangle.</summary>
     public const string Warning = "";
 
+    /// <summary>A cross: close.</summary>
+    public const string Close = "\uE711";
+
     /// <summary>An "i" in a circle.</summary>
     public const string Info = "";
 
