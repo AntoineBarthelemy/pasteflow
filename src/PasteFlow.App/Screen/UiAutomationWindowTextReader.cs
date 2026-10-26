@@ -44,6 +44,13 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
     private static readonly Condition TextCondition =
         new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text);
 
+    // A terminal, such as Windows Terminal, shows its text through a text pattern, without a name; fields and
+    // documents are read elsewhere
+    private static readonly Condition TextPatternCondition = new AndCondition(
+        new PropertyCondition(AutomationElement.IsTextPatternAvailableProperty, true),
+        new NotCondition(DocumentCondition),
+        new NotCondition(new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit)));
+
     private readonly OcrTextRecognizer? _ocr;
 
     /// <summary>
@@ -220,11 +227,45 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
     /// <returns>The labels separated by line breaks.</returns>
     private static string ReadTextElements(AutomationElement window)
     {
-        var labels = window.FindAll(TreeScope.Descendants, TextCondition)
+        var lines = window.FindAll(TreeScope.Descendants, TextCondition)
             .Cast<AutomationElement>()
-            .Select(element => element.Current.Name);
+            .Select(element => element.Current.Name)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToList();
+        lines.AddRange(ReadTextPatterns(window));
+        return string.Join('\n', lines);
+    }
 
-        return string.Join('\n', labels);
+    /// <summary>
+    /// Reads the elements that give their text only through a text pattern, such as a terminal: only the part seen on
+    /// screen, not the whole history.
+    /// </summary>
+    /// <param name="window">The window to read.</param>
+    /// <returns>The texts seen.</returns>
+    private static List<string> ReadTextPatterns(AutomationElement window)
+    {
+        var texts = new List<string>();
+        foreach (AutomationElement element in window.FindAll(TreeScope.Descendants, TextPatternCondition))
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(element.Current.Name) && element.Current.ControlType == ControlType.Text)
+                {
+                    continue;
+                }
+
+                if (element.TryGetCurrentPattern(TextPattern.Pattern, out var pattern) && pattern is TextPattern textPattern)
+                {
+                    texts.AddRange(textPattern.GetVisibleRanges().Select(range => range.GetText(MaxDocumentLength)).Where(text => !string.IsNullOrWhiteSpace(text)));
+                }
+            }
+            catch (Exception exception) when (exception is ElementNotAvailableException or InvalidOperationException or COMException or ArgumentException)
+            {
+                // One element that answers badly does not stop the others
+            }
+        }
+
+        return texts;
     }
 
     /// <summary>
