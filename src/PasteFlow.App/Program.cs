@@ -113,6 +113,7 @@ internal static class Program
 
         // Sign-in forms are filled from Bitwarden, once its vault is unlocked with the master password
         using var bitwarden = new BitwardenCli();
+        var bitwardenSession = new BitwardenSessionStore(BitwardenSessionStore.DefaultPath);
 
         // Reading and writing forms, frames and suggestions
         var formAccess = new UiAutomationFormAccess();
@@ -215,6 +216,7 @@ internal static class Program
             if (bitwarden.IsUnlocked)
             {
                 bitwarden.Lock();
+                bitwardenSession.Delete();
                 notifier.Notify("Bitwarden verrouillé : PasteFlow ne remplit plus les mots de passe.");
                 return;
             }
@@ -230,6 +232,12 @@ internal static class Program
                 var isUnlocked = await bitwarden.UnlockAsync(password, CancellationToken.None);
                 if (isUnlocked)
                 {
+                    // Kept for the next launches, until it is locked from the menu
+                    if (bitwarden.Session is { } session)
+                    {
+                        bitwardenSession.Save(session);
+                    }
+
                     notifier.Notify("Bitwarden déverrouillé. Sur une page de connexion, clique dans l'identifiant puis Ctrl+Alt+V.");
                     await ImportBitwardenIdentityAsync(bitwarden, learner, notifier);
                 }
@@ -333,8 +341,20 @@ internal static class Program
         {
             await StartProfileAsync(learner, notifier);
 
-            // At launch, a locked vault asks for its master password once; "Plus tard" leaves it for the tray menu
-            if (bitwarden.IsInstalled && await bitwarden.StatusAsync(CancellationToken.None) == "locked")
+            // At launch, the vault left unlocked last time opens again without its master password; otherwise it is asked
+            // once, and "Plus tard" leaves it for the menu
+            if (!bitwarden.IsInstalled)
+            {
+                return;
+            }
+
+            if (bitwardenSession.Load() is { } kept && await bitwarden.ResumeAsync(kept, CancellationToken.None))
+            {
+                return;
+            }
+
+            bitwardenSession.Delete();
+            if (await bitwarden.StatusAsync(CancellationToken.None) == "locked")
             {
                 OpenBitwardenUnlock();
             }

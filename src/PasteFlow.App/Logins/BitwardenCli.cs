@@ -63,6 +63,11 @@ internal sealed partial class BitwardenCli : IPasswordManager, IDisposable
     public bool IsUnlocked => _session is not null;
 
     /// <summary>
+    /// Gets the session key of the unlocked vault, to keep it between launches, or <see langword="null"/>.
+    /// </summary>
+    internal string? Session => _session;
+
+    /// <summary>
     /// Finds bw on this computer: in the folders of the PATH, then where npm and winget put it.
     /// </summary>
     /// <returns>The path of bw, or <see langword="null"/> if it is not installed.</returns>
@@ -136,6 +141,29 @@ internal sealed partial class BitwardenCli : IPasswordManager, IDisposable
         // service starts too, so that passwords come in a few tens of milliseconds
         _ = RefreshLoginsAsync(withSync: true, CancellationToken.None);
         _ = StartServeAsync(unlocked);
+        return true;
+    }
+
+    /// <summary>
+    /// Takes back a session kept from a previous launch, if the vault is still unlocked with it.
+    /// </summary>
+    /// <param name="session">The session key kept.</param>
+    /// <param name="cancellationToken">A token to cancel the check.</param>
+    /// <returns><see langword="true"/> if the vault is unlocked again; otherwise <see langword="false"/>.</returns>
+    public async Task<bool> ResumeAsync(string session, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(session);
+
+        // Locked or logged out since, the key no longer opens the vault: bw answers "locked"
+        var output = await RunAsync(StatusArguments, new Dictionary<string, string> { ["BW_SESSION"] = session }, cancellationToken);
+        if (output is null || BitwardenJson.Status(output) != "unlocked")
+        {
+            return false;
+        }
+
+        _session = session;
+        _ = RefreshLoginsAsync(withSync: true, CancellationToken.None);
+        _ = StartServeAsync(session);
         return true;
     }
 
