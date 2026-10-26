@@ -249,14 +249,14 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
         {
             try
             {
-                if (!string.IsNullOrWhiteSpace(element.Current.Name) && element.Current.ControlType == ControlType.Text)
-                {
-                    continue;
-                }
-
                 if (element.TryGetCurrentPattern(TextPattern.Pattern, out var pattern) && pattern is TextPattern textPattern)
                 {
-                    texts.AddRange(textPattern.GetVisibleRanges().Select(range => range.GetText(MaxDocumentLength)).Where(text => !string.IsNullOrWhiteSpace(text)));
+                    // A label gives the same text as its name, already read; a terminal gives far more than its name,
+                    // such as "Windows PowerShell"
+                    var name = element.Current.Name.Trim();
+                    texts.AddRange(textPattern.GetVisibleRanges()
+                        .Select(range => range.GetText(MaxDocumentLength))
+                        .Where(text => !string.IsNullOrWhiteSpace(text) && !string.Equals(text.Trim(), name, StringComparison.Ordinal)));
                 }
             }
             catch (Exception exception) when (exception is ElementNotAvailableException or InvalidOperationException or COMException or ArgumentException)
