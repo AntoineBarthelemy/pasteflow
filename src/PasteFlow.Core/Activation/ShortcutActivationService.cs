@@ -305,7 +305,7 @@ public sealed class ShortcutActivationService : IDisposable
 
     private async void OnHotkeyPressed(object? sender, EventArgs e)
     {
-        var report = await FillActiveFormAsync(CancellationToken.None);
+        var (report, pickField, candidates) = await FillActiveFormAsync(CancellationToken.None);
         if (_isDisposed || report is null)
         {
             // Pasted at the cursor, or stopped: there is no form to report on
@@ -315,9 +315,15 @@ public sealed class ShortcutActivationService : IDisposable
         // An empty list also removes the frames of a previous fill
         _highlighter.Highlight(report.FieldsToCheck);
         _notifier.NotifyFill(report);
+
+        // The field of the cursor, left empty with nothing to propose: the user chooses any passage of the windows
+        if (pickField is not null)
+        {
+            await PickAtCaretAsync(pickField, candidates, CancellationToken.None);
+        }
     }
 
-    private async Task<FillReport?> FillActiveFormAsync(CancellationToken cancellationToken)
+    private async Task<(FillReport? Report, FormField? PickField, List<Candidate> Candidates)> FillActiveFormAsync(CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
         var pressTime = TimeProvider.GetUtcNow();
@@ -345,7 +351,7 @@ public sealed class ShortcutActivationService : IDisposable
         // A text written alone, such as a message or a document, is filled at the cursor rather than as a form
         if (await TryPasteAtCaretAsync(fields, candidates, cancellationToken))
         {
-            return null;
+            return (null, null, candidates);
         }
 
         var page = CurrentPage();
@@ -460,12 +466,21 @@ public sealed class ShortcutActivationService : IDisposable
             }
         }
 
+        // A box for free text, such as instructions or a message, where the cursor is and where no value fits: the list
+        // of the windows is opened there after the recap, rather than a frame with nothing to propose
+        var pickField = await FieldToPickAtCaretAsync(fieldsToCheck, cancellationToken);
+        if (pickField is not null)
+        {
+            _ = fieldsToCheck.RemoveAll(toCheck => toCheck.Field.Id == pickField.Id);
+            uncertainCount--;
+        }
+
         stopwatch.Stop();
 
         // The page tells what the values were for: the profile learns only from the fields about the user
         _fillMemory.Remember(writtenFields.Select(written => written with { Page = page }).ToList());
 
-        return new FillReport
+        var report = new FillReport
         {
             FilledCount = filledValues.Count - replacedCount,
             UncertainCount = uncertainCount,
@@ -484,6 +499,7 @@ public sealed class ShortcutActivationService : IDisposable
             Notes = notes.Where(note => note.Length > 0).ToList(),
             PasswordManagerElapsed = login is null ? null : loginWatch.Elapsed,
         };
+        return (report, pickField, candidates);
     }
 
     /// <summary>
@@ -523,6 +539,24 @@ public sealed class ShortcutActivationService : IDisposable
             return true;
         }
 
+        await PickAtCaretAsync(field, candidates, cancellationToken);
+        return true;
+    }
+
+    /// <summary>
+    /// Opens the list at the cursor: the likely values for a field and the text of the windows, and pastes the choice.
+    /// </summary>
+    /// <param name="field">The field the cursor is in, or the cursor described as a field.</param>
+    /// <param name="candidates">The values found, examples set aside.</param>
+    /// <param name="cancellationToken">A token to cancel the paste.</param>
+    /// <returns>A task completed once the user chose or closed the list.</returns>
+    private async Task PickAtCaretAsync(FormField field, List<Candidate> candidates, CancellationToken cancellationToken)
+    {
+        if (Picker is null || Inserter is null)
+        {
+            return;
+        }
+
         var screenCandidates = candidates.Where(candidate => !candidate.IsFromHistory && !candidate.IsFromProfile).ToList();
         var profileCandidates = await ProfileValuesForTheListAsync(field, candidates, cancellationToken);
         var windows = _candidateSources.OfType<IScreenTextSource>().SelectMany(source => source.LastWindows).ToList();
@@ -541,8 +575,36 @@ public sealed class ShortcutActivationService : IDisposable
         {
             _notifier.Notify(CannotPasteMessage);
         }
+    }
 
-        return true;
+    /// <summary>
+    /// Finds the field of the cursor when the form leaves it empty with nothing to propose, such as a box of free
+    /// text: the list at the cursor is then more useful than a frame.
+    /// </summary>
+    /// <param name="fieldsToCheck">The fields left to check by the fill.</param>
+    /// <param name="cancellationToken">A token to cancel the reading of the cursor.</param>
+    /// <returns>The field, or <see langword="null"/> when the cursor is elsewhere or the field has proposals.</returns>
+    private async Task<FormField?> FieldToPickAtCaretAsync(List<FieldToCheck> fieldsToCheck, CancellationToken cancellationToken)
+    {
+        if (CaretReader is null || Picker is null || Inserter is null)
+        {
+            return null;
+        }
+
+        var empty = fieldsToCheck
+            .Where(toCheck => toCheck.Suggestions.Count == 0 && !string.Equals(toCheck.Reason, MatchReasons.WriteRefused, StringComparison.Ordinal))
+            .Select(toCheck => toCheck.Field)
+            .Where(field => field.Kind == FieldKind.Text && !field.HasValue)
+            .ToList();
+        if (empty.Count == 0)
+        {
+            return null;
+        }
+
+        var caret = await CaretReader.ReadCaretAsync(cancellationToken);
+        return caret is { IsEditable: true, FocusedFieldId: { } id }
+            ? empty.Find(field => string.Equals(field.Id, id, StringComparison.Ordinal))
+            : null;
     }
 
     /// <summary>

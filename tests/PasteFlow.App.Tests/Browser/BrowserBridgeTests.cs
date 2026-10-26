@@ -1,3 +1,4 @@
+using System.IO;
 using System.IO.Pipes;
 using PasteFlow.App.Browser;
 using PasteFlow.Core.Browser;
@@ -46,6 +47,17 @@ public sealed class BrowserBridgeTests
         fromExtension.Dispose();
         await stop.CancelAsync();
         await relay.WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public async Task RelayAsync_WithoutPasteFlow_EndsAtOnce()
+    {
+        // Left running, the relay would keep the files of PasteFlow in use and block its updates
+        using var fromExtension = new AnonymousPipeServerStream(PipeDirection.Out);
+        using var relayIn = new AnonymousPipeClientStream(PipeDirection.In, fromExtension.ClientSafePipeHandle);
+        using var relayOut = new MemoryStream();
+
+        await NativeHost.RelayAsync(relayIn, relayOut, UniquePipeName(), CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
     }
 
     [Fact]

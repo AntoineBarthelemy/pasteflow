@@ -12,7 +12,6 @@ namespace PasteFlow.App.Browser;
 internal static class NativeHost
 {
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(3);
 
     /// <summary>
     /// Tells whether PasteFlow was started by a browser for its extension: the browser gives the origin of the
@@ -41,13 +40,17 @@ internal static class NativeHost
     }
 
     /// <summary>
-    /// Relays the messages of the browser to PasteFlow and back, connecting again to PasteFlow when it restarts.
+    /// Relays the messages of the browser to PasteFlow and back, and stops when PasteFlow is not there or closes.
     /// </summary>
     /// <param name="browserIn">What the browser sends.</param>
     /// <param name="browserOut">What is sent to the browser.</param>
     /// <param name="pipeName">The pipe of PasteFlow.</param>
     /// <param name="cancellationToken">A token to stop relaying.</param>
-    /// <returns>A task completed once the browser closed its side.</returns>
+    /// <returns>A task completed once the browser or PasteFlow closed its side.</returns>
+    /// <remarks>
+    /// The relay is PasteFlow itself: while it runs, the files of PasteFlow stay in use and an update cannot replace
+    /// them. So it never waits for PasteFlow: the extension starts a new relay a minute later.
+    /// </remarks>
     internal static async Task RelayAsync(Stream browserIn, Stream browserOut, string pipeName, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(browserIn);
@@ -57,69 +60,57 @@ internal static class NativeHost
         using var outGate = new SemaphoreSlim(1, 1);
         using var connection = new PipeHolder();
         var fromPasteFlow = RelayFromPasteFlowAsync(browserOut, outGate, pipeName, connection, stop.Token);
+        var fromBrowser = RelayFromBrowserAsync(browserIn, connection, stop.Token);
+
+        // The first side that closes ends the relay; a read of the browser left waiting does not keep the process alive
+        _ = await Task.WhenAny(fromPasteFlow, fromBrowser).ConfigureAwait(false);
+        await stop.CancelAsync().ConfigureAwait(false);
+        await fromPasteFlow.ConfigureAwait(false);
+    }
+
+    private static async Task RelayFromBrowserAsync(Stream browserIn, PipeHolder connection, CancellationToken cancellationToken)
+    {
         try
         {
-            while (await NativeMessages.ReadAsync(browserIn, stop.Token).ConfigureAwait(false) is { } message)
+            while (await NativeMessages.ReadAsync(browserIn, cancellationToken).ConfigureAwait(false) is { } message)
             {
                 // An answer while PasteFlow is away is simply lost: PasteFlow asks again at the next shortcut
-                await connection.TrySendAsync(message, stop.Token).ConfigureAwait(false);
+                await connection.TrySendAsync(message, cancellationToken).ConfigureAwait(false);
             }
         }
         catch (Exception exception) when (exception is IOException or OperationCanceledException or InvalidDataException)
         {
             // The browser closed its side
         }
-        finally
-        {
-            await stop.CancelAsync().ConfigureAwait(false);
-        }
-
-        await fromPasteFlow.ConfigureAwait(false);
     }
 
     private static async Task RelayFromPasteFlowAsync(Stream browserOut, SemaphoreSlim outGate, string pipeName, PipeHolder connection, CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
+        try
         {
-            using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
-            try
+            await pipe.ConnectAsync(ConnectTimeout, cancellationToken).ConfigureAwait(false);
+            connection.Set(pipe);
+            while (await NativeMessages.ReadAsync(pipe, cancellationToken).ConfigureAwait(false) is { } message)
             {
-                await pipe.ConnectAsync(ConnectTimeout, cancellationToken).ConfigureAwait(false);
-                connection.Set(pipe);
-                while (await NativeMessages.ReadAsync(pipe, cancellationToken).ConfigureAwait(false) is { } message)
+                await outGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
                 {
-                    await outGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-                    try
-                    {
-                        await NativeMessages.WriteAsync(browserOut, message, cancellationToken).ConfigureAwait(false);
-                    }
-                    finally
-                    {
-                        _ = outGate.Release();
-                    }
+                    await NativeMessages.WriteAsync(browserOut, message, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    _ = outGate.Release();
                 }
             }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-            catch (Exception exception) when (exception is IOException or TimeoutException or InvalidDataException or UnauthorizedAccessException)
-            {
-                // PasteFlow is not running, or stopped: tried again in a moment
-            }
-            finally
-            {
-                connection.Set(null);
-            }
-
-            try
-            {
-                await Task.Delay(RetryDelay, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or IOException or TimeoutException or InvalidDataException or UnauthorizedAccessException)
+        {
+            // PasteFlow is not running, or stopped: the relay ends
+        }
+        finally
+        {
+            connection.Set(null);
         }
     }
 
