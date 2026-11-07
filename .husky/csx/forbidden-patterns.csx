@@ -1,3 +1,7 @@
+// The engine of the scripts does not always reference LINQ by itself (SDK installed for one user)
+#r "System.Linq"
+using System.Linq;
+
 /// <summary>
 /// Rejects staged C# files that still contain debugging leftovers.
 /// The arguments are the staged files selected by the task runner.

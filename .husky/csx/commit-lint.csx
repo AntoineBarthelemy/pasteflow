@@ -1,3 +1,7 @@
+// The engine of the scripts does not always reference LINQ by itself (SDK installed for one user)
+#r "System.Linq"
+using System.Linq;
+
 /// <summary>
 /// Checks that the first line of the commit message follows the Conventional Commits specification.
 /// https://www.conventionalcommits.org/fr/v1.0.0/
