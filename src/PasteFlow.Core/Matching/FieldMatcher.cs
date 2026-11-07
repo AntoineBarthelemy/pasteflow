@@ -50,6 +50,7 @@ public static class FieldMatcher
     private const double ContextBonus = 0.2;
     private const double RankPenalty = 0.03;
     private const double LinkPenalty = 0.05;
+    private const double FormerPenalty = 0.3;
 
     /// <summary>
     /// Finds the best value for a field.
@@ -267,6 +268,15 @@ public static class FieldMatcher
             return false;
         }
 
+        // A bare number that could be a postal code, as in "22 avenue de Laon, 51100 Reims", only goes to another
+        // field, such as "N° de la facture", when its label talks about that field
+        if (candidate.Kind == CandidateKind.Number && !clues.Mentions(LabelConcepts.PostalCode)
+            && ValueValidator.IsFrenchPostalCode(candidate.Value)
+            && clues.Similarity(LabelConcepts.From(candidate.Label)) == 0)
+        {
+            return false;
+        }
+
         // Safety net: a postal code field only takes a real French postal code
         return candidate.Kind != CandidateKind.Number
             || !clues.Mentions(LabelConcepts.PostalCode)
@@ -304,8 +314,15 @@ public static class FieldMatcher
             }
         }
 
-        score += LabelWeight * clues.Similarity(LabelConcepts.From(candidate.Label));
+        var labelConcepts = LabelConcepts.From(candidate.Label);
+        score += LabelWeight * clues.Similarity(labelConcepts);
         score -= RankPenalty * candidate.SourceRank;
+
+        // A value said to be no longer true ("Ancienne adresse : …") is never sure, unless the field asks for it
+        if (labelConcepts.Contains(LabelConcepts.Former) && !clues.Mentions(LabelConcepts.Former))
+        {
+            score -= FormerPenalty;
+        }
 
         // Without matching label, a plain text is just a line of the screen, never a sure value
         return candidate.Kind == CandidateKind.Text && score <= TextKindScore ? 0 : Math.Max(score, 0);

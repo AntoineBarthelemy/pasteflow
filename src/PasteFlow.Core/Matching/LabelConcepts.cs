@@ -115,6 +115,11 @@ public static class LabelConcepts
     /// </summary>
     public const string JobTitle = "jobtitle";
 
+    /// <summary>
+    /// What is no longer true: "Ancienne adresse", "Loyer du précédent locataire".
+    /// </summary>
+    public const string Former = "former";
+
     private static readonly Dictionary<string, string> Synonyms = BuildSynonyms(new Dictionary<string, string[]>
     {
         [Email] = new[] { "email", "mail", "courriel", "emails", "electronique" },
@@ -137,6 +142,7 @@ public static class LabelConcepts
         [FullName] = new[] { "fullname", "complet" },
         [School] = new[] { "ecole", "etablissement", "universite", "university", "school", "iut", "college" },
         [JobTitle] = new[] { "poste", "fonction", "metier", "job", "profession", "jobtitle" },
+        [Former] = new[] { "ancien", "ancienne", "anciens", "anciennes", "precedent", "precedente", "old", "former", "previous" },
     });
 
     // Alone, these words name the recipients of a message: "À", "Cc", "Destinataires"; in a longer label, such as
@@ -203,6 +209,11 @@ public static class LabelConcepts
     private static readonly HashSet<string> ConfirmationNouns = new(StringComparer.Ordinal) { "confirmation" };
 
     private static readonly HashSet<string> AddressWords = new(StringComparer.Ordinal) { "adresse", "address" };
+
+    private static readonly HashSet<CandidateKind> ShapeKinds = new()
+    {
+        CandidateKind.Date, CandidateKind.Amount, CandidateKind.Email, CandidateKind.Phone, CandidateKind.Iban, CandidateKind.Url,
+    };
 
     // The values of these concepts have no particular shape: they are recognized through the official lists or
     // through their labels, so plain text is accepted too. The first concept found wins: "Nom de l'entreprise" is a company
@@ -327,6 +338,14 @@ public static class LabelConcepts
             .Where(concept => ExpectedKindsByConcept.ContainsKey(concept) && !(isPlaceOrPerson && QualifiedByPlaceOrPerson.Contains(concept)))
             .SelectMany(concept => ExpectedKindsByConcept[concept])
             .ToHashSet();
+
+        // A word of shape names the value, the other words only say what it belongs to: "Date de facture" is a date,
+        // "Montant de la commande" an amount, never the number of the invoice or of the order
+        if (kinds.Overlaps(ShapeKinds))
+        {
+            kinds.IntersectWith(ShapeKinds);
+        }
+
         if (kinds.Count > 0)
         {
             return kinds;

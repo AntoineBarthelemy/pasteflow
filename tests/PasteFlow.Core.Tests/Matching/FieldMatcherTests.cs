@@ -377,6 +377,56 @@ public sealed class FieldMatcherTests
         Assert.False(match.IsConfident);
     }
 
+    [Fact]
+    public void Match_DateOfAnInvoice_NeverTakesANumber()
+    {
+        // The end of a SIRET read alone was written in « Date de facture »
+        var match = Match(
+            "Date de facture",
+            Candidate("00017", CandidateKind.Number, "SIREN 812 345 676 - SIRET 812 345 676"),
+            Candidate("F-2026-0457", CandidateKind.Reference, "FACTURE N°"));
+
+        Assert.Null(match.Candidate);
+    }
+
+    [Fact]
+    public void Match_NumberOfAnInvoice_NeverTakesAPostalCodeWithoutLabel()
+    {
+        // The postal code of an address was written in « N° de la facture »
+        var match = Match("N° de la facture", Candidate("51100", CandidateKind.Number, "Débiteur : M. Julien Masson, 22 avenue de Laon"));
+
+        Assert.Null(match.Candidate);
+    }
+
+    [Fact]
+    public void Match_NumberOfAnInvoice_TakesANumberLabelledAsSuch()
+    {
+        var match = Match("N° de la facture", Candidate("51100", CandidateKind.Number, "Facture n°"));
+
+        AssertFills(match, "51100");
+    }
+
+    [Fact]
+    public void Match_FormerValue_IsNeverSure()
+    {
+        // The postal code of the former address was written for the new one
+        var match = Match(
+            "Code postal",
+            Candidate("51100", CandidateKind.Number, "Ancienne adresse : 4 rue Gambetta"),
+            Candidate("51430", CandidateKind.Number, "Nouvelle adresse : 9 allée des Tilleuls"));
+
+        Assert.False(match.IsConfident && match.Candidate?.Value == "51100");
+        Assert.NotEqual("51100", match.Candidate?.Value);
+    }
+
+    [Fact]
+    public void Match_FormerValue_StaysAvailableWhenTheFieldAsksForIt()
+    {
+        var match = Match("Ancien code postal", Candidate("51100", CandidateKind.Number, "Ancienne adresse : 4 rue Gambetta"));
+
+        Assert.Equal("51100", match.Candidate?.Value);
+    }
+
     private static FieldMatch Match(string fieldLabel, params Candidate[] candidates)
     {
         return FieldMatcher.Match(TestFields.Text("field", fieldLabel), candidates);
