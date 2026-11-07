@@ -53,7 +53,15 @@ public sealed class ImageReadingTests : IDisposable
     {
         Skip.If(_ocr is null, "Windows has no character recognition for the languages of this computer.");
 
-        var windowText = await new UiAutomationWindowTextReader(_ocr).ReadWithFallbackAsync(_imageWindow.Handle, rank: 1, CancellationToken.None);
+        // The window draws its picture a moment after it opens, later still on a busy machine: read again until it shows
+        var reader = new UiAutomationWindowTextReader(_ocr);
+        var windowText = await reader.ReadWithFallbackAsync(_imageWindow.Handle, rank: 1, CancellationToken.None);
+        var deadline = DateTime.UtcNow + RenderTimeout;
+        while (!(windowText?.Text.Contains("48213", StringComparison.Ordinal) ?? false) && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(300);
+            windowText = await reader.ReadWithFallbackAsync(_imageWindow.Handle, rank: 1, CancellationToken.None);
+        }
 
         Assert.NotNull(windowText);
         Assert.True(windowText.IsReadFromImage);
