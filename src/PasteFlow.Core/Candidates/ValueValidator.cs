@@ -12,6 +12,8 @@ public static class ValueValidator
     private const int MinIbanLength = 15;
     private const int MaxIbanLength = 34;
     private const int PostalCodeLength = 5;
+    private const int SirenLength = 9;
+    private const int SiretLength = 14;
 
     private static readonly string[] DateFormats =
     {
@@ -38,6 +40,38 @@ public static class ValueValidator
             CandidateKind.Email => IsValidEmail(value),
             _ => true,
         };
+    }
+
+    /// <summary>
+    /// Determines whether a value is a SIREN (9 digits) or a SIRET (14 digits) number, spaces aside, with a correct
+    /// Luhn key, as the INSEE gives them.
+    /// </summary>
+    /// <param name="value">The value to check.</param>
+    /// <returns><see langword="true"/> for a valid SIREN or SIRET; otherwise <see langword="false"/>.</returns>
+    public static bool IsSirenOrSiret(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var digits = value.Replace(" ", string.Empty, StringComparison.Ordinal);
+        if (digits.Length is not (SirenLength or SiretLength) || !digits.All(char.IsAsciiDigit))
+        {
+            return false;
+        }
+
+        var sum = 0;
+        for (var index = 0; index < digits.Length; index++)
+        {
+            var digit = digits[digits.Length - 1 - index] - '0';
+            if (index % 2 == 1)
+            {
+                digit *= 2;
+                digit = digit > 9 ? digit - 9 : digit;
+            }
+
+            sum += digit;
+        }
+
+        return sum % 10 == 0;
     }
 
     /// <summary>

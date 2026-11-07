@@ -41,6 +41,7 @@ public static partial class TextSegmenter
         (EmailRegex, CandidateKind.Email),
         (UrlRegex, CandidateKind.Url),
         (IbanRegex, CandidateKind.Iban),
+        (CompanyNumberRegex, CandidateKind.Number),
         (PhoneRegex, CandidateKind.Phone),
         (DateRegex, CandidateKind.Date),
         (AmountRegex, CandidateKind.Amount),
@@ -128,7 +129,8 @@ public static partial class TextSegmenter
                     pieces.AddRange(RecognizeFitting(before, contextLabel, data));
 
                     var label = CleanLabel(before);
-                    pieces.Add(Piece(value, kind, label.Length > 0 || previousEnd > 0 ? label : contextLabel));
+                    var pieceValue = kind == CandidateKind.Number ? value.Replace(" ", string.Empty, StringComparison.Ordinal) : value;
+                    pieces.Add(Piece(pieceValue, kind, label.Length > 0 || previousEnd > 0 ? label : contextLabel));
                     previousEnd = start + value.Length;
 
                     if (kind == CandidateKind.Number && ValueValidator.IsFrenchPostalCode(value)
@@ -195,6 +197,12 @@ public static partial class TextSegmenter
                 // Safety net: a value with the right shape but an impossible content (wrong IBAN key, 31/02...)
                 // is not taken for that kind, its text stays available to the next recognizers
                 if (!ValueValidator.IsValid(kind, value))
+                {
+                    continue;
+                }
+
+                // A number written by groups, as « 812 345 676 », is only a number when it is a real SIREN or SIRET
+                if (kind == CandidateKind.Number && value.Contains(' ', StringComparison.Ordinal) && !ValueValidator.IsSirenOrSiret(value))
                 {
                     continue;
                 }
@@ -284,6 +292,9 @@ public static partial class TextSegmenter
 
     [GeneratedRegex(@"\b(?=[A-Z0-9\-]*\d)(?=[A-Z0-9\-]*[A-Z])[A-Z0-9]+(?:-[A-Z0-9]+)*\b", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex ReferenceRegex();
+
+    [GeneratedRegex(@"(?<![\d,.])\d{3} \d{3} \d{3}(?: \d{5})?(?![\d,.])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex CompanyNumberRegex();
 
     [GeneratedRegex(@"(?<![\d,.])\d{5,}(?![\d,.])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex NumberRegex();

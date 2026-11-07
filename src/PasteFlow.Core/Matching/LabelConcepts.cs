@@ -178,6 +178,10 @@ public static class LabelConcepts
         [Invoice] = new[] { CandidateKind.Reference, CandidateKind.Number },
         [Customer] = new[] { CandidateKind.Reference, CandidateKind.Number },
         [PostalCode] = new[] { CandidateKind.Number },
+
+        // The numbers of a company: 9 digits for the SIREN, 14 for the SIRET of one of its establishments
+        ["siren"] = new[] { CandidateKind.Number },
+        ["siret"] = new[] { CandidateKind.Number },
     };
 
     private static readonly Dictionary<(string First, string Second), string> CompoundWords = new()

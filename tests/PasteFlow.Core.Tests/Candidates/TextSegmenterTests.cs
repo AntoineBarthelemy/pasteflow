@@ -38,6 +38,23 @@ public sealed class TextSegmenterTests
     }
 
     [Fact]
+    public void Segment_CompanyNumbersWrittenByGroups_AreReadAsNumbersWithoutSpaces()
+    {
+        var pieces = TextSegmenter.Segment("SIREN 812 345 676 - SIRET 812 345 676 00017", ReferenceData.Empty);
+
+        Assert.Contains(Piece("812345676", CandidateKind.Number, "SIREN"), pieces);
+        Assert.Contains(Piece("81234567600017", CandidateKind.Number, "SIRET"), pieces);
+    }
+
+    [Fact]
+    public void Segment_NumberByGroupsWithAWrongKey_IsNotACompanyNumber()
+    {
+        var pieces = TextSegmenter.Segment("Réf. 123 456 789", ReferenceData.Empty);
+
+        Assert.DoesNotContain(pieces, piece => piece.Value == "123456789");
+    }
+
+    [Fact]
     public void Segment_DoesNotDuplicateLineMadeOfOneValue()
     {
         var pieces = TextSegmenter.Segment("antoine@example.com");
