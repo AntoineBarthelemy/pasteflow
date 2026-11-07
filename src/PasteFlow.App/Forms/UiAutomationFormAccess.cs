@@ -28,6 +28,9 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
     private const int MaxTextBeforeCaret = 200;
 
     private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan WriteCheckTimeout = TimeSpan.FromMilliseconds(1500);
+    private static readonly TimeSpan WriteCheckDelay = TimeSpan.FromMilliseconds(50);
+    private static readonly string[] DayFirstDateFormats = { "dd/MM/yyyy", "d/M/yyyy", "dd.MM.yyyy", "dd-MM-yyyy" };
 
     private readonly object _gate = new();
     private readonly Dictionary<string, RememberedField> _rememberedFields = new(StringComparer.Ordinal);
@@ -466,7 +469,20 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             }
 
             valuePattern.SetValue(value);
-            return true;
+            if (Keeps(valuePattern, value, value))
+            {
+                return true;
+            }
+
+            // A date picker of a web page only takes the date as year-month-day, and shows it as it likes
+            if (YearFirstDate(value) is { } yearFirst)
+            {
+                valuePattern.SetValue(yearFirst);
+                return Keeps(valuePattern, yearFirst, value);
+            }
+
+            // The field refused the value: it is not said written, so that the user is told
+            return false;
         }
         catch (ElementNotAvailableException)
         {
@@ -483,6 +499,61 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             // The application does not answer accessibility requests
             return false;
         }
+    }
+
+    /// <summary>
+    /// Determines whether a field kept a value just written, waiting a moment for applications such as browsers that
+    /// show it a little later. Spaces, punctuation and case are not compared, since many fields reformat what they get.
+    /// </summary>
+    /// <param name="valuePattern">The field.</param>
+    /// <param name="written">The value written.</param>
+    /// <param name="shown">Another way the field may show the same value.</param>
+    /// <returns><see langword="true"/> if the field shows the value, or cannot tell; otherwise <see langword="false"/>.</returns>
+    private static bool Keeps(ValuePattern valuePattern, string written, string shown)
+    {
+        var deadline = DateTime.UtcNow + WriteCheckTimeout;
+        while (true)
+        {
+            string current;
+            try
+            {
+                current = valuePattern.Current.Value ?? string.Empty;
+            }
+            catch (InvalidOperationException)
+            {
+                // The field does not tell its value: what was written is trusted, as before
+                return true;
+            }
+
+            if (SameText(current, written) || SameText(current, shown))
+            {
+                return true;
+            }
+
+            if (DateTime.UtcNow >= deadline)
+            {
+                return false;
+            }
+
+            Thread.Sleep(WriteCheckDelay);
+        }
+    }
+
+    private static bool SameText(string current, string expected)
+    {
+        static string Core(string text) => new(text.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+
+        var expectedCore = Core(expected);
+        return expectedCore.Length == 0
+            ? string.Equals(current.Trim(), expected.Trim(), StringComparison.Ordinal)
+            : string.Equals(Core(current), expectedCore, StringComparison.Ordinal);
+    }
+
+    private static string? YearFirstDate(string value)
+    {
+        return DateTime.TryParseExact(value.Trim(), DayFirstDateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+            : null;
     }
 
     private AutomationElement? FindElement(FormField field)
