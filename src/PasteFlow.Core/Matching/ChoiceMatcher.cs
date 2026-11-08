@@ -54,7 +54,16 @@ public static class ChoiceMatcher
     // field expects, such as a country for « Pays de livraison », is chosen; the list itself says whether it has it
     private static FieldMatch MatchUnknownOption(FormField field, FieldClues clues, List<Candidate> related)
     {
+        // A value about the field may hold the one expected: « Adresse de livraison : Rue Haute 41, 1000 Bruxelles,
+        // Belgique » holds the country
+        var held = related
+            .Where(candidate => candidate.Kind == CandidateKind.Text)
+            .SelectMany(candidate => candidate.Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .SelectMany(part => TextSegmenter.Segment(part))
+                .Where(piece => piece.Kind != CandidateKind.Text)
+                .Select(piece => candidate with { Value = piece.Value, Kind = piece.Kind }));
         var values = related
+            .Concat(held)
             .Where(candidate => candidate.Kind != CandidateKind.Text && clues.ExpectedKinds.Contains(candidate.Kind))
             .GroupBy(candidate => ReferenceText.Normalize(candidate.Value), StringComparer.Ordinal)
             .Select(group => group.First())

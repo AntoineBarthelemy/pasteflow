@@ -10,7 +10,7 @@ namespace PasteFlow.Core.Tests.Activation;
 
 public sealed class ShortcutActivationServiceTests : IDisposable
 {
-    private static readonly string[] ExpectedFilledFieldIds = { "city", "name" };
+    private static readonly string[] ExpectedFilledFieldIds = { "city", "country", "name" };
     private static readonly string[] ExpectedEmailAndConfirmationIds = { "confirm", "email" };
 
     private readonly FakeHotkeyListener _listener = new();
@@ -62,7 +62,7 @@ public sealed class ShortcutActivationServiceTests : IDisposable
     }
 
     [Fact]
-    public void HotkeyPressed_FillsOnlyEmptyTextFields()
+    public void HotkeyPressed_FillsEmptyFieldsButNeverPasswordsOrFilledOnes()
     {
         var formReader = new FakeFormReader
         {

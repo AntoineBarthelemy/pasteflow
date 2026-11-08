@@ -40,6 +40,17 @@ public sealed class ChoiceMatcherTests
     }
 
     [Fact]
+    public void Match_ListWithoutKnownOptions_FindsTheCountryInsideAnAddress()
+    {
+        var field = Choice("Pays de livraison");
+
+        var match = ChoiceMatcher.Match(field, new[] { Candidate("Rue Haute 41, 1000 Bruxelles, Belgique", "Adresse de livraison") });
+
+        Assert.True(match.IsConfident);
+        Assert.Equal("Belgique", match.Candidate?.Value);
+    }
+
+    [Fact]
     public void Match_TwoOptionsWritten_IsNotSure()
     {
         var field = Choice("Type de logement", "Maison", "Appartement");
