@@ -106,6 +106,12 @@ public sealed class LabelConceptsTests
     [InlineData("Code postal", CandidateKind.Number)]
     [InlineData("Nom", CandidateKind.Text)]
     [InlineData("Ville", CandidateKind.Text)]
+    [InlineData("Nom et prénom du locataire", CandidateKind.FullName)]
+    [InlineData("Nom du débiteur", CandidateKind.FullName)]
+    [InlineData("Nom du créancier", CandidateKind.Company)]
+    [InlineData("Patient", CandidateKind.FullName)]
+    [InlineData("Date de facture", CandidateKind.Date)]
+    [InlineData("SIREN du fournisseur", CandidateKind.Number)]
     public void ExpectedKinds_DeducesKindFromLabel(string label, CandidateKind kind)
     {
         Assert.Contains(kind, LabelConcepts.ExpectedKinds(LabelConcepts.From(label)));

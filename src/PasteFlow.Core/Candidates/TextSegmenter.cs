@@ -125,6 +125,29 @@ public static partial class TextSegmenter
         var pieces = new List<TextPiece>();
         try
         {
+            // « Locataire : Mme Sophie Garnier, sophie@…, 06 … »: the role before the colon labels every value of the
+            // line, and the person right after it is recognized as on a line holding nothing else
+            if (RoleOf(line) is { } role)
+            {
+                pieces.AddRange(SegmentLine(role.Values, role.Label, data).Select(piece => piece with { Label = WithRole(role.Label, piece.Label) }));
+
+                // The person or the company named first, before its address: « M. Julien Masson, 22 avenue de Laon… »
+                pieces.AddRange(RecognizeFitting(role.Values.Split(',')[0], role.Label, data));
+
+                // Its postal address, from the street to the postal code and the commune: « 22 avenue de Laon, 51100 Reims »
+                if (AddressIn(role.Values) is { } address)
+                {
+                    pieces.Add(Piece(address, CandidateKind.Text, $"{role.Label} adresse"));
+                }
+
+                if (line.Length <= MaxPieceLength)
+                {
+                    pieces.Add(Piece(line, CandidateKind.Text, contextLabel));
+                }
+
+                return pieces;
+            }
+
             var values = FindValues(line);
             if (values.Count > 0)
             {
@@ -241,6 +264,41 @@ public static partial class TextSegmenter
         return values;
     }
 
+    // A label of words only, before a colon, followed by several values: « Débiteur : M. Julien Masson, 22 avenue… »
+    private static (string Label, string Values)? RoleOf(string line)
+    {
+        var pair = LabelValueRegex().Match(line);
+        if (!pair.Success)
+        {
+            return null;
+        }
+
+        var label = CleanLabel(pair.Groups["label"].Value);
+        var rest = pair.Groups["value"].Value.Trim();
+        var isRole = label.Length > 0 && !label.Any(char.IsDigit) && !rest.StartsWith('/')
+            && FindValues(rest) is { Count: > 0 } values
+            && rest[..values[0].Start].Any(char.IsLetter);
+        return isRole ? (label, rest) : null;
+    }
+
+    private static string? AddressIn(string values)
+    {
+        var parts = values.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        var street = Array.FindIndex(parts, part => StreetRegex().IsMatch(part));
+        if (street < 0)
+        {
+            return null;
+        }
+
+        var end = Array.FindIndex(parts, street, part => PostalCodeAndCommuneRegex().IsMatch(part));
+        return string.Join(", ", parts[street..(end < 0 ? street + 1 : end + 1)]);
+    }
+
+    private static string WithRole(string role, string label)
+    {
+        return label.Length == 0 || label.Contains(role, StringComparison.Ordinal) ? (label.Length == 0 ? role : label) : $"{role} : {label}";
+    }
+
     /// <summary>
     /// Removes the punctuation around a label and keeps its last words when it is too long.
     /// </summary>
@@ -323,6 +381,12 @@ public static partial class TextSegmenter
 
     [GeneratedRegex(@"(?<![\d,.])\d{3} \d{3} \d{3}(?: \d{5})?(?![\d,.])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex CompanyNumberRegex();
+
+    [GeneratedRegex(@"^\d{1,4}(?:\s?(?:bis|ter))?,?\s+(?:rue|avenue|av\.|boulevard|bd|place|all[ée]e|chemin|impasse|quai|route|cours|square|r[ée]sidence|lotissement|cit[ée]|voie|passage)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
+    private static partial Regex StreetRegex();
+
+    [GeneratedRegex(@"^\d{5}\s+\p{L}", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex PostalCodeAndCommuneRegex();
 
     [GeneratedRegex(@"(?<![\dA-Z])[1-478] ?\d{2} ?\d{2} ?(?:\d{2}|2[AB]) ?\d{3} ?\d{3} ?\d{2}(?![\dA-Z])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex SocialSecurityRegex();

@@ -254,6 +254,15 @@ public static class LabelConcepts
     private static readonly HashSet<string> QualifiedByPlaceOrPerson = new(StringComparer.Ordinal) { Birth, Customer, Order, Invoice };
 
     // Words that keep a name a person's name; any other word makes it unsure, as in "Nom d'utilisateur" or "Nom du projet"
+    // The roles of a person in a document of work: « Nom du locataire » is still a person's name
+    private static readonly HashSet<string> RoleWords = new(StringComparer.Ordinal)
+    {
+        "locataire", "locataires", "bailleur", "bailleurs", "debiteur", "debiteurs", "creancier", "creanciers", "patient",
+        "patiente", "salarie", "salariee", "proprietaire", "titulaire", "assure", "assuree", "beneficiaire", "conjoint",
+        "conjointe", "eleve", "acheteur", "acheteuse", "vendeur", "vendeuse", "mandataire", "gerant", "gerante",
+        "signataire", "representant", "representante", "tuteur", "tutrice", "expediteur", "expeditrice",
+    };
+
     private static readonly HashSet<string> PersonNameConcepts = new(StringComparer.Ordinal)
     {
         Name, FirstName, FullName, Birth, FamilyName, "usage",
@@ -379,7 +388,7 @@ public static class LabelConcepts
 
         var hasName = concepts.Contains(Name);
         var hasFirstName = concepts.Contains(FirstName);
-        if ((hasName || hasFirstName) && !concepts.All(PersonNameConcepts.Contains))
+        if ((hasName || hasFirstName) && !concepts.All(concept => PersonNameConcepts.Contains(concept) || RoleWords.Contains(concept)))
         {
             // "Nom d'utilisateur", "Prénom de l'enfant": only the labels can tell
             return new HashSet<CandidateKind> { CandidateKind.Text };
@@ -398,8 +407,20 @@ public static class LabelConcepts
 
         if (hasName)
         {
+            // « Nom du créancier » may be a person or a company
+            if (concepts.Overlaps(RoleWords))
+            {
+                return new HashSet<CandidateKind> { CandidateKind.FullName, CandidateKind.Company, CandidateKind.Text };
+            }
+
             var isLastName = firstNameAskedApart || concepts.Contains(FamilyName);
             return new HashSet<CandidateKind> { isLastName ? CandidateKind.LastName : CandidateKind.FullName, CandidateKind.Text };
+        }
+
+        // A role alone, such as « Patient » or « Locataire », asks for the name of that person
+        if (concepts.Count > 0 && concepts.All(RoleWords.Contains))
+        {
+            return new HashSet<CandidateKind> { CandidateKind.FullName, CandidateKind.Company, CandidateKind.Text };
         }
 
         return kinds;

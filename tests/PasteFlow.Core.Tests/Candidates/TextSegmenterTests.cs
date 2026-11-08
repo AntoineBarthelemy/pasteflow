@@ -64,6 +64,31 @@ public sealed class TextSegmenterTests
     }
 
     [Fact]
+    public void Segment_RoleBeforeAPerson_LabelsThePersonAndEachOfItsValues()
+    {
+        var pieces = TextSegmenter.Segment("Locataire : Mme Sophie Garnier, sophie.garnier@garnier-famille.fr, 06 52 74 18 39");
+
+        Assert.Contains(Piece("Sophie Garnier", CandidateKind.FullName, "Locataire"), pieces);
+        Assert.Contains(Piece("sophie.garnier@garnier-famille.fr", CandidateKind.Email, "Locataire : Mme Sophie Garnier"), pieces);
+        Assert.Contains(Piece("06 52 74 18 39", CandidateKind.Phone, "Locataire"), pieces);
+    }
+
+    [Fact]
+    public void Segment_RoleBeforeAPersonAndItsAddress_GivesTheAddressApart()
+    {
+        var pieces = TextSegmenter.Segment("Débiteur : M. Julien Masson, 22 avenue de Laon, 51100 Reims");
+
+        Assert.Contains(Piece("Julien Masson", CandidateKind.FullName, "Débiteur"), pieces);
+        Assert.Contains(Piece("22 avenue de Laon, 51100 Reims", CandidateKind.Text, "Débiteur adresse"), pieces);
+    }
+
+    [Fact]
+    public void Segment_LabelBeforeAValueOnly_IsNotARole()
+    {
+        Assert.Contains(Piece("49,90 €", CandidateKind.Amount, "Total TTC"), TextSegmenter.Segment("Total TTC : 49,90 €", ReferenceData.Empty));
+    }
+
+    [Fact]
     public void Segment_NumberByGroupsWithAWrongKey_IsNotACompanyNumber()
     {
         var pieces = TextSegmenter.Segment("Réf. 123 456 789", ReferenceData.Empty);
