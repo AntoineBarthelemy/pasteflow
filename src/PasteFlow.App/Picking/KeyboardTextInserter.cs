@@ -46,6 +46,28 @@ internal sealed class KeyboardTextInserter : ITextInserter
     }
 
     /// <summary>
+    /// Types a text right away where the keyboard focus is, once the keys of the shortcut are released.
+    /// </summary>
+    /// <param name="text">The text to type.</param>
+    /// <returns><see langword="true"/> if every keystroke was sent; otherwise <see langword="false"/>.</returns>
+    internal static bool TypeNow(string text)
+    {
+        var deadline = DateTime.UtcNow + ReleaseTimeout;
+        while (ModifierKeys.Any(key => NativeMethods.GetAsyncKeyState(key) < 0))
+        {
+            if (DateTime.UtcNow > deadline)
+            {
+                return false;
+            }
+
+            Thread.Sleep(ReleasePollDelay);
+        }
+
+        var inputs = Keystrokes(text);
+        return NativeMethods.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Input>()) == inputs.Length;
+    }
+
+    /// <summary>
     /// Turns a text into keystrokes: each character typed as itself, line breaks as Maj+Entrée.
     /// </summary>
     /// <param name="text">The text.</param>

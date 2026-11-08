@@ -14,6 +14,9 @@ public sealed class BrowserFieldWritingTests : IDisposable
         <!doctype html><meta charset="utf-8"><title>Champs exigeants</title>
         <label for="effet">Date de prise d'effet</label><input id="effet" type="date">
         <label for="ville">Ville</label><input id="ville" type="text">
+        <label for="code">Code</label><input id="code" type="text" oninput="this.value = ''">
+        <p id="vue">aucune</p>
+        <script>document.getElementById("effet").addEventListener("input", (e) => { document.getElementById("vue").textContent = "date " + e.target.value; });</script>
         <label for="pays">Pays</label><select id="pays"><option value="">Choisir…</option><option>France</option><option>Belgique</option></select>
         <fieldset><legend>Type de logement</legend><label><input type="radio" name="type" value="Maison"> Maison</label><label><input type="radio" name="type" value="Appartement"> Appartement</label></fieldset>
         <label><input type="checkbox" id="meuble"> Logement meublé</label>
@@ -27,12 +30,26 @@ public sealed class BrowserFieldWritingTests : IDisposable
         Skip.If(BrowserWindow.BrowserPath is null, "Aucun navigateur Edge ou Chrome sur cette machine.");
         using var form = Open();
         var formAccess = new UiAutomationFormAccess();
-        var field = await FieldAsync(formAccess, form, "Date de prise d'effet");
+        var field = await FieldAsync(formAccess, form, "Code");
 
-        // The date picker stayed empty while the fill said it was filled
-        var isWritten = await formAccess.TryWriteAsync(field, "01/12/2026", CancellationToken.None);
+        // The page empties the field at once: the fill must not say it filled it
+        var isWritten = await formAccess.TryWriteAsync(field, "ABC-123", CancellationToken.None);
 
         Assert.False(isWritten);
+    }
+
+    [SkippableFact]
+    public async Task TryWriteAsync_DatePicker_TypesTheDateInItsBoxes()
+    {
+        Skip.If(BrowserWindow.BrowserPath is null, "Aucun navigateur Edge ou Chrome sur cette machine.");
+        using var form = Open();
+        var formAccess = new UiAutomationFormAccess();
+        var field = await FieldAsync(formAccess, form, "Date de prise d'effet");
+
+        var isWritten = await formAccess.TryWriteAsync(field, "01/12/2026", CancellationToken.None);
+
+        Assert.True(isWritten);
+        Assert.NotNull(form.Window.FindFirst(System.Windows.Automation.TreeScope.Descendants, new System.Windows.Automation.PropertyCondition(System.Windows.Automation.AutomationElement.NameProperty, "date 2026-12-01")));
     }
 
     [SkippableFact]

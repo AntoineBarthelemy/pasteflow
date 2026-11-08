@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows.Automation;
 using System.Windows.Automation.Text;
 using PasteFlow.App.Interop;
+using PasteFlow.App.Picking;
 using PasteFlow.Core.Forms;
 using PasteFlow.Core.Matching;
 using PasteFlow.Core.Picking;
@@ -28,6 +29,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
     private const int MaxReadAttempts = 2;
     private const int MaxTextBeforeCaret = 200;
     private const int MaxGroupDepth = 3;
+    private const int DateBoxCount = 3;
 
     private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(100);
 
@@ -531,6 +533,55 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             || InviteWords.Exists(word => words.Contains(word, StringComparison.Ordinal));
     }
 
+    // Each box gets the focus, and its digits are typed only when it has it: nothing is ever typed elsewhere
+    private static bool TryTypeDate(AutomationElement element, DateTime date)
+    {
+        var boxes = element.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Spinner))
+            .Cast<AutomationElement>()
+            .ToList();
+        var parts = boxes.Select(box => DatePartOf(box.Current.Name, date)).ToList();
+        if (boxes.Count != DateBoxCount || parts.Exists(part => part is null))
+        {
+            return false;
+        }
+
+        for (var index = 0; index < boxes.Count; index++)
+        {
+            boxes[index].SetFocus();
+            if (!WaitFor(() => HasFocus(boxes[index])) || !KeyboardTextInserter.TypeNow(parts[index]!.Value.Text))
+            {
+                return false;
+            }
+        }
+
+        return WaitFor(() => boxes.Select((box, index) => ShowsNumber(box, parts[index]!.Value.Number)).All(isShown => isShown));
+    }
+
+    // « Jour Date de prise d'effet », « Mois … », « Année … » (or Day, Month, Year): the part of the date each box takes
+    private static (string Text, int Number)? DatePartOf(string name, DateTime date)
+    {
+        var word = Core.Reference.ReferenceText.Normalize(name).Split(' ').FirstOrDefault() ?? string.Empty;
+        return word switch
+        {
+            "JOUR" or "DAY" => (date.Day.ToString("00", CultureInfo.InvariantCulture), date.Day),
+            "MOIS" or "MONTH" => (date.Month.ToString("00", CultureInfo.InvariantCulture), date.Month),
+            "ANNEE" or "YEAR" => (date.Year.ToString(CultureInfo.InvariantCulture), date.Year),
+            _ => null,
+        };
+    }
+
+    private static bool HasFocus(AutomationElement element)
+    {
+        return AutomationElement.FocusedElement is { } focused && Automation.Compare(focused, element);
+    }
+
+    private static bool ShowsNumber(AutomationElement box, int number)
+    {
+        return box.TryGetCurrentPattern(RangeValuePattern.Pattern, out var pattern)
+            && pattern is RangeValuePattern range
+            && Math.Abs(range.Current.Value - number) < 0.5;
+    }
+
     private static bool ShowsValue(AutomationElement element, string value)
     {
         return element.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern)
@@ -708,7 +759,14 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             if (YearFirstDate(value) is { } yearFirst)
             {
                 valuePattern.SetValue(yearFirst);
-                return Keeps(valuePattern, yearFirst, value);
+                if (Keeps(valuePattern, yearFirst, value))
+                {
+                    return true;
+                }
+
+                // A date picker of a web page takes a date only typed in its day, month and year boxes
+                return DateTime.TryParseExact(yearFirst, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+                    && TryTypeDate(element, date);
             }
 
             // The field refused the value: it is not said written, so that the user is told
