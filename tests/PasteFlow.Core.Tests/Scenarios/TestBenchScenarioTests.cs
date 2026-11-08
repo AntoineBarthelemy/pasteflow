@@ -221,10 +221,12 @@ public sealed class TestBenchScenarioTests
                 Kind = field.Kind switch
                 {
                     "password" => FieldKind.Password,
-                    "choice" => FieldKind.Choice,
+                    "choice" or "radio" => FieldKind.Choice,
+                    "checkbox" => FieldKind.CheckBox,
                     _ => FieldKind.Text,
                 },
                 HasValue = !string.IsNullOrEmpty(field.Value),
+                Options = field.Options ?? new List<string>(),
             };
         }
     }

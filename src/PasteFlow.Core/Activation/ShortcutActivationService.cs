@@ -466,6 +466,42 @@ public sealed class ShortcutActivationService : IDisposable
             }
         }
 
+        // Lists, radio buttons and tick boxes: an option is chosen only when the screen names it clearly
+        foreach (var field in fields.Where(FillRules.CanChoose))
+        {
+            var choice = ChoiceMatcher.Match(field, candidates);
+            if (choice.Candidate is null)
+            {
+                continue;
+            }
+
+            if (!choice.IsConfident)
+            {
+                uncertainCount++;
+                fieldsToCheck.Add(new FieldToCheck
+                {
+                    Field = field,
+                    Suggestions = choice.Suggestions
+                        .Select(candidate => new SuggestedValue { Value = candidate.Value, SourceName = candidate.SourceName })
+                        .ToList(),
+                    Reason = choice.Reason,
+                });
+                continue;
+            }
+
+            if (await _fieldWriter.TryWriteAsync(field, choice.Candidate.Value, cancellationToken))
+            {
+                filledValues.Add(new FilledValue { FieldLabel = field.Label, Value = choice.Candidate.Value, SourceName = choice.Candidate.SourceName });
+                writtenFields.Add(new WrittenField { Field = field, Value = choice.Candidate.Value });
+            }
+            else
+            {
+                failedCount++;
+                fieldsToCheck.Add(new FieldToCheck { Field = field, Reason = MatchReasons.WriteRefused });
+                failedFields.Add(field);
+            }
+        }
+
         // A box for free text, such as instructions or a message, where the cursor is and where no value fits: the list
         // of the windows is opened there after the recap, rather than a frame with nothing to propose
         var pickField = await FieldToPickAtCaretAsync(fieldsToCheck, cancellationToken);

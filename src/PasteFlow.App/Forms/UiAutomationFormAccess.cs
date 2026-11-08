@@ -4,6 +4,7 @@ using System.Windows.Automation;
 using System.Windows.Automation.Text;
 using PasteFlow.App.Interop;
 using PasteFlow.Core.Forms;
+using PasteFlow.Core.Matching;
 using PasteFlow.Core.Picking;
 
 namespace PasteFlow.App.Forms;
@@ -26,8 +27,12 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
 
     private const int MaxReadAttempts = 2;
     private const int MaxTextBeforeCaret = 200;
+    private const int MaxGroupDepth = 3;
 
     private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(100);
+
+    // Words of the invite a list shows before a choice, accents and case aside
+    private static readonly List<string> InviteWords = new() { "CHOISI", "SELECTION", "SELECT", "VEUILLEZ", "CHOOSE" };
     private static readonly TimeSpan WriteCheckTimeout = TimeSpan.FromMilliseconds(1500);
     private static readonly TimeSpan WriteCheckDelay = TimeSpan.FromMilliseconds(50);
     private static readonly string[] DayFirstDateFormats = { "dd/MM/yyyy", "d/M/yyyy", "dd.MM.yyyy", "dd-MM-yyyy" };
@@ -369,6 +374,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
         {
             var current = element.Current;
             var kind = current.IsPassword ? FieldKind.Password : KindOf(element, current.ControlType);
+            var options = kind == FieldKind.Choice ? OptionsOf(element, ControlType.ListItem) : new List<string>();
 
             return new FormField
             {
@@ -377,7 +383,8 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
                 TechnicalName = current.AutomationId?.Trim() ?? string.Empty,
                 Hint = current.HelpText?.Trim() ?? string.Empty,
                 Kind = kind,
-                HasValue = kind != FieldKind.Password && HasValue(element),
+                HasValue = kind != FieldKind.Password && HasValue(element) && !(kind == FieldKind.Choice && ShowsInvite(element, options)),
+                Options = options,
             };
         }
         catch (ElementNotAvailableException)
@@ -402,6 +409,217 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
         }
 
         return IsEditableComboBox(element) ? FieldKind.Text : FieldKind.Choice;
+    }
+
+    // Tick boxes, and the groups holding radio buttons (a fieldset in a web page): one field per group
+    private static List<AutomationElement> FindChoiceControls(AutomationElement window)
+    {
+        var scopes = window.FindAll(TreeScope.Descendants, DocumentCondition).Cast<AutomationElement>().ToList();
+        if (scopes.Count == 0)
+        {
+            scopes.Add(window);
+        }
+
+        var condition = new AndCondition(
+            new OrCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.CheckBox),
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.RadioButton)),
+            new PropertyCondition(AutomationElement.IsEnabledProperty, true));
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var controls = new List<AutomationElement>();
+        foreach (var scope in scopes)
+        {
+            foreach (AutomationElement element in scope.FindAll(TreeScope.Descendants, condition))
+            {
+                var control = element.Current.ControlType == ControlType.RadioButton ? GroupOf(element) : element;
+                if (control is not null && seen.Add(string.Join('.', control.GetRuntimeId())))
+                {
+                    controls.Add(control);
+                }
+            }
+        }
+
+        return controls;
+    }
+
+    private static AutomationElement? GroupOf(AutomationElement radio)
+    {
+        var parent = TreeWalker.ControlViewWalker.GetParent(radio);
+        for (var depth = 0; parent is not null && depth < MaxGroupDepth; depth++)
+        {
+            if (parent.Current.ControlType == ControlType.Group)
+            {
+                return parent;
+            }
+
+            parent = TreeWalker.ControlViewWalker.GetParent(parent);
+        }
+
+        return null;
+    }
+
+    private static FormField? TryReadChoiceControl(string id, AutomationElement element)
+    {
+        try
+        {
+            var current = element.Current;
+            var label = ReadLabel(current);
+            if (label.Length == 0)
+            {
+                return null;
+            }
+
+            if (current.ControlType == ControlType.CheckBox)
+            {
+                return new FormField
+                {
+                    Id = id,
+                    Label = label,
+                    TechnicalName = current.AutomationId?.Trim() ?? string.Empty,
+                    Kind = FieldKind.CheckBox,
+                    HasValue = IsTicked(element),
+                };
+            }
+
+            var radios = element.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.RadioButton))
+                .Cast<AutomationElement>()
+                .ToList();
+            return new FormField
+            {
+                Id = id,
+                Label = label,
+                TechnicalName = current.AutomationId?.Trim() ?? string.Empty,
+                Kind = FieldKind.Choice,
+                HasValue = radios.Exists(IsSelected),
+                Options = radios.Select(radio => radio.Current.Name.Trim()).Where(name => name.Length > 0).ToList(),
+            };
+        }
+        catch (ElementNotAvailableException)
+        {
+            // The control disappeared while being read
+            return null;
+        }
+    }
+
+    private static List<string> OptionsOf(AutomationElement element, ControlType optionType)
+    {
+        return element.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, optionType))
+            .Cast<AutomationElement>()
+            .Select(option => option.Current.Name.Trim())
+            .Where(name => name.Length > 0)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    // A list still showing its first option or an invite, such as « Choisir… » or « -- Sélectionnez -- », has not
+    // been chosen yet; a closed list of a web page does not give its options, the invite tells it
+    private static bool ShowsInvite(AutomationElement element, List<string> options)
+    {
+        if (!element.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern) || pattern is not ValuePattern valuePattern)
+        {
+            return false;
+        }
+
+        var shown = valuePattern.Current.Value?.Trim() ?? string.Empty;
+        if (options.Count > 0 && string.Equals(shown, options[0], StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        var words = Core.Reference.ReferenceText.Normalize(shown);
+        return shown.StartsWith("--", StringComparison.Ordinal) || shown.EndsWith('…') || shown.EndsWith("...", StringComparison.Ordinal)
+            || InviteWords.Exists(word => words.Contains(word, StringComparison.Ordinal));
+    }
+
+    private static bool ShowsValue(AutomationElement element, string value)
+    {
+        return element.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern)
+            && pattern is ValuePattern valuePattern
+            && string.Equals(valuePattern.Current.Value?.Trim(), value.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsTicked(AutomationElement element)
+    {
+        return element.TryGetCurrentPattern(TogglePattern.Pattern, out var pattern)
+            && pattern is TogglePattern toggle
+            && toggle.Current.ToggleState == ToggleState.On;
+    }
+
+    private static bool IsSelected(AutomationElement element)
+    {
+        return element.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var pattern)
+            && pattern is SelectionItemPattern selection
+            && selection.Current.IsSelected;
+    }
+
+    private static bool TryTick(AutomationElement element, string value)
+    {
+        if (!element.TryGetCurrentPattern(TogglePattern.Pattern, out var pattern) || pattern is not TogglePattern toggle)
+        {
+            return false;
+        }
+
+        // « oui » ticks the box, an empty value (cancelling a fill) unticks it
+        var isWanted = string.Equals(value, ChoiceMatcher.Ticked, StringComparison.Ordinal);
+        if (IsTicked(element) != isWanted)
+        {
+            toggle.Toggle();
+        }
+
+        return WaitFor(() => IsTicked(element) == isWanted);
+    }
+
+    private static bool TrySelect(AutomationElement element, string value)
+    {
+        var optionType = element.Current.ControlType == ControlType.Group ? ControlType.RadioButton : ControlType.ListItem;
+        AutomationElement? FindOption() => element.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, optionType))
+            .Cast<AutomationElement>()
+            .FirstOrDefault(item => string.Equals(item.Current.Name.Trim(), value.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        // A closed list of a web page shows its options only once opened: it is opened, then closed again
+        var option = FindOption();
+        var expander = option is null && element.TryGetCurrentPattern(ExpandCollapsePattern.Pattern, out var expand) ? expand as ExpandCollapsePattern : null;
+        try
+        {
+            if (expander is not null)
+            {
+                expander.Expand();
+                _ = WaitFor(() => FindOption() is not null);
+                option = FindOption();
+            }
+
+            if (option is null || !option.TryGetCurrentPattern(SelectionItemPattern.Pattern, out var pattern) || pattern is not SelectionItemPattern selection)
+            {
+                return false;
+            }
+
+            selection.Select();
+            return WaitFor(() => IsSelected(option) || ShowsValue(element, value));
+        }
+        finally
+        {
+            if (expander is not null && expander.Current.ExpandCollapseState == ExpandCollapseState.Expanded)
+            {
+                expander.Collapse();
+            }
+        }
+    }
+
+    // Waits a moment for applications such as browsers that show a change a little later
+    private static bool WaitFor(Func<bool> condition)
+    {
+        var deadline = DateTime.UtcNow + WriteCheckTimeout;
+        while (!condition())
+        {
+            if (DateTime.UtcNow >= deadline)
+            {
+                return false;
+            }
+
+            Thread.Sleep(WriteCheckDelay);
+        }
+
+        return true;
     }
 
     private static bool HasValue(AutomationElement element)
@@ -461,6 +679,18 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
     {
         try
         {
+            // A tick box is ticked, a list or a group of radio buttons gets the option named by the value
+            var controlType = element.Current.ControlType;
+            if (controlType == ControlType.CheckBox)
+            {
+                return TryTick(element, value);
+            }
+
+            if (controlType == ControlType.Group || (controlType == ControlType.ComboBox && !IsEditableComboBox(element)))
+            {
+                return TrySelect(element, value);
+            }
+
             if (!element.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern)
                 || pattern is not ValuePattern valuePattern
                 || valuePattern.Current.IsReadOnly)
@@ -591,6 +821,23 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
                     var id = string.Create(CultureInfo.InvariantCulture, $"{reading}-{elements.Count}");
                     var field = TryReadField(id, element);
                     if (field is not null)
+                    {
+                        elements[id] = element;
+                        fields.Add(field);
+                    }
+                }
+
+                // Tick boxes and groups of radio buttons, after the text fields
+                foreach (var element in FindChoiceControls(window))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!IsInPage(element, windowBounds))
+                    {
+                        continue;
+                    }
+
+                    var id = string.Create(CultureInfo.InvariantCulture, $"{reading}-{elements.Count}");
+                    if (TryReadChoiceControl(id, element) is { } field)
                     {
                         elements[id] = element;
                         fields.Add(field);

@@ -39,4 +39,9 @@ public sealed record FormField
     /// Gets a value indicating whether the field already contains a value.
     /// </summary>
     public required bool HasValue { get; init; }
+
+    /// <summary>
+    /// Gets the options of a list or of a group of radio buttons, as shown; empty for other fields.
+    /// </summary>
+    public IReadOnlyList<string> Options { get; init; } = Array.Empty<string>();
 }

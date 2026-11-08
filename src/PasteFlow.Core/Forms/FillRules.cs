@@ -42,6 +42,20 @@ public static class FillRules
     }
 
     /// <summary>
+    /// Determines whether an option can be chosen for a field: an empty list or group of radio buttons, or a tick box
+    /// not ticked yet.
+    /// </summary>
+    /// <param name="field">The field.</param>
+    /// <returns><see langword="true"/> if an option may be chosen; otherwise <see langword="false"/>.</returns>
+    public static bool CanChoose(FormField field)
+    {
+        ArgumentNullException.ThrowIfNull(field);
+
+        return !field.HasValue && !IsSearchBox(field)
+            && field.Kind is FieldKind.Choice or FieldKind.CheckBox;
+    }
+
+    /// <summary>
     /// Determines whether a field is a search box, such as "Search across your channel" or "Rechercher".
     /// </summary>
     /// <param name="field">The field to check.</param>

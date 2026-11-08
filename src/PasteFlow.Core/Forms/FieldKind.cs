@@ -19,4 +19,9 @@ public enum FieldKind
     /// A list of choices, such as a drop-down list.
     /// </summary>
     Choice,
+
+    /// <summary>
+    /// A tick box: ticked or not.
+    /// </summary>
+    CheckBox,
 }

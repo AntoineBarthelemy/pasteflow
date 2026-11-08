@@ -11,4 +11,6 @@ internal sealed record BenchField
     public string? Hint { get; init; }
 
     public string? Value { get; init; }
+
+    public List<string>? Options { get; init; }
 }
