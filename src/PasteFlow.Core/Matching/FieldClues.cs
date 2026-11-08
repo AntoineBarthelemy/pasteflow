@@ -18,9 +18,11 @@ public sealed partial class FieldClues
     private const int RegexTimeoutMilliseconds = 1000;
 
     private readonly IReadOnlySet<string>[] _conceptSets;
+    private readonly string? _headConcept;
 
-    private FieldClues(IReadOnlySet<string>[] conceptSets, IReadOnlySet<CandidateKind> expectedKinds, bool isConfirmation, bool asksForNumber)
+    private FieldClues(IReadOnlySet<string>[] conceptSets, IReadOnlySet<CandidateKind> expectedKinds, bool isConfirmation, bool asksForNumber, string? headConcept)
     {
+        _headConcept = headConcept;
         _conceptSets = conceptSets;
         ExpectedKinds = expectedKinds;
         IsConfirmation = isConfirmation;
@@ -95,7 +97,7 @@ public sealed partial class FieldClues
 
         var asksForNumber = LabelConcepts.AsksForNumber(field.Label) || LabelConcepts.AsksForNumber(technicalName);
 
-        return new FieldClues(conceptSets, expectedKinds, isConfirmation, asksForNumber);
+        return new FieldClues(conceptSets, expectedKinds, isConfirmation, asksForNumber, LabelConcepts.HeadConcept(field.Label));
     }
 
     /// <summary>
@@ -123,9 +125,20 @@ public sealed partial class FieldClues
     {
         ArgumentNullException.ThrowIfNull(labelConcepts);
 
-        return _conceptSets.Length == 0
-            ? 0
-            : _conceptSets.Max(concepts => SpecificSimilarity(concepts, labelConcepts));
+        if (_conceptSets.Length == 0)
+        {
+            return 0;
+        }
+
+        // A free text field answered by a shorter label made of its own words, its main word first: « Motif » for
+        // « Motif de la consultation ». Fields of names or values are left out: « Nom » alone may be anyone's name
+        if (ExpectedKinds.Count == 0 && _headConcept is not null && labelConcepts.Contains(_headConcept)
+            && labelConcepts.All(_conceptSets[0].Contains))
+        {
+            return 1;
+        }
+
+        return _conceptSets.Max(concepts => SpecificSimilarity(concepts, labelConcepts));
     }
 
     private static double SpecificSimilarity(IReadOnlySet<string> fieldConcepts, IReadOnlySet<string> labelConcepts)

@@ -147,7 +147,7 @@ public static class LabelConcepts
         [Country] = new[] { "pays", "country" },
         [Company] = new[] { "entreprise", "societe", "company", "organisation", "organization", "employeur", "employer" },
         [Order] = new[] { "commande", "order", "reference", "ref", "booking", "reservation", "dossier" },
-        [Invoice] = new[] { "facture", "invoice" },
+        [Invoice] = new[] { "facture", "invoice", "emission" },
         [Customer] = new[] { "client", "customer" },
         [Date] = new[] { "date", "jour", "day" },
         [Birth] = new[] { "naissance", "birth", "birthday", "dob", "ne", "nee" },
@@ -453,6 +453,19 @@ public static class LabelConcepts
         var secondFolded = second.Select(FoldPlural).ToHashSet(StringComparer.Ordinal);
         var common = first.Count(concept => second.Contains(concept) || secondFolded.Contains(FoldPlural(concept)));
         return 2.0 * common / (first.Count + second.Count);
+    }
+
+    /// <summary>
+    /// Gets the concept of the first meaningful word of a label, the word that names what the field asks: « motif » in
+    /// « Motif de la consultation ».
+    /// </summary>
+    /// <param name="label">The label of the field.</param>
+    /// <returns>The concept, or <see langword="null"/> when the label has no meaningful word.</returns>
+    public static string? HeadConcept(string label)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+
+        return Words(label).Select(word => From(word)).FirstOrDefault(concepts => concepts.Count > 0)?.First();
     }
 
     /// <summary>

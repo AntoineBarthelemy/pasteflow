@@ -427,6 +427,34 @@ public sealed class FieldMatcherTests
         Assert.Equal("51100", match.Candidate?.Value);
     }
 
+    [Fact]
+    public void Match_DateOfInvoice_TakesTheDateOfIssue()
+    {
+        var match = Match(
+            "Date de facture",
+            Candidate("03/11/2026", CandidateKind.Date, "Date d'émission"),
+            Candidate("28/10/2026", CandidateKind.Date, "Date de livraison"),
+            Candidate("03/12/2026", CandidateKind.Date, "Échéance"));
+
+        AssertFills(match, "03/11/2026");
+    }
+
+    [Fact]
+    public void Match_FreeTextFieldAnsweredByItsMainWord_IsFilled()
+    {
+        var match = Match("Motif de la consultation", Candidate("renouvellement d'ordonnance", CandidateKind.Text, "Motif"));
+
+        AssertFills(match, "renouvellement d'ordonnance");
+    }
+
+    [Fact]
+    public void Match_NameFieldOfARole_IsNotFilledByAnyName()
+    {
+        var match = Match("Nom du locataire", Candidate("Henri Lambert", CandidateKind.FullName, "Nom"), Candidate("Sophie Garnier", CandidateKind.FullName, "Locataire"));
+
+        Assert.NotEqual("Henri Lambert", match.IsConfident ? match.Candidate?.Value : null);
+    }
+
     private static FieldMatch Match(string fieldLabel, params Candidate[] candidates)
     {
         return FieldMatcher.Match(TestFields.Text("field", fieldLabel), candidates);
