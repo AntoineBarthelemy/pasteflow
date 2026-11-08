@@ -349,6 +349,14 @@ public static partial class TextSegmenter
                 positions[piece.Value] = unique.Count;
                 unique.Add(piece);
             }
+            else if (piece.Kind != CandidateKind.Text && piece.Label.Length > 0 && unique[position].Label.Length > 0
+                && !string.Equals(unique[position].Label, piece.Label, StringComparison.Ordinal)
+                && !unique.Exists(kept => kept.Value == piece.Value && kept.Label == piece.Label))
+            {
+                // The same value under another label is another piece of information: « Loyer : 720,00 € » and
+                // « Dépôt de garantie : 720,00 € »
+                unique.Add(piece);
+            }
             else if (unique[position].Label.Length == 0 && piece.Label.Length > 0)
             {
                 unique[position] = unique[position] with { Label = piece.Label };

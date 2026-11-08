@@ -289,6 +289,30 @@ public sealed class FormMatcherTests
     }
 
     [Fact]
+    public void MatchAll_SameValueUnderTheLabelOfEachField_FillsBoth()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("loyer", "Loyer mensuel"), TestFields.Text("depot", "Dépôt de garantie") },
+            new[] { Candidate("720,00 €", CandidateKind.Amount, "Loyer mensuel"), Candidate("720,00 €", CandidateKind.Amount, "Dépôt de garantie") },
+            TestReferenceData.Create());
+
+        AssertFills(matches[0], "720,00 €");
+        AssertFills(matches[1], "720,00 €");
+    }
+
+    [Fact]
+    public void MatchAll_SameValueWithoutItsOwnLabel_FillsOneFieldOnly()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("loyer", "Loyer mensuel"), TestFields.Text("depot", "Dépôt de garantie") },
+            new[] { Candidate("720,00 €", CandidateKind.Amount, "Loyer mensuel") },
+            TestReferenceData.Create());
+
+        AssertFills(matches[0], "720,00 €");
+        Assert.False(matches[1].IsConfident);
+    }
+
+    [Fact]
     public void MatchAll_TheHistoryDoesNotGiveAValueTakenOnScreenToAnotherField()
     {
         var matches = FormMatcher.MatchAll(

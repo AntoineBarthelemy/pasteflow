@@ -89,6 +89,15 @@ public sealed class TextSegmenterTests
     }
 
     [Fact]
+    public void Segment_SameValueUnderTwoLabels_IsKeptUnderEach()
+    {
+        var pieces = TextSegmenter.Segment("Loyer : 720,00 €\nDépôt de garantie : 720,00 €", ReferenceData.Empty);
+
+        Assert.Contains(Piece("720,00 €", CandidateKind.Amount, "Loyer"), pieces);
+        Assert.Contains(Piece("720,00 €", CandidateKind.Amount, "Dépôt de garantie"), pieces);
+    }
+
+    [Fact]
     public void Segment_NumberByGroupsWithAWrongKey_IsNotACompanyNumber()
     {
         var pieces = TextSegmenter.Segment("Réf. 123 456 789", ReferenceData.Empty);

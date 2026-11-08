@@ -147,6 +147,9 @@ public static class FormMatcher
             if (match is { IsConfident: true, Candidate: not null })
             {
                 _ = takenValues.Add(match.Candidate.Value);
+
+                // The label it was read under is kept too: the same value under another label may still go elsewhere
+                _ = takenValues.Add(FieldMatcher.TakenUnder(match.Candidate));
             }
 
             matches[index] = match;

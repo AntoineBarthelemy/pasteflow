@@ -51,6 +51,21 @@ public static class FieldMatcher
     private const double RankPenalty = 0.03;
     private const double LinkPenalty = 0.05;
     private const double FormerPenalty = 0.3;
+    private const double OwnLabelSimilarity = 0.8;
+    private const char TakenSeparator = '\u0001';
+
+    /// <summary>
+    /// Tells how a value given to a field is remembered together with the label it was read under, so that the same
+    /// value read under another label may still go to another field.
+    /// </summary>
+    /// <param name="candidate">The value given to a field.</param>
+    /// <returns>The entry to add to the values already given.</returns>
+    public static string TakenUnder(Candidate candidate)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+
+        return $"{candidate.Value}{TakenSeparator}{candidate.Label}";
+    }
 
     /// <summary>
     /// Finds the best value for a field.
@@ -226,7 +241,7 @@ public static class FieldMatcher
         // A value found several times keeps its best score: it is one choice, not several
         return eligible
             .Select(candidate => (Candidate: candidate, Score: Score(candidate, clues, distinctValuesByKind, pointedValues)))
-            .Where(scored => scored.Score > 0 && !takenValues.Contains(scored.Candidate.Value))
+            .Where(scored => scored.Score > 0 && (!takenValues.Contains(scored.Candidate.Value) || HasOwnLabel(scored.Candidate, clues, takenValues)))
             .GroupBy(scored => scored.Candidate.Value, StringComparer.Ordinal)
             .Select(group => group.MaxBy(scored => scored.Score))
             .OrderByDescending(scored => scored.Score)
@@ -281,6 +296,17 @@ public static class FieldMatcher
         return candidate.Kind != CandidateKind.Number
             || !clues.Mentions(LabelConcepts.PostalCode)
             || ValueValidator.IsFrenchPostalCode(candidate.Value);
+    }
+
+    // A value read on screen and already given to another field may go to this one too when it was read again under
+    // another label that names this field: « Dépôt de garantie : 720,00 € » after « Loyer : 720,00 € »
+    private static bool HasOwnLabel(Candidate candidate, FieldClues clues, IReadOnlySet<string> takenValues)
+    {
+        var prefix = $"{candidate.Value}{TakenSeparator}";
+        return !candidate.IsFromHistory && !candidate.IsFromProfile && candidate.Label.Length > 0
+            && takenValues.Any(taken => taken.StartsWith(prefix, StringComparison.Ordinal))
+            && !takenValues.Contains(TakenUnder(candidate))
+            && clues.Similarity(LabelConcepts.From(candidate.Label)) >= OwnLabelSimilarity;
     }
 
     private static double Score(
