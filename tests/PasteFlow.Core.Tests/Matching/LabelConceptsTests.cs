@@ -110,6 +110,8 @@ public sealed class LabelConceptsTests
     [InlineData("Nom du débiteur", CandidateKind.FullName)]
     [InlineData("Nom du créancier", CandidateKind.Company)]
     [InlineData("Patient", CandidateKind.FullName)]
+    [InlineData("Surface habitable (m²)", CandidateKind.Measure)]
+    [InlineData("Poids", CandidateKind.Measure)]
     [InlineData("Date de facture", CandidateKind.Date)]
     [InlineData("SIREN du fournisseur", CandidateKind.Number)]
     public void ExpectedKinds_DeducesKindFromLabel(string label, CandidateKind kind)

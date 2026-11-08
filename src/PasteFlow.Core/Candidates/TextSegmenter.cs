@@ -52,6 +52,8 @@ public static partial class TextSegmenter
         (PhoneRegex, CandidateKind.Phone),
         (DateRegex, CandidateKind.Date),
         (AmountRegex, CandidateKind.Amount),
+        (NumberedReferenceRegex, CandidateKind.Reference),
+        (MeasureRegex, CandidateKind.Measure),
         (ReferenceRegex, CandidateKind.Reference),
         (NumberRegex, CandidateKind.Number),
     };
@@ -389,6 +391,13 @@ public static partial class TextSegmenter
 
     [GeneratedRegex(@"(?<![\d,.])\d{3} \d{3} \d{3}(?: \d{5})?(?![\d,.])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex CompanyNumberRegex();
+
+    // A number written after « n° » is a reference even without letters: « Facture n° 2026-0312 »
+    [GeneratedRegex(@"(?<=\b[Nn](?:°|º|o\.?)\s?)\d+(?:[-/.]\d+)+(?![\d/.-])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex NumberedReferenceRegex();
+
+    [GeneratedRegex(@"(?<![\d,.])\d+(?:[.,]\d+)?\s?(?:m²|m2|m³|m3|km|kg|cm|mm|ha)(?![\p{L}\d])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex MeasureRegex();
 
     [GeneratedRegex(@"^\d{1,4}(?:\s?(?:bis|ter))?,?\s+(?:rue|avenue|av\.|boulevard|bd|place|all[ée]e|chemin|impasse|quai|route|cours|square|r[ée]sidence|lotissement|cit[ée]|voie|passage)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
     private static partial Regex StreetRegex();

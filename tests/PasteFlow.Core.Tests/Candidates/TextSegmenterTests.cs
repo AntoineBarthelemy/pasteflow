@@ -98,6 +98,23 @@ public sealed class TextSegmenterTests
     }
 
     [Fact]
+    public void Segment_NumberAfterNo_IsAReferenceEvenWithoutLetters()
+    {
+        var pieces = TextSegmenter.Segment("Facture impayée n° 2026-0312 du 15/06/2026", ReferenceData.Empty);
+
+        Assert.Contains(pieces, piece => piece is { Value: "2026-0312", Kind: CandidateKind.Reference });
+        Assert.Contains(pieces, piece => piece is { Value: "15/06/2026", Kind: CandidateKind.Date });
+    }
+
+    [Theory]
+    [InlineData("appartement de 3 pièces, 64 m², 17 rue Chanzy", "64 m²")]
+    [InlineData("Palette 1 : 24 cartons, 312 kg", "312 kg")]
+    public void Segment_MeasureWithItsUnit_IsAMeasure(string text, string measure)
+    {
+        Assert.Contains(TextSegmenter.Segment(text, ReferenceData.Empty), piece => piece.Value == measure && piece.Kind == CandidateKind.Measure);
+    }
+
+    [Fact]
     public void Segment_NumberByGroupsWithAWrongKey_IsNotACompanyNumber()
     {
         var pieces = TextSegmenter.Segment("Réf. 123 456 789", ReferenceData.Empty);

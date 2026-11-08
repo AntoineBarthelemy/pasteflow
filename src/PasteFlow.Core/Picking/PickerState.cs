@@ -152,6 +152,7 @@ public sealed class PickerState
             CandidateKind.City => "ville",
             CandidateKind.Country => "pays",
             CandidateKind.Company => "entreprise",
+            CandidateKind.Measure => "mesure",
             _ => string.Empty,
         };
     }

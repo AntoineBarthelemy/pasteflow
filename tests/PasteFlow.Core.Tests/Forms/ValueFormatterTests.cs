@@ -77,6 +77,14 @@ public sealed class ValueFormatterTests
         Assert.Equal(expected, ValueFormatter.Adapt("285055145412395", CandidateKind.Number, Field(label, string.Empty)));
     }
 
+    [Theory]
+    [InlineData("Surface habitable (m²)", "64")]
+    [InlineData("Surface habitable", "64 m²")]
+    public void Adapt_Measure_LeavesItsUnitOutWhenTheFieldShowsIt(string label, string expected)
+    {
+        Assert.Equal(expected, ValueFormatter.Adapt("64 m²", CandidateKind.Measure, Field(label, string.Empty)));
+    }
+
     [Fact]
     public void Adapt_LeavesAValueItCannotReadUnchanged()
     {

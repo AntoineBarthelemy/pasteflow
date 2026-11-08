@@ -47,6 +47,7 @@ public static partial class ValueFormatter
                 CandidateKind.Iban => AdaptIban(value, format) ?? value,
                 CandidateKind.Amount => AdaptAmount(value, format) ?? value,
                 CandidateKind.Number => AdaptSocialSecurityNumber(value, format) ?? value,
+                CandidateKind.Measure => AdaptMeasure(value, format) ?? value,
                 _ => value,
             };
         }
@@ -61,6 +62,22 @@ public static partial class ValueFormatter
     {
         return value.Length == 15 && SensitiveFormats.IsFrenchSocialSecurityNumber(value) && ThirteenDigitsRegex().IsMatch(format)
             ? value[..13]
+            : null;
+    }
+
+    // « Surface habitable (m²) » already shows the unit: only the number is written
+    private static string? AdaptMeasure(string value, string format)
+    {
+        var measure = MeasureRegex().Match(value);
+        if (!measure.Success)
+        {
+            return null;
+        }
+
+        var unit = measure.Groups["unit"].Value;
+        var shown = format.Replace("m2", "m²", StringComparison.Ordinal).Replace("m3", "m³", StringComparison.Ordinal);
+        return shown.Contains(unit.Replace("m2", "m²", StringComparison.Ordinal).Replace("m3", "m³", StringComparison.Ordinal), StringComparison.OrdinalIgnoreCase)
+            ? measure.Groups["number"].Value
             : null;
     }
 
@@ -250,4 +267,7 @@ public static partial class ValueFormatter
 
     [GeneratedRegex(@"(?<!d)13(?!d)", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex ThirteenDigitsRegex();
+
+    [GeneratedRegex(@"^(?<number>\d+(?:[.,]\d+)?)\s?(?<unit>\S+)$", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex MeasureRegex();
 }

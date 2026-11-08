@@ -79,4 +79,9 @@ public enum CandidateKind
     /// A company name, recognized through its legal form, such as "Reims Auto SARL".
     /// </summary>
     Company,
+
+    /// <summary>
+    /// A measure with its unit, such as « 64 m² » or « 312 kg ».
+    /// </summary>
+    Measure,
 }

@@ -130,6 +130,11 @@ public static class LabelConcepts
     /// </summary>
     public const string Registration = "immatriculation";
 
+    /// <summary>
+    /// A measure with its unit: a surface, a weight, a distance.
+    /// </summary>
+    public const string Measure = "measure";
+
     private static readonly Dictionary<string, string> Synonyms = BuildSynonyms(new Dictionary<string, string[]>
     {
         [Email] = new[] { "email", "mail", "courriel", "emails", "electronique" },
@@ -153,6 +158,7 @@ public static class LabelConcepts
         [School] = new[] { "ecole", "etablissement", "universite", "university", "school", "iut", "college" },
         [JobTitle] = new[] { "poste", "fonction", "metier", "job", "profession", "jobtitle" },
         [Registration] = new[] { "immatriculation", "plaque" },
+        [Measure] = new[] { "surface", "superficie", "poids", "distance", "kilometrage", "longueur", "largeur", "hauteur", "profondeur" },
         [Former] = new[] { "ancien", "ancienne", "anciens", "anciennes", "precedent", "precedente", "old", "former", "previous" },
     });
 
@@ -193,6 +199,7 @@ public static class LabelConcepts
         // The numbers of a company: 9 digits for the SIREN, 14 for the SIRET of one of its establishments
         ["siren"] = new[] { CandidateKind.Number },
         [SocialSecurity] = new[] { CandidateKind.Number },
+        [Measure] = new[] { CandidateKind.Measure },
         [Registration] = new[] { CandidateKind.Reference, CandidateKind.Number },
         ["siret"] = new[] { CandidateKind.Number },
     };
