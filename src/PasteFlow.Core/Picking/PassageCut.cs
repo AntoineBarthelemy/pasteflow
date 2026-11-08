@@ -19,4 +19,10 @@ public enum PassageCut
     /// The whole line holding the typed words.
     /// </summary>
     Line,
+
+    /// <summary>
+    /// The whole bulleted or numbered list holding the typed words, every item on its line; the line alone when it
+    /// is not part of a list.
+    /// </summary>
+    List,
 }

@@ -91,6 +91,33 @@ public sealed class PassageFinderTests
     }
 
     [Fact]
+    public void Find_ListCut_TakesEveryItemOfTheNumberedList()
+    {
+        var text = "Colis préparés :\n1. Palette 1 : 24 cartons de verres\n2. Palette 2 : 18 cartons de carafes\n3. Palette 3 : 30 cartons\n\nEnlèvement le 12/11.";
+        var finder = new PassageFinder(new[] { Window("Entrepôt", 1, text) }, Array.Empty<Candidate>());
+
+        var passage = Assert.Single(finder.Find("palette 2", PassageCut.List));
+
+        Assert.Equal("1. Palette 1 : 24 cartons de verres\n2. Palette 2 : 18 cartons de carafes\n3. Palette 3 : 30 cartons", passage.Text);
+    }
+
+    [Fact]
+    public void Find_ListCut_TakesEveryItemOfTheBulletedList()
+    {
+        var finder = new PassageFinder(new[] { Window("Notes", 1, "À prévoir :\n- pain\n- lait\n- œufs") }, Array.Empty<Candidate>());
+
+        Assert.Equal("- pain\n- lait\n- œufs", Assert.Single(finder.Find("lait", PassageCut.List)).Text);
+    }
+
+    [Fact]
+    public void Find_ListCut_OutsideAList_TakesTheLine()
+    {
+        var finder = new PassageFinder(new[] { Window("Notes", 1, "Rendez-vous mardi à 10 h\nSalle B") }, Array.Empty<Candidate>());
+
+        Assert.Equal("Rendez-vous mardi à 10 h", Assert.Single(finder.Find("mardi", PassageCut.List)).Text);
+    }
+
+    [Fact]
     public void Find_OffersAtMostFivePassages()
     {
         var text = string.Join('\n', Enumerable.Range(1, 9).Select(index => $"Ligne {index}"));

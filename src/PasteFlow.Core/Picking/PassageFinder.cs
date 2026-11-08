@@ -175,8 +175,9 @@ public sealed partial class PassageFinder
             return passages;
         }
 
-        foreach (var block in _blocks)
+        for (var blockIndex = 0; blockIndex < _blocks.Count; blockIndex++)
         {
+            var block = _blocks[blockIndex];
             for (var index = block.Folded.IndexOf(folded, StringComparison.Ordinal);
                 index >= 0;
                 index = block.Folded.IndexOf(folded, index + 1, StringComparison.Ordinal))
@@ -187,7 +188,9 @@ public sealed partial class PassageFinder
                     continue;
                 }
 
-                var passage = Cut(block, index, index + folded.Length, cut);
+                var passage = cut == PassageCut.List
+                    ? ListAround(blockIndex) ?? Cut(block, index, index + folded.Length, PassageCut.Line)
+                    : Cut(block, index, index + folded.Length, cut);
                 if (passage.Text.Length > 0 && !passages.Exists(found => string.Equals(found.Text, passage.Text, StringComparison.Ordinal)))
                 {
                     passages.Add(passage);
@@ -285,6 +288,11 @@ public sealed partial class PassageFinder
     private static bool IsJoiner(char character)
     {
         return character is '\'' or '’' or '-';
+    }
+
+    private static bool IsListItem(string line)
+    {
+        return ListItemRegex().IsMatch(line);
     }
 
     private static Passage Cut(Block block, int matchStart, int matchEnd, PassageCut cut)
@@ -389,11 +397,52 @@ public sealed partial class PassageFinder
         return text[position] is '.' or '!' or '?' && (position + 1 == text.Length || char.IsWhiteSpace(text[position + 1]));
     }
 
+    [GeneratedRegex(@"^(?:[-•*–·▪◦]|\d{1,3}[.)])\s+\S", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex ListItemRegex();
+
     [GeneratedRegex(
         @"^\s?(?:h|min|s|€|%|km|kg|g|cm|mm|m|ans?|jours?|mois|heures?|euros?|HT|TTC)(?![\p{L}\p{N}])",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
         RegexTimeoutMilliseconds)]
     private static partial Regex UnitRegex();
+
+    // The whole list around an item: the items next to it in the same window, as « 1. … », « 2) … », « - … » or « • … »
+    private Passage? ListAround(int blockIndex)
+    {
+        var block = _blocks[blockIndex];
+        if (!IsListItem(block.Text))
+        {
+            return null;
+        }
+
+        bool SameList(int index) => index >= 0 && index < _blocks.Count
+            && _blocks[index].SourceRank == block.SourceRank
+            && string.Equals(_blocks[index].SourceName, block.SourceName, StringComparison.Ordinal)
+            && IsListItem(_blocks[index].Text);
+
+        var first = blockIndex;
+        while (SameList(first - 1))
+        {
+            first--;
+        }
+
+        var last = blockIndex;
+        while (SameList(last + 1))
+        {
+            last++;
+        }
+
+        var text = string.Join('\n', _blocks.Skip(first).Take(last - first + 1).Select(item => item.Text));
+        return new Passage
+        {
+            Text = text,
+            SourceName = block.SourceName,
+            SourceRank = block.SourceRank,
+            Block = text,
+            Start = 0,
+            End = text.Length,
+        };
+    }
 
     private sealed record Block(string Text, string Folded, string SourceName, int SourceRank, List<(int Start, int End)> Values);
 }

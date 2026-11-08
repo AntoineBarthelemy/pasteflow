@@ -58,7 +58,7 @@ public sealed class PickerStateTests
     }
 
     [Fact]
-    public void NextCut_WidensToTheSentenceThenTheLineThenBack()
+    public void NextCut_WidensToTheSentenceThenTheLineThenTheListThenBack()
     {
         _state.SetQuery("agenda");
 
@@ -67,6 +67,11 @@ public sealed class PickerStateTests
         Assert.Equal("Elle gère l'agenda d'Hugo et répond en général sous 48 h.", _state.Selected?.Text);
 
         _state.NextCut();
+        Assert.Equal(Text, _state.Selected?.Text);
+
+        // Outside a list, the list cut keeps the line
+        _state.NextCut();
+        Assert.Equal(PassageCut.List, _state.Cut);
         Assert.Equal(Text, _state.Selected?.Text);
 
         _state.NextCut();
