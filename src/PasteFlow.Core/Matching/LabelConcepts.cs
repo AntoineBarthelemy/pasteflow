@@ -120,6 +120,16 @@ public static class LabelConcepts
     /// </summary>
     public const string Former = "former";
 
+    /// <summary>
+    /// The French social security number, « N° de sécurité sociale ».
+    /// </summary>
+    public const string SocialSecurity = "securitesociale";
+
+    /// <summary>
+    /// A registration number, such as the plate of a car.
+    /// </summary>
+    public const string Registration = "immatriculation";
+
     private static readonly Dictionary<string, string> Synonyms = BuildSynonyms(new Dictionary<string, string[]>
     {
         [Email] = new[] { "email", "mail", "courriel", "emails", "electronique" },
@@ -142,6 +152,7 @@ public static class LabelConcepts
         [FullName] = new[] { "fullname", "complet" },
         [School] = new[] { "ecole", "etablissement", "universite", "university", "school", "iut", "college" },
         [JobTitle] = new[] { "poste", "fonction", "metier", "job", "profession", "jobtitle" },
+        [Registration] = new[] { "immatriculation", "plaque" },
         [Former] = new[] { "ancien", "ancienne", "anciens", "anciennes", "precedent", "precedente", "old", "former", "previous" },
     });
 
@@ -181,6 +192,8 @@ public static class LabelConcepts
 
         // The numbers of a company: 9 digits for the SIREN, 14 for the SIRET of one of its establishments
         ["siren"] = new[] { CandidateKind.Number },
+        [SocialSecurity] = new[] { CandidateKind.Number },
+        [Registration] = new[] { CandidateKind.Reference, CandidateKind.Number },
         ["siret"] = new[] { CandidateKind.Number },
     };
 
@@ -196,6 +209,7 @@ public static class LabelConcepts
         [("zip", "code")] = "zipcode",
         [("post", "code")] = "postcode",
         [("postal", "code")] = "postcode",
+        [("securite", "sociale")] = SocialSecurity,
     };
 
     /// <summary>

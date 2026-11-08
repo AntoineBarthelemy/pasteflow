@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using PasteFlow.Core.Matching;
+using PasteFlow.Core.Profile;
 using PasteFlow.Core.Reference;
 
 namespace PasteFlow.Core.Candidates;
@@ -27,6 +28,10 @@ public static partial class TextSegmenter
     private const int RegexTimeoutMilliseconds = 1000;
     private const int MinReferenceLength = 4;
 
+    private const int SocialSecurityLength = 15;
+    private const int SocialSecurityBodyLength = 13;
+    private const string SocialSecurityKeyLabel = "Clé";
+
     private static readonly HashSet<CandidateKind> PersonKinds = new() { CandidateKind.FirstName, CandidateKind.LastName, CandidateKind.FullName };
 
     private static readonly char[] LineBreaks = { '\r', '\n' };
@@ -41,6 +46,8 @@ public static partial class TextSegmenter
         (EmailRegex, CandidateKind.Email),
         (UrlRegex, CandidateKind.Url),
         (IbanRegex, CandidateKind.Iban),
+        (SocialSecurityRegex, CandidateKind.Number),
+        (CarPlateRegex, CandidateKind.Reference),
         (CompanyNumberRegex, CandidateKind.Number),
         (PhoneRegex, CandidateKind.Phone),
         (DateRegex, CandidateKind.Date),
@@ -129,8 +136,20 @@ public static partial class TextSegmenter
                     pieces.AddRange(RecognizeFitting(before, contextLabel, data));
 
                     var label = CleanLabel(before);
-                    var pieceValue = kind == CandidateKind.Number ? value.Replace(" ", string.Empty, StringComparison.Ordinal) : value;
+                    var pieceValue = kind switch
+                    {
+                        CandidateKind.Number => value.Replace(" ", string.Empty, StringComparison.Ordinal),
+                        CandidateKind.Reference when CarPlateRegex().IsMatch(value) => CarPlate(value),
+                        _ => value,
+                    };
                     pieces.Add(Piece(pieceValue, kind, label.Length > 0 || previousEnd > 0 ? label : contextLabel));
+
+                    // The key of a social security number is often asked in a box of its own
+                    if (kind == CandidateKind.Number && pieceValue.Length == SocialSecurityLength && SensitiveFormats.IsFrenchSocialSecurityNumber(pieceValue))
+                    {
+                        pieces.Add(Piece(pieceValue[SocialSecurityBodyLength..], CandidateKind.Text, SocialSecurityKeyLabel));
+                    }
+
                     previousEnd = start + value.Length;
 
                     if (kind == CandidateKind.Number && ValueValidator.IsFrenchPostalCode(value)
@@ -201,8 +220,10 @@ public static partial class TextSegmenter
                     continue;
                 }
 
-                // A number written by groups, as « 812 345 676 », is only a number when it is a real SIREN or SIRET
-                if (kind == CandidateKind.Number && value.Contains(' ', StringComparison.Ordinal) && !ValueValidator.IsSirenOrSiret(value))
+                // A number written by groups, as « 812 345 676 », is only a number when it is a real SIREN or SIRET,
+                // or a social security number with its key
+                if (kind == CandidateKind.Number && value.Contains(' ', StringComparison.Ordinal)
+                    && !ValueValidator.IsSirenOrSiret(value) && !SensitiveFormats.IsFrenchSocialSecurityNumber(value))
                 {
                     continue;
                 }
@@ -240,6 +261,13 @@ public static partial class TextSegmenter
 
         var start = label.IndexOf(' ', label.Length - MaxLabelLength);
         return start < 0 ? label[^MaxLabelLength..] : label[(start + 1)..];
+    }
+
+    // A plate is written as the registration certificate shows it: « AB-123-CD »
+    private static string CarPlate(string value)
+    {
+        var compact = value.Replace(" ", string.Empty, StringComparison.Ordinal).Replace("-", string.Empty, StringComparison.Ordinal);
+        return $"{compact[..2]}-{compact[2..5]}-{compact[5..]}";
     }
 
     private static TextPiece Piece(string value, CandidateKind kind, string label)
@@ -295,6 +323,13 @@ public static partial class TextSegmenter
 
     [GeneratedRegex(@"(?<![\d,.])\d{3} \d{3} \d{3}(?: \d{5})?(?![\d,.])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex CompanyNumberRegex();
+
+    [GeneratedRegex(@"(?<![\dA-Z])[1-478] ?\d{2} ?\d{2} ?(?:\d{2}|2[AB]) ?\d{3} ?\d{3} ?\d{2}(?![\dA-Z])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex SocialSecurityRegex();
+
+    // The plates of the French registration system since 2009: two letters, three digits, two letters (I, O and U unused)
+    [GeneratedRegex(@"\b[A-HJ-NP-TV-Z]{2}[ -]?\d{3}[ -]?[A-HJ-NP-TV-Z]{2}\b", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex CarPlateRegex();
 
     [GeneratedRegex(@"(?<![\d,.])\d{5,}(?![\d,.])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex NumberRegex();

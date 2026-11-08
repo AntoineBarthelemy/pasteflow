@@ -47,6 +47,23 @@ public sealed class TextSegmenterTests
     }
 
     [Fact]
+    public void Segment_SocialSecurityNumberByGroups_IsReadWholeAndItsKeyApart()
+    {
+        var pieces = TextSegmenter.Segment("N° de sécurité sociale : 2 85 05 51 454 123 95", ReferenceData.Empty);
+
+        Assert.Contains(Piece("285055145412395", CandidateKind.Number, "N° de sécurité sociale"), pieces);
+        Assert.Contains(Piece("95", CandidateKind.Text, "Clé"), pieces);
+    }
+
+    [Fact]
+    public void Segment_CarPlate_IsWrittenAsTheRegistrationCertificateShowsIt()
+    {
+        var pieces = TextSegmenter.Segment("Immatriculation GH 482 KT", ReferenceData.Empty);
+
+        Assert.Contains(pieces, piece => piece is { Value: "GH-482-KT", Kind: CandidateKind.Reference });
+    }
+
+    [Fact]
     public void Segment_NumberByGroupsWithAWrongKey_IsNotACompanyNumber()
     {
         var pieces = TextSegmenter.Segment("Réf. 123 456 789", ReferenceData.Empty);

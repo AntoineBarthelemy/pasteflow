@@ -104,7 +104,7 @@ public sealed class ProfileLearner : IDisposable
         return true switch
         {
             _ when kinds.Contains(CandidateKind.Iban) => (ProfileTopic?)ProfileTopic.Iban,
-            _ when clues.Mentions("securite") && clues.Mentions("sociale") => ProfileTopic.SocialSecurityNumber,
+            _ when clues.Mentions(LabelConcepts.SocialSecurity) => ProfileTopic.SocialSecurityNumber,
             _ when clues.Mentions("passeport") || clues.Mentions("passport") => ProfileTopic.PassportNumber,
             _ when clues.Mentions("permis") => ProfileTopic.DrivingLicenceNumber,
             _ when clues.Mentions("identite") && clues.Mentions("carte") => ProfileTopic.IdentityCardNumber,

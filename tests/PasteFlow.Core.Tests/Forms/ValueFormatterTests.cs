@@ -69,6 +69,14 @@ public sealed class ValueFormatterTests
         Assert.Equal(value, ValueFormatter.Adapt(value, kind, Field("Champ", "JJ/MM/AAAA 0612345678 0,00")));
     }
 
+    [Theory]
+    [InlineData("N° de sécurité sociale (13 chiffres)", "2850551454123")]
+    [InlineData("N° de sécurité sociale", "285055145412395")]
+    public void Adapt_SocialSecurityNumber_LeavesItsKeyOutWhenThirteenDigitsAreAsked(string label, string expected)
+    {
+        Assert.Equal(expected, ValueFormatter.Adapt("285055145412395", CandidateKind.Number, Field(label, string.Empty)));
+    }
+
     [Fact]
     public void Adapt_LeavesAValueItCannotReadUnchanged()
     {

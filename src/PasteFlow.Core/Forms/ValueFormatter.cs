@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using PasteFlow.Core.Candidates;
+using PasteFlow.Core.Profile;
 
 namespace PasteFlow.Core.Forms;
 
@@ -45,6 +46,7 @@ public static partial class ValueFormatter
                 CandidateKind.Phone => AdaptPhone(value, format) ?? value,
                 CandidateKind.Iban => AdaptIban(value, format) ?? value,
                 CandidateKind.Amount => AdaptAmount(value, format) ?? value,
+                CandidateKind.Number => AdaptSocialSecurityNumber(value, format) ?? value,
                 _ => value,
             };
         }
@@ -52,6 +54,14 @@ public static partial class ValueFormatter
         {
             return value;
         }
+    }
+
+    // « N° de sécurité sociale (13 chiffres) » asks for the number without its key, which has a box of its own
+    private static string? AdaptSocialSecurityNumber(string value, string format)
+    {
+        return value.Length == 15 && SensitiveFormats.IsFrenchSocialSecurityNumber(value) && ThirteenDigitsRegex().IsMatch(format)
+            ? value[..13]
+            : null;
     }
 
     private static string? AdaptDate(string value, string format)
@@ -237,4 +247,7 @@ public static partial class ValueFormatter
 
     [GeneratedRegex(@"\d(?:[\d   .,]*\d)?", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex AmountRegex();
+
+    [GeneratedRegex(@"(?<!d)13(?!d)", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex ThirteenDigitsRegex();
 }
