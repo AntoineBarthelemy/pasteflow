@@ -267,6 +267,7 @@ internal sealed class PastePickerWindow : Window
             AddCut(PassageCut.Sentence, "phrase");
             AddCut(PassageCut.Line, "ligne");
             AddCut(PassageCut.List, "liste");
+            AddCut(PassageCut.Page, "page");
             var tab = Ui.Keycap("Tab");
             tab.Margin = new Thickness(8, 0, 0, 0);
             _cutLine.Children.Add(tab);

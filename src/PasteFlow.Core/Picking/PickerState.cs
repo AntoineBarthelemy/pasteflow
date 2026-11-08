@@ -19,7 +19,7 @@ public sealed class PickerState
 
     private const int MaxLinkTextLength = 40;
 
-    private static readonly PassageCut[] Cuts = { PassageCut.Words, PassageCut.Sentence, PassageCut.Line, PassageCut.List };
+    private static readonly PassageCut[] Cuts = { PassageCut.Words, PassageCut.Sentence, PassageCut.Line, PassageCut.List, PassageCut.Page };
 
     private readonly PickRequest _request;
     private List<PickItem> _items;
@@ -79,7 +79,7 @@ public sealed class PickerState
     }
 
     /// <summary>
-    /// Widens the cut of the passages: typed words, then sentence, then line, then the whole list, then typed words again.
+    /// Widens the cut of the passages: typed words, then sentence, then line, then the whole list, then the whole page, then typed words again.
     /// </summary>
     public void NextCut()
     {

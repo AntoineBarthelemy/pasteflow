@@ -58,7 +58,7 @@ public sealed class PickerStateTests
     }
 
     [Fact]
-    public void NextCut_WidensToTheSentenceThenTheLineThenTheListThenBack()
+    public void NextCut_WidensToTheSentenceThenTheLineThenTheListThenThePageThenBack()
     {
         _state.SetQuery("agenda");
 
@@ -73,6 +73,9 @@ public sealed class PickerStateTests
         _state.NextCut();
         Assert.Equal(PassageCut.List, _state.Cut);
         Assert.Equal(Text, _state.Selected?.Text);
+
+        _state.NextCut();
+        Assert.Equal(PassageCut.Page, _state.Cut);
 
         _state.NextCut();
         Assert.Equal(PassageCut.Words, _state.Cut);

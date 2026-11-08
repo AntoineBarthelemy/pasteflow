@@ -110,6 +110,16 @@ public sealed class PassageFinderTests
     }
 
     [Fact]
+    public void Find_PageCut_TakesTheWholeTextOfTheWindow()
+    {
+        var finder = new PassageFinder(
+            new[] { Window("Notes", 1, "Rendez-vous mardi à 10 h\nSalle B"), Window("Autre", 2, "Mardi aussi") },
+            Array.Empty<Candidate>());
+
+        Assert.Equal("Rendez-vous mardi à 10 h\nSalle B", finder.Find("rendez", PassageCut.Page)[0].Text);
+    }
+
+    [Fact]
     public void Find_ListCut_OutsideAList_TakesTheLine()
     {
         var finder = new PassageFinder(new[] { Window("Notes", 1, "Rendez-vous mardi à 10 h\nSalle B") }, Array.Empty<Candidate>());

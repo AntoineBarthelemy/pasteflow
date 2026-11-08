@@ -188,9 +188,12 @@ public sealed partial class PassageFinder
                     continue;
                 }
 
-                var passage = cut == PassageCut.List
-                    ? ListAround(blockIndex) ?? Cut(block, index, index + folded.Length, PassageCut.Line)
-                    : Cut(block, index, index + folded.Length, cut);
+                var passage = cut switch
+                {
+                    PassageCut.List => ListAround(blockIndex) ?? Cut(block, index, index + folded.Length, PassageCut.Line),
+                    PassageCut.Page => PageAround(blockIndex),
+                    _ => Cut(block, index, index + folded.Length, cut),
+                };
                 if (passage.Text.Length > 0 && !passages.Exists(found => string.Equals(found.Text, passage.Text, StringComparison.Ordinal)))
                 {
                     passages.Add(passage);
@@ -433,6 +436,25 @@ public sealed partial class PassageFinder
         }
 
         var text = string.Join('\n', _blocks.Skip(first).Take(last - first + 1).Select(item => item.Text));
+        return new Passage
+        {
+            Text = text,
+            SourceName = block.SourceName,
+            SourceRank = block.SourceRank,
+            Block = text,
+            Start = 0,
+            End = text.Length,
+        };
+    }
+
+    // The whole text of the window holding a line, every line in its order
+    private Passage PageAround(int blockIndex)
+    {
+        var block = _blocks[blockIndex];
+        var text = string.Join(
+            '\n',
+            _blocks.Where(item => item.SourceRank == block.SourceRank && string.Equals(item.SourceName, block.SourceName, StringComparison.Ordinal))
+                .Select(item => item.Text));
         return new Passage
         {
             Text = text,

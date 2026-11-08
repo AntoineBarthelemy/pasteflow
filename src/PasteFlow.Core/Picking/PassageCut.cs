@@ -25,4 +25,9 @@ public enum PassageCut
     /// is not part of a list.
     /// </summary>
     List,
+
+    /// <summary>
+    /// The whole text of the window holding the typed words, such as a whole page or a whole message.
+    /// </summary>
+    Page,
 }
