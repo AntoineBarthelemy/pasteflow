@@ -174,6 +174,10 @@ internal sealed class BrowserWindow : IDisposable
         {
             // Already gone
         }
+        catch (AggregateException)
+        {
+            // A helper process of the browser refused to stop: the test itself is over, it stops on its own later
+        }
 
         process.Dispose();
         try
