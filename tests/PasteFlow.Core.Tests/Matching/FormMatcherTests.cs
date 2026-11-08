@@ -289,6 +289,30 @@ public sealed class FormMatcherTests
     }
 
     [Fact]
+    public void MatchAll_AddressWithPostalCodeAndCityFields_IsSplitBetweenThem()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("adresse", "Adresse"), TestFields.Text("cp", "Code postal"), TestFields.Text("ville", "Ville") },
+            new[] { Candidate("3 rue des Vignes, 51100 Reims", CandidateKind.Text, "Adresse") },
+            TestReferenceData.Create());
+
+        AssertFills(matches[0], "3 rue des Vignes");
+        AssertFills(matches[1], "51100");
+        AssertFills(matches[2], "Reims");
+    }
+
+    [Fact]
+    public void MatchAll_AddressAloneInTheForm_IsWrittenWhole()
+    {
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("adresse", "Adresse") },
+            new[] { Candidate("3 rue des Vignes, 51100 Reims", CandidateKind.Text, "Adresse") },
+            TestReferenceData.Create());
+
+        AssertFills(matches[0], "3 rue des Vignes, 51100 Reims");
+    }
+
+    [Fact]
     public void MatchAll_SameValueUnderTheLabelOfEachField_FillsBoth()
     {
         var matches = FormMatcher.MatchAll(

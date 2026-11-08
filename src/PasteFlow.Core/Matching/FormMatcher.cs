@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
 using PasteFlow.Core.Reference;
@@ -20,7 +21,7 @@ namespace PasteFlow.Core.Matching;
 /// <para>Last safety net: a postal code and a commune that do not go together according to La Poste are both left
 /// to the user.</para>
 /// </remarks>
-public static class FormMatcher
+public static partial class FormMatcher
 {
     /// <summary>
     /// Finds the values of the fields of a form.
@@ -165,6 +166,7 @@ public static class FormMatcher
             FillGapsFromHistory(fields, clues, matches, historyCandidates, takenValues, options);
         }
 
+        SplitAddresses(matches, clues, formFields.Concat(fields).Select(FieldClues.Of).ToList());
         CheckPostalCodeAndCommune(matches, clues, data);
         LeaveValuesReadFromImagesToTheUser(matches);
         return matches;
@@ -243,6 +245,53 @@ public static class FormMatcher
     {
         return clues.ExpectedKinds.Contains(CandidateKind.FirstName);
     }
+
+    // « 9 allée des Tilleuls, Bâtiment B, 51430 Tinqueux » in « Adresse », next to « Code postal » and « Commune »: the
+    // address keeps the street, the two fields take the postal code and the commune of that same address
+    private static void SplitAddresses(FieldMatch[] matches, FieldClues[] clues, List<FieldClues> formClues)
+    {
+        var formAsksPostalCode = formClues.Exists(clue => clue.Mentions(LabelConcepts.PostalCode));
+        var formAsksCommune = formClues.Exists(clue => clue.ExpectedKinds.Contains(CandidateKind.City) && !clue.Mentions(LabelConcepts.Address));
+        if (!formAsksPostalCode || !formAsksCommune)
+        {
+            return;
+        }
+
+        for (var index = 0; index < matches.Length; index++)
+        {
+            if (!clues[index].Mentions(LabelConcepts.Address) || clues[index].Mentions(LabelConcepts.PostalCode)
+                || matches[index] is not { IsConfident: true, Candidate: { } address }
+                || AddressEndRegex().Match(address.Value) is not { Success: true } end)
+            {
+                continue;
+            }
+
+            matches[index] = matches[index] with { Candidate = address with { Value = end.Groups["street"].Value.Trim() } };
+            FillFromAddress(matches, clues, address, end.Groups["postalCode"].Value, CandidateKind.Number, clue => clue.Mentions(LabelConcepts.PostalCode));
+            FillFromAddress(matches, clues, address, end.Groups["commune"].Value.Trim(), CandidateKind.City, clue => clue.ExpectedKinds.Contains(CandidateKind.City) && !clue.Mentions(LabelConcepts.Address));
+        }
+    }
+
+    // A field still unsure takes the value of the address chosen for the form; a sure one is left as it is
+    private static void FillFromAddress(FieldMatch[] matches, FieldClues[] clues, Candidate address, string value, CandidateKind kind, Func<FieldClues, bool> isTarget)
+    {
+        for (var index = 0; index < matches.Length; index++)
+        {
+            if (isTarget(clues[index]) && !matches[index].IsConfident)
+            {
+                matches[index] = matches[index] with
+                {
+                    Candidate = address with { Value = value, Kind = kind },
+                    IsConfident = true,
+                    Score = Math.Max(matches[index].Score, FieldMatcher.ConfidenceThreshold),
+                    Reason = string.Empty,
+                };
+            }
+        }
+    }
+
+    [GeneratedRegex(@"^(?<street>.+?),\s*(?<postalCode>\d{5})\s+(?<commune>[^,]+)$", RegexOptions.CultureInvariant, 1000)]
+    private static partial Regex AddressEndRegex();
 
     /// <summary>
     /// Safety net: a postal code and a commune that do not go together according to La Poste are both left to the
