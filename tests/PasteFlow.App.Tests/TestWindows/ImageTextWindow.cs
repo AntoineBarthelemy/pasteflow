@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
@@ -35,5 +36,17 @@ internal sealed class ImageTextWindow : Window
         var picture = new RenderTargetBitmap((int)Math.Ceiling(text.ActualWidth), (int)Math.Ceiling(text.ActualHeight), 96, 96, PixelFormats.Pbgra32);
         picture.Render(text);
         Content = new Image { Source = picture, Stretch = Stretch.None, HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Top };
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+
+        // Drawn by the graphics card, the window sometimes gives an empty picture to its capture on a busy machine,
+        // after many browser windows: drawn by the processor, it always shows the text the tests read
+        if (PresentationSource.FromVisual(this) is HwndSource source)
+        {
+            source.CompositionTarget.RenderMode = RenderMode.SoftwareOnly;
+        }
     }
 }
