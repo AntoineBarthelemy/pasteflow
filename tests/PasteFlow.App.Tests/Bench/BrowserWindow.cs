@@ -67,7 +67,11 @@ internal sealed class BrowserWindow : IDisposable
                 "--no-first-run",
                 "--no-default-browser-check",
                 "--force-renderer-accessibility",
-                "--disable-features=Translate",
+
+                // Screen turned off on an unattended machine: the window would count as hidden and show no page content
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+                "--disable-features=Translate,CalculateNativeWinOcclusion",
                 $"--app={url.AbsoluteUri}",
             },
             UseShellExecute = false,
