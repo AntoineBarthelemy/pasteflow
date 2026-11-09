@@ -31,6 +31,8 @@ public sealed class FieldCluesTests
     [InlineData("06 00 00 00 00", CandidateKind.Phone)]
     [InlineData("JJ/MM/AAAA", CandidateKind.Date)]
     [InlineData("dd/mm/yyyy", CandidateKind.Date)]
+    [InlineData("0,00", CandidateKind.Amount)]
+    [InlineData("0.00 €", CandidateKind.Amount)]
     [InlineData("Votre numéro de commande", CandidateKind.Reference)]
     public void Of_HintTellsTheKindWhenLabelAndTechnicalNameAreVague(string hint, CandidateKind kind)
     {

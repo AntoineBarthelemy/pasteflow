@@ -81,7 +81,7 @@ public static partial class TextSegmenter
 
         var pieces = new List<TextPiece>();
         var pendingLabel = string.Empty;
-        foreach (var line in text.Split(LineBreaks, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        foreach (var line in text.Split(LineBreaks, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).SelectMany(SplitPairs))
         {
             if (IsLabelOnly(line))
             {
@@ -115,6 +115,31 @@ public static partial class TextSegmenter
         return expected.Count == 0
             || expected.Contains(kind)
             || (PersonKinds.Contains(kind) && expected.Overlaps(PersonKinds));
+    }
+
+    /// <summary>
+    /// Cuts a line holding several "label: value" pairs side by side into one line per pair:
+    /// « Salarié : Julien Marchand - Emploi : chauffeur livreur » gives the name alone to « Salarié ».
+    /// </summary>
+    /// <param name="line">The line to cut.</param>
+    /// <returns>The pairs of the line, or the line itself.</returns>
+    private static IEnumerable<string> SplitPairs(string line)
+    {
+        if (!LabelValueRegex().IsMatch(line))
+        {
+            return new[] { line };
+        }
+
+        var parts = new List<string>();
+        var start = 0;
+        foreach (Match next in NextPairRegex().Matches(line))
+        {
+            parts.Add(line[start..next.Index].Trim());
+            start = next.Index + next.Length;
+        }
+
+        parts.Add(line[start..].Trim());
+        return parts.Count > 1 && parts.TrueForAll(part => part.Length > 0) ? parts : new[] { line };
     }
 
     private static bool IsLabelOnly(string line)
@@ -417,4 +442,8 @@ public static partial class TextSegmenter
 
     [GeneratedRegex(@"^(?<label>\p{L}[^:]{0,39}?)\s*:\s*(?<value>\S.*)$", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex LabelValueRegex();
+
+    // The separator before another pair of the same line: « - Emploi : », « | Tél : » (a label of words, never a link)
+    [GeneratedRegex(@"\s+[-–—|]\s+(?=\p{L}[\p{L}'’ .]{0,39}?\s*:\s*[^\s/])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex NextPairRegex();
 }

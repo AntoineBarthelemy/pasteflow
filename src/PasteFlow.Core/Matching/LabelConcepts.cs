@@ -176,7 +176,7 @@ public static class LabelConcepts
 
     private static readonly HashSet<string> StopWords = new(StringComparer.Ordinal)
     {
-        "de", "du", "des", "la", "le", "les", "l", "d", "un", "une", "a", "au", "aux", "en", "et", "ou", "par", "pour",
+        "de", "du", "des", "la", "le", "les", "l", "d", "un", "une", "a", "au", "aux", "en", "et", "ou", "par", "pour", "sur",
         "votre", "vos", "ton", "tes", "mon", "mes", "son", "ses", "n", "no", "num", "numero", "number", "nr",
         "the", "of", "your", "my", "an", "and", "or", "for", "please", "veuillez", "saisir", "saisissez",
         "entrez", "enter", "indiquez", "obligatoire", "required", "optionnel", "optional",
@@ -414,8 +414,9 @@ public static class LabelConcepts
 
         if (hasName)
         {
-            // « Nom du créancier » may be a person or a company
-            if (concepts.Overlaps(RoleWords))
+            // « Nom du créancier » may be a person or a company, unless the form asks for the first name apart:
+            // « Nom du salarié » next to « Prénom du salarié » is the last name only
+            if (concepts.Overlaps(RoleWords) && !firstNameAskedApart)
             {
                 return new HashSet<CandidateKind> { CandidateKind.FullName, CandidateKind.Company, CandidateKind.Text };
             }
@@ -450,8 +451,9 @@ public static class LabelConcepts
         }
 
         // "Langue" and "Langues" talk about the same thing: plain words are compared without their plural mark
-        var secondFolded = second.Select(FoldPlural).ToHashSet(StringComparer.Ordinal);
-        var common = first.Count(concept => second.Contains(concept) || secondFolded.Contains(FoldPlural(concept)));
+        // nor "Salariée" and "Salarié": the feminine mark is folded too
+        var secondFolded = second.Select(Fold).ToHashSet(StringComparer.Ordinal);
+        var common = first.Count(concept => second.Contains(concept) || secondFolded.Contains(Fold(concept)));
         return 2.0 * common / (first.Count + second.Count);
     }
 
@@ -485,9 +487,10 @@ public static class LabelConcepts
     /// </summary>
     /// <param name="concept">A concept or a plain word.</param>
     /// <returns>The word without its final "s" or "x".</returns>
-    private static string FoldPlural(string concept)
+    private static string Fold(string concept)
     {
-        return concept.Length > 3 && (concept.EndsWith('s') || concept.EndsWith('x')) ? concept[..^1] : concept;
+        var singular = concept.Length > 3 && (concept.EndsWith('s') || concept.EndsWith('x')) ? concept[..^1] : concept;
+        return singular.Length > 4 && singular.EndsWith("ee", StringComparison.Ordinal) ? singular[..^1] : singular;
     }
 
     private static bool IsConfirmation(List<string> words)

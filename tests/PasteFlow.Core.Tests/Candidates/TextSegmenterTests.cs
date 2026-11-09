@@ -30,6 +30,32 @@ public sealed class TextSegmenterTests
     }
 
     [Fact]
+    public void Segment_SeveralPairsOnOneLine_GiveEachLabelItsOwnValue()
+    {
+        var pieces = TextSegmenter.Segment("Salarié : Julien Marchand - Emploi : chauffeur livreur - Coefficient 138 M", ReferenceData.Empty);
+
+        Assert.Contains(Piece("Julien Marchand", CandidateKind.Text, "Salarié"), pieces);
+        Assert.Contains(Piece("chauffeur livreur - Coefficient 138 M", CandidateKind.Text, "Emploi"), pieces);
+        Assert.DoesNotContain(pieces, piece => piece.Label == "Salarié" && piece.Value.Contains("Emploi", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Segment_DashWithoutAnotherPair_KeepsTheValueWhole()
+    {
+        var pieces = TextSegmenter.Segment("Objet : Devis - Réf. du 12/10", ReferenceData.Empty);
+
+        Assert.Contains(Piece("Devis - Réf. du 12/10", CandidateKind.Text, "Objet"), pieces);
+    }
+
+    [Fact]
+    public void Segment_DashBeforeALink_IsNotAnotherPair()
+    {
+        var pieces = TextSegmenter.Segment("Site : Reims - https://antoinebarthelemy.dev", ReferenceData.Empty);
+
+        Assert.Contains(pieces, piece => piece.Value == "Site : Reims - https://antoinebarthelemy.dev");
+    }
+
+    [Fact]
     public void Segment_KeepsWholeLineNextToRecognizedValues()
     {
         var pieces = TextSegmenter.Segment("51500 Bezannes", ReferenceData.Empty);

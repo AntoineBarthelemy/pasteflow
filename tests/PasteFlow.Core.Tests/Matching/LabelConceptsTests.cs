@@ -149,9 +149,24 @@ public sealed class LabelConceptsTests
     [InlineData("Nom", CandidateKind.LastName)]
     [InlineData("Last name", CandidateKind.LastName)]
     [InlineData("Nom et prénom", CandidateKind.FullName)]
+    [InlineData("Nom du salarié", CandidateKind.LastName)]
     public void ExpectedKinds_WhenTheFormAsksTheFirstNameApart_NameMeansLastName(string label, CandidateKind expected)
     {
         Assert.Contains(expected, LabelConcepts.ExpectedKinds(LabelConcepts.From(label), firstNameAskedApart: true));
+    }
+
+    [Fact]
+    public void ExpectedKinds_RoleNameNextToItsFirstName_IsNeverTheWholeName()
+    {
+        Assert.DoesNotContain(CandidateKind.FullName, LabelConcepts.ExpectedKinds(LabelConcepts.From("Nom du salarié"), firstNameAskedApart: true));
+    }
+
+    [Theory]
+    [InlineData("Salarié", "Salariée")]
+    [InlineData("Net à payer avant impôt", "Net à payer avant impôt sur le revenu")]
+    public void Similarity_FeminineMarkAndFillerWords_DoNotMakeLabelsDifferent(string field, string label)
+    {
+        Assert.True(LabelConcepts.Similarity(LabelConcepts.From(field), LabelConcepts.From(label)) >= 0.85);
     }
 
     [Fact]
