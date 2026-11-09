@@ -273,6 +273,7 @@ public sealed record FillReport
             CandidateKind.Country => ("pays", "pays"),
             CandidateKind.Company => ("entreprise", "entreprises"),
             CandidateKind.Measure => ("mesure", "mesures"),
+            CandidateKind.Time => ("heure", "heures"),
             _ => ("texte", "textes"),
         };
 

@@ -200,6 +200,11 @@ public sealed partial class FieldClues
             _ = kinds.Add(CandidateKind.Date);
         }
 
+        if (TimePatternRegex().IsMatch(hint))
+        {
+            _ = kinds.Add(CandidateKind.Time);
+        }
+
         // "0,00" shows an amount without its currency
         if (AmountPatternRegex().IsMatch(hint))
         {
@@ -214,4 +219,7 @@ public sealed partial class FieldClues
 
     [GeneratedRegex(@"^s*(?:exs*:s*)?0[,.]00s*(?:€|EUR)?s*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
     private static partial Regex AmountPatternRegex();
+
+    [GeneratedRegex(@"\bhh?\s?[:h]\s?mm\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
+    private static partial Regex TimePatternRegex();
 }

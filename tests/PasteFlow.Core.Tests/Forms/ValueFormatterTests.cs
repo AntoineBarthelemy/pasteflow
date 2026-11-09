@@ -91,6 +91,16 @@ public sealed class ValueFormatterTests
         Assert.Equal("31/02/2026", ValueFormatter.Adapt("31/02/2026", CandidateKind.Date, Field("Date", "AAAA-MM-JJ")));
     }
 
+    [Theory]
+    [InlineData("8h30", "HH:MM", "08:30")]
+    [InlineData("08:30", "", "08:30")]
+    [InlineData("14 h", "", "14:00")]
+    [InlineData("14:30", "ex : 9h15", "14h30")]
+    public void Adapt_Time_IsWrittenAsTheFieldShows(string value, string hint, string expected)
+    {
+        Assert.Equal(expected, ValueFormatter.Adapt(value, CandidateKind.Time, Field("Heure du rendez-vous", hint)));
+    }
+
     private static FormField Field(string label, string hint)
     {
         return TestFields.Text("field", label) with { Hint = hint };

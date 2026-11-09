@@ -153,6 +153,7 @@ public sealed class PickerState
             CandidateKind.Country => "pays",
             CandidateKind.Company => "entreprise",
             CandidateKind.Measure => "mesure",
+            CandidateKind.Time => "heure",
             _ => string.Empty,
         };
     }

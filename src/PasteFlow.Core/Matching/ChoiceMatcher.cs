@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
 using PasteFlow.Core.Reference;
@@ -13,14 +14,22 @@ namespace PasteFlow.Core.Matching;
 /// screen, takes « Appartement ». When two options are written, the field is left with both proposed.</para>
 /// <para>A tick box is ticked only on a clear yes, such as « Logement meublé : oui »; « non meublé » leaves it as it is.</para>
 /// </remarks>
-public static class ChoiceMatcher
+public static partial class ChoiceMatcher
 {
     /// <summary>
     /// The value written in a tick box to tick it.
     /// </summary>
     public const string Ticked = "oui";
 
+    private const double StrongLabel = 0.5;
+
     private static readonly HashSet<string> YesWords = new(StringComparer.Ordinal) { "OUI", "YES", "X", "VRAI", "TRUE" };
+
+    private static readonly Dictionary<char, HashSet<string>> OptionsOfSex = new()
+    {
+        ['F'] = new(StringComparer.Ordinal) { "FEMININ", "FEMME", "F", "MADAME", "MME", "FEMALE", "WOMAN" },
+        ['M'] = new(StringComparer.Ordinal) { "MASCULIN", "HOMME", "H", "M", "MONSIEUR", "MALE", "MAN" },
+    };
 
     /// <summary>
     /// Chooses the option for a field.
@@ -47,6 +56,21 @@ public static class ChoiceMatcher
             return MatchTickBox(field, related);
         }
 
+        // « Sexe » or « Civilité » with « Mme Camille Rousseau » on screen: the title says it, when every title agrees
+        if (clues.Mentions(LabelConcepts.Sex) && field.Options.Count > 0 && SexOf(candidates) is { } sex
+            && field.Options.Where(option => OptionsOfSex[sex].Contains(ReferenceText.Normalize(option))).ToList() is { Count: 1 } options)
+        {
+            var source = candidates.First(candidate => !candidate.IsFromHistory && !candidate.IsFromProfile && TitleRegex().IsMatch(candidate.Value));
+            return new FieldMatch
+            {
+                Field = field,
+                Candidate = source with { Value = options[0], Kind = CandidateKind.Text },
+                Score = 1,
+                IsConfident = true,
+                Suggestions = new List<Candidate>(),
+            };
+        }
+
         return field.Options.Count > 0 ? MatchOption(field, related) : MatchUnknownOption(field, clues, related);
     }
 
@@ -68,6 +92,19 @@ public static class ChoiceMatcher
             .GroupBy(candidate => ReferenceText.Normalize(candidate.Value), StringComparer.Ordinal)
             .Select(group => group.First())
             .ToList();
+        if (values.Count == 0 && clues.ExpectedKinds.Count == 0)
+        {
+            // « Nature du contrat » next to « Contrat : CDD de 8 mois » : the short word in capitals that opens the value
+            // is tried in the list, which refuses it if it has no such option
+            values = related
+                .Where(candidate => candidate.Kind == CandidateKind.Text && clues.Similarity(LabelConcepts.From(candidate.Label)) >= StrongLabel)
+                .Select(candidate => candidate with { Value = OpeningAcronymRegex().Match(candidate.Value).Value })
+                .Where(candidate => candidate.Value.Length > 0)
+                .GroupBy(candidate => candidate.Value, StringComparer.Ordinal)
+                .Select(group => group.First())
+                .ToList();
+        }
+
         if (values.Count == 0)
         {
             return new FieldMatch { Field = field, Reason = MatchReasons.NothingFound };
@@ -114,6 +151,18 @@ public static class ChoiceMatcher
         };
     }
 
+    // The sex said by every title on screen, or nothing when there is none or when they disagree
+    private static char? SexOf(IReadOnlyList<Candidate> candidates)
+    {
+        var sexes = candidates
+            .Where(candidate => !candidate.IsFromHistory && !candidate.IsFromProfile)
+            .SelectMany(candidate => TitleRegex().Matches(candidate.Value))
+            .Select(title => title.Groups["female"].Success ? 'F' : 'M')
+            .Distinct()
+            .ToList();
+        return sexes.Count == 1 ? sexes[0] : null;
+    }
+
     private static FieldMatch MatchTickBox(FormField field, List<Candidate> related)
     {
         var yes = related.FirstOrDefault(candidate => YesWords.Contains(ReferenceText.Normalize(candidate.Value)));
@@ -128,4 +177,10 @@ public static class ChoiceMatcher
                 Suggestions = new List<Candidate>(),
             };
     }
+
+    [GeneratedRegex(@"\b(?:(?<female>Mme|Madame|Mlle|Mademoiselle)|(?:M\.|Monsieur|Mr\.?))\s+\p{Lu}", RegexOptions.CultureInvariant, 1000)]
+    private static partial Regex TitleRegex();
+
+    [GeneratedRegex(@"^\p{Lu}{2,6}(?=$|[\s,;.])", RegexOptions.CultureInvariant, 1000)]
+    private static partial Regex OpeningAcronymRegex();
 }

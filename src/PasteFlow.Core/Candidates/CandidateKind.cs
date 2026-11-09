@@ -84,4 +84,9 @@ public enum CandidateKind
     /// A measure with its unit, such as « 64 m² » or « 312 kg ».
     /// </summary>
     Measure,
+
+    /// <summary>
+    /// A time of day, such as « 08:30 » or « 14h30 ».
+    /// </summary>
+    Time,
 }

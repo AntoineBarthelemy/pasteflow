@@ -34,6 +34,9 @@ public static partial class TextSegmenter
 
     private static readonly HashSet<CandidateKind> PersonKinds = new() { CandidateKind.FirstName, CandidateKind.LastName, CandidateKind.FullName };
 
+    // The small words between two values of the same thing: « le 23/11/2026 à 08:30 »
+    private static readonly HashSet<string> LinkingWords = new(StringComparer.Ordinal) { "à", "a", "le", "la", "de", "du", "au", "vers", "dès", "et", "puis" };
+
     private static readonly char[] LineBreaks = { '\r', '\n' };
     private static readonly char[] LabelTrimmedChars = { ' ', '\t', ':', '-', '–', '—', '|', '(', '[', ',', ';', '<', '"' };
     private static readonly char[] UrlTrimmedEndChars = { '.', ',', ';', ':', '!', '?', ')', ']', '\'', '"' };
@@ -51,6 +54,7 @@ public static partial class TextSegmenter
         (CompanyNumberRegex, CandidateKind.Number),
         (PhoneRegex, CandidateKind.Phone),
         (DateRegex, CandidateKind.Date),
+        (TimeRegex, CandidateKind.Time),
         (AmountRegex, CandidateKind.Amount),
         (NumberedReferenceRegex, CandidateKind.Reference),
         (MeasureRegex, CandidateKind.Measure),
@@ -186,6 +190,15 @@ public static partial class TextSegmenter
                     pieces.AddRange(RecognizeFitting(before, contextLabel, data));
 
                     var label = CleanLabel(before);
+
+                    // « Prise de poste : 23/11/2026 à 08:30 » : a time or a date after another value of the line, with
+                    // only a small word between them, belongs to the same label
+                    if (previousEnd > 0 && label.Length > 0 && (kind == CandidateKind.Time || kind == CandidateKind.Date)
+                        && LinkingWords.Contains(label.ToLowerInvariant()) && pieces.LastOrDefault(piece => piece.Kind != CandidateKind.Text) is { } previous)
+                    {
+                        label = previous.Label;
+                    }
+
                     var pieceValue = kind switch
                     {
                         CandidateKind.Number => value.Replace(" ", string.Empty, StringComparison.Ordinal),
@@ -407,6 +420,10 @@ public static partial class TextSegmenter
 
     [GeneratedRegex(@"(?<!\d)(?:\d{4}-\d{2}-\d{2}|\d{1,2}[/.\-]\d{1,2}[/.\-](?:\d{4}|\d{2}))(?!\d)", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex DateRegex();
+
+    // A time of day: « 08:30 », « 8h30 », « 14 h 30 », « 14h »; never « 151,67 heures » nor « 24h »
+    [GeneratedRegex(@"(?<![\d:,.\p{L}])(?:[01]?\d|2[0-3])(?::[0-5]\d|\s?[hH](?:\s?[0-5]\d)?)(?![\d:\p{L}])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex TimeRegex();
 
     [GeneratedRegex(@"(?:[€$£] ?\d{1,3}(?:[   .,]\d{3})*(?:[.,]\d{1,2})?|\d{1,3}(?:[   .]\d{3})*(?:[.,]\d{1,2})? ?(?:€|EUR|\$|USD|£))", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex AmountRegex();

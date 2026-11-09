@@ -14,7 +14,10 @@ public sealed class TextSegmenterTests
     [InlineData("+33 6 12 34 56 78", "+33 6 12 34 56 78", CandidateKind.Phone, "")]
     [InlineData("Livraison prévue le 12/10/2026", "12/10/2026", CandidateKind.Date, "Livraison prévue le")]
     [InlineData("Date : 2026-10-05", "2026-10-05", CandidateKind.Date, "Date")]
-    [InlineData("Rendez-vous à 14h30 le 05.10.26", "05.10.26", CandidateKind.Date, "Rendez-vous à 14h30 le")]
+    [InlineData("Rendez-vous à 14h30 le 05.10.26", "05.10.26", CandidateKind.Date, "Rendez-vous à")]
+    [InlineData("Rendez-vous à 14h30 le 05.10.26", "14h30", CandidateKind.Time, "Rendez-vous à")]
+    [InlineData("Prise de poste : 23/11/2026 à 08:30", "08:30", CandidateKind.Time, "Prise de poste")]
+    [InlineData("Enlèvement entre 8 h 30 et 12h", "8 h 30", CandidateKind.Time, "Enlèvement entre")]
     [InlineData("Total : 49,90 €", "49,90 €", CandidateKind.Amount, "Total")]
     [InlineData("Montant 1 250,00 €", "1 250,00 €", CandidateKind.Amount, "Montant")]
     [InlineData("Prix : $19.99", "$19.99", CandidateKind.Amount, "Prix")]
@@ -53,6 +56,15 @@ public sealed class TextSegmenterTests
         var pieces = TextSegmenter.Segment("Site : Reims - https://antoinebarthelemy.dev", ReferenceData.Empty);
 
         Assert.Contains(pieces, piece => piece.Value == "Site : Reims - https://antoinebarthelemy.dev");
+    }
+
+    [Theory]
+    [InlineData("Période du 01/10/2026 au 31/10/2026 - 151,67 heures")]
+    [InlineData("Livraison sous 24h")]
+    [InlineData("Version 2.10.3")]
+    public void Segment_NumbersThatAreNotTimes_AreNeverTimes(string line)
+    {
+        Assert.DoesNotContain(TextSegmenter.Segment(line, ReferenceData.Empty), piece => piece.Kind == CandidateKind.Time);
     }
 
     [Fact]
@@ -170,7 +182,7 @@ public sealed class TextSegmenterTests
     {
         var pieces = TextSegmenter.Segment("Commentaire : livrer après 18h", ReferenceData.Empty);
 
-        Assert.Equal(new[] { Piece("livrer après 18h", CandidateKind.Text, "Commentaire") }, pieces);
+        Assert.Contains(Piece("livrer après 18h", CandidateKind.Text, "Commentaire"), pieces);
     }
 
     [Fact]
@@ -192,7 +204,6 @@ public sealed class TextSegmenterTests
     }
 
     [Theory]
-    [InlineData("12:30")]
     [InlineData("Bonjour Antoine,")]
     [InlineData("code promo abc123 et A4")]
     public void Segment_KeepsLinesWithoutRecognizedValueAsText(string line)

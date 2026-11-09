@@ -85,6 +85,38 @@ public sealed class ChoiceMatcherTests
         Assert.Equal(isTicked ? ChoiceMatcher.Ticked : null, match.Candidate?.Value);
     }
 
+    [Fact]
+    public void Match_SexField_IsChosenFromTheOnlyTitleOnScreen()
+    {
+        var field = Choice("Sexe", "Masculin", "Féminin");
+
+        var match = ChoiceMatcher.Match(field, new[] { Candidate("Mme Camille Rousseau", "Salariée"), Candidate("Nathalie Perrin", string.Empty) });
+
+        Assert.True(match.IsConfident);
+        Assert.Equal("Féminin", match.Candidate?.Value);
+    }
+
+    [Fact]
+    public void Match_SexField_WithTitlesThatDisagree_ChoosesNothing()
+    {
+        var field = Choice("Sexe", "Masculin", "Féminin");
+
+        var match = ChoiceMatcher.Match(field, new[] { Candidate("M. Henri Lambert", "Bailleur"), Candidate("Mme Sophie Garnier", "Locataire") });
+
+        Assert.False(match.IsConfident);
+    }
+
+    [Fact]
+    public void Match_ClosedListWithoutKnownOptions_TriesTheShortWordThatOpensTheValue()
+    {
+        var field = Choice("Nature du contrat");
+
+        var match = ChoiceMatcher.Match(field, new[] { Candidate("CDD de 8 mois, période d'essai de 1 mois", "Contrat") });
+
+        Assert.True(match.IsConfident);
+        Assert.Equal("CDD", match.Candidate?.Value);
+    }
+
     private static FormField Choice(string label, params string[] options)
     {
         return new FormField { Id = "choice", Label = label, Kind = FieldKind.Choice, HasValue = false, Options = options };

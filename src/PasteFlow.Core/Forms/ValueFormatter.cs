@@ -48,6 +48,7 @@ public static partial class ValueFormatter
                 CandidateKind.Amount => AdaptAmount(value, format) ?? value,
                 CandidateKind.Number => AdaptSocialSecurityNumber(value, format) ?? value,
                 CandidateKind.Measure => AdaptMeasure(value, format) ?? value,
+                CandidateKind.Time => AdaptTime(value, format) ?? value,
                 _ => value,
             };
         }
@@ -63,6 +64,21 @@ public static partial class ValueFormatter
         return value.Length == 15 && SensitiveFormats.IsFrenchSocialSecurityNumber(value) && ThirteenDigitsRegex().IsMatch(format)
             ? value[..13]
             : null;
+    }
+
+    // A time is written « 08:30 », what time fields accept everywhere, or « 08h30 » when the field shows it so
+    private static string? AdaptTime(string value, string format)
+    {
+        var time = TimeValueRegex().Match(value);
+        if (!time.Success)
+        {
+            return null;
+        }
+
+        var hours = int.Parse(time.Groups["hours"].Value, CultureInfo.InvariantCulture);
+        var minutes = time.Groups["minutes"].Success ? time.Groups["minutes"].Value : "00";
+        var separator = TimeWithHRegex().IsMatch(format) ? "h" : ":";
+        return $"{hours:00}{separator}{minutes}";
     }
 
     // « Surface habitable (m²) » already shows the unit: only the number is written
@@ -270,4 +286,10 @@ public static partial class ValueFormatter
 
     [GeneratedRegex(@"^(?<number>\d+(?:[.,]\d+)?)\s?(?<unit>\S+)$", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex MeasureRegex();
+
+    [GeneratedRegex(@"^(?<hours>\d{1,2})\s?[:hH]\s?(?<minutes>[0-5]\d)?$", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex TimeValueRegex();
+
+    [GeneratedRegex(@"\b(?:hh?\s?h\s?mm|\d{1,2}h\d{2})\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
+    private static partial Regex TimeWithHRegex();
 }

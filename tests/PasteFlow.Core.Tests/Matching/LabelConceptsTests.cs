@@ -169,6 +169,23 @@ public sealed class LabelConceptsTests
         Assert.True(LabelConcepts.Similarity(LabelConcepts.From(field), LabelConcepts.From(label)) >= 0.85);
     }
 
+    [Theory]
+    [InlineData("Heure d'embauche")]
+    [InlineData("Horaire de livraison")]
+    public void ExpectedKinds_TimeField_ExpectsATime(string label)
+    {
+        Assert.Equal(new[] { CandidateKind.Time }, LabelConcepts.ExpectedKinds(LabelConcepts.From(label)));
+    }
+
+    [Theory]
+    [InlineData("Date d'embauche", "Prise de poste")]
+    [InlineData("Date d'embauche", "Prise de fonctions")]
+    [InlineData("Montant versé au salarié", "Net payé")]
+    public void Similarity_WordsOfTheTrade_AreLinked(string field, string label)
+    {
+        Assert.True(LabelConcepts.Similarity(LabelConcepts.From(field), LabelConcepts.From(label)) > 0);
+    }
+
     [Fact]
     public void ExpectedKinds_WithoutClue_ReturnsNothing()
     {

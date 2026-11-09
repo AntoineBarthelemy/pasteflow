@@ -135,6 +135,26 @@ public static class LabelConcepts
     /// </summary>
     public const string Measure = "measure";
 
+    /// <summary>
+    /// A time of day: « Heure d'embauche », « Horaire ».
+    /// </summary>
+    public const string Time = "time";
+
+    /// <summary>
+    /// The start of a job: « Date d'embauche », « Prise de poste ».
+    /// </summary>
+    public const string Hiring = "embauche";
+
+    /// <summary>
+    /// What was really paid: « Net payé », « Montant versé ».
+    /// </summary>
+    public const string Paid = "paid";
+
+    /// <summary>
+    /// The sex or the title of a person: « Sexe », « Civilité ».
+    /// </summary>
+    public const string Sex = "sexe";
+
     private static readonly Dictionary<string, string> Synonyms = BuildSynonyms(new Dictionary<string, string[]>
     {
         [Email] = new[] { "email", "mail", "courriel", "emails", "electronique" },
@@ -159,6 +179,10 @@ public static class LabelConcepts
         [JobTitle] = new[] { "poste", "fonction", "metier", "job", "profession", "jobtitle" },
         [Registration] = new[] { "immatriculation", "plaque" },
         [Measure] = new[] { "surface", "superficie", "poids", "distance", "kilometrage", "longueur", "largeur", "hauteur", "profondeur" },
+        [Time] = new[] { "heure", "horaire", "time", "hour" },
+        [Hiring] = new[] { "embauche", "hiring" },
+        [Paid] = new[] { "paye", "payee", "verse", "versee", "paid" },
+        [Sex] = new[] { "sexe", "genre", "civilite", "sex", "gender" },
         [Former] = new[] { "ancien", "ancienne", "anciens", "anciennes", "precedent", "precedente", "old", "former", "previous" },
     });
 
@@ -200,6 +224,7 @@ public static class LabelConcepts
         ["siren"] = new[] { CandidateKind.Number },
         [SocialSecurity] = new[] { CandidateKind.Number },
         [Measure] = new[] { CandidateKind.Measure },
+        [Time] = new[] { CandidateKind.Time },
         [Registration] = new[] { CandidateKind.Reference, CandidateKind.Number },
         ["siret"] = new[] { CandidateKind.Number },
     };
@@ -238,6 +263,7 @@ public static class LabelConcepts
     private static readonly HashSet<CandidateKind> ShapeKinds = new()
     {
         CandidateKind.Date, CandidateKind.Amount, CandidateKind.Email, CandidateKind.Phone, CandidateKind.Iban, CandidateKind.Url,
+        CandidateKind.Time,
     };
 
     // The values of these concepts have no particular shape: they are recognized through the official lists or
@@ -281,7 +307,7 @@ public static class LabelConcepts
     /// </summary>
     public static IReadOnlySet<string> ShapeConcepts { get; } = new HashSet<string>(StringComparer.Ordinal)
     {
-        Email, Phone, Website, Date, Amount,
+        Email, Phone, Website, Date, Amount, Time,
     };
 
     /// <summary>
@@ -546,6 +572,17 @@ public static class LabelConcepts
         if (word.Length > 0)
         {
             words.Add(word.ToString());
+        }
+
+        // « Prise de poste » and « prise de fonction » name the hiring, whatever the small word between
+        for (var index = words.Count - 3; index >= 0; index--)
+        {
+            if (words[index] == "prise" && (words[index + 1] == "de" || words[index + 1] == "d")
+                && words[index + 2] is "poste" or "fonction" or "fonctions")
+            {
+                words[index] = Hiring;
+                words.RemoveRange(index + 1, 2);
+            }
         }
 
         // Compound words such as "e mail" or "first name" are one word
