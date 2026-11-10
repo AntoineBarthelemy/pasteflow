@@ -98,7 +98,6 @@ internal sealed class SettingsWindow : ThemedWindow
         AddShortcut(shortcuts, "Remplir, ou coller au curseur", "Ctrl+Alt+V", isFirst: true);
         AddShortcut(shortcuts, "Annuler le dernier remplissage", "Ctrl+Alt+Z");
         AddShortcut(shortcuts, "Choisir une proposition", "Ctrl+Maj+1 à 3");
-        AddShortcut(shortcuts, "Lettres sur les valeurs de l'écran", "Ctrl+Alt+F");
         AddShortcut(shortcuts, "Menu de PasteFlow", "Ctrl+Alt+P");
         page.Children.Add(Ui.Card(shortcuts, new Thickness(16, 10, 16, 10)));
 

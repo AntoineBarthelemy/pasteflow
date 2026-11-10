@@ -3,9 +3,9 @@ using PasteFlow.Core.Picking;
 namespace PasteFlow.Core.Tests.Fakes;
 
 /// <summary>
-/// A text cursor, a list and a keyboard under the control of the tests.
+/// A text cursor, a list, a keyboard and a clipboard under the control of the tests.
 /// </summary>
-internal sealed class FakeCaret : ICaretReader, IPastePicker, ITextInserter
+internal sealed class FakeCaret : ICaretReader, IPastePicker, ITextInserter, IClipboardWriter
 {
     public CaretContext? Caret { get; set; }
 
@@ -19,6 +19,11 @@ internal sealed class FakeCaret : ICaretReader, IPastePicker, ITextInserter
     public List<string> InsertedTexts { get; } = new();
 
     public bool AcceptsText { get; set; } = true;
+
+    /// <summary>
+    /// Gets the texts put in the clipboard, with whether they were kept out of its history.
+    /// </summary>
+    public List<(string Text, bool IsSensitive)> CopiedTexts { get; } = new();
 
     public Task<CaretContext?> ReadCaretAsync(CancellationToken cancellationToken)
     {
@@ -39,5 +44,11 @@ internal sealed class FakeCaret : ICaretReader, IPastePicker, ITextInserter
         }
 
         return Task.FromResult(AcceptsText);
+    }
+
+    public Task<bool> CopyAsync(string text, bool isSensitive, CancellationToken cancellationToken)
+    {
+        CopiedTexts.Add((text, isSensitive));
+        return Task.FromResult(true);
     }
 }

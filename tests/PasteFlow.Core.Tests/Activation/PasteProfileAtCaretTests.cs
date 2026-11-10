@@ -97,6 +97,18 @@ public sealed class PasteProfileAtCaretTests : IDisposable
     }
 
     [Fact]
+    public void IbanChosenInTheList_IsCopiedOutOfTheHistoryOfTheClipboard()
+    {
+        _caret.Caret = Caret("Voici mon IBAN : ");
+        _caret.Choose = request => request.Suggestions.First(candidate => candidate.Value == Iban).Value;
+
+        Press();
+
+        Assert.Equal(new[] { Iban }, _caret.InsertedTexts);
+        Assert.Equal((Iban, true), Assert.Single(_caret.CopiedTexts));
+    }
+
+    [Fact]
     public void WordsAskingForTheIban_WithoutWindowsHello_LeaveItOut()
     {
         _presence.Answer = PresenceResult.Refused;
@@ -135,6 +147,7 @@ public sealed class PasteProfileAtCaretTests : IDisposable
             CaretReader = _caret,
             Picker = _caret,
             Inserter = _caret,
+            Clipboard = _caret,
             SensitiveGate = _gate,
         };
         service.Start(Hotkey.Default);

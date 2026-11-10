@@ -29,12 +29,13 @@ Feuille de route :
 13. [x] Liens entre les valeurs : chaque valeur est rattachée à la personne ou l'entreprise qu'elle concerne, et ce qui est déjà écrit dans la fenêtre remplie départage les valeurs du même type (« Bonjour Léa » : l'e-mail de Léa). Les champs « À », « Cc » et « Destinataires » attendent un e-mail
 14. [x] Coller n'importe où : hors formulaire (message, document, discussion), Ctrl+Alt+V colle au curseur la valeur désignée par les mots juste avant (« son téléphone : »), sinon ouvre une liste sous le curseur avec les 5 valeurs les plus probables et une recherche dans les fenêtres, coupée au bout des mots (Tab : phrase, ligne, liste entière à puces ou numérotée, page entière ; Ctrl+Maj+flèches : mot par mot)
 15. [x] Fiche perso et connexions : une fiche unique, chiffrée sur le PC (« Ma fiche… » dans le menu de l'icône), qui remplit les champs qui parlent de l'utilisateur (« Votre e-mail », page « Créer un compte ») et jamais ceux d'un autre (« E-mail du contact », page « Nouveau client ») ; en cas de doute avec l'écran, champ vide et les deux valeurs proposées. Plusieurs e-mails : celui utilisé sur le site, sinon le plus utilisé. Le sensible (IBAN, n° de sécu…) est reconnu à sa clé, jamais affiché en entier, et protégé par Windows Hello (30 min, reverrouillé au verrouillage du PC). La fiche apprend de ce que l'utilisateur remplit (deux fois, avec « Annuler »), démarre avec le compte Windows et l'identité Bitwarden, s'exporte avec un mot de passe. Pages de connexion : identifiant et mot de passe demandés à Bitwarden (même site que la barre d'adresse, liste de choix dans les applications), jamais stockés
-16. [x] Tout au clavier : chaque champ laissé à vérifier dit pourquoi (« 51500 ne correspond pas à Reims selon La Poste ») dans sa bulle et dans le récapitulatif ; Ctrl+Alt+P ouvre le menu de PasteFlow (une lettre par action) ; Ctrl+Alt+F met des lettres sur les valeurs visibles à l'écran, à la façon de Vimium, et taper les lettres d'une valeur la colle au curseur
+16. [x] Tout au clavier : chaque champ laissé à vérifier dit pourquoi (« 51500 ne correspond pas à Reims selon La Poste ») dans sa bulle et dans le récapitulatif ; Ctrl+Alt+P ouvre le menu de PasteFlow (une lettre par action)
 17. [x] Liens : l'adresse cachée derrière un lien, ou celle d'une page ouverte derrière, va seulement là où un lien est attendu (« Lien de la vidéo », « le lien : ») ; dans la liste de Ctrl+Alt+V, chercher le texte d'un lien propose aussi son adresse
 18. [x] Extension Chrome/Edge (dossier `extension`) : à l'appui du raccourci, PasteFlow lit aussi les 5 onglets consultés le plus récemment, même cachés derrière un autre onglet, avec ce qui est tapé dans leurs champs (jamais les mots de passe ni les cartes)
 19. [x] Installateur sans droits administrateur et mises à jour automatiques
 20. [x] Interface : un seul style pour toutes les fenêtres et popups (ivoire chaud et terre cuite, titres en serif, cartes arrondies, touches dessinées), clair ou sombre comme Windows ; menu en palette de commandes, ouvert par un clic sur l'icône ou Ctrl+Alt+P
-21. [ ] Plus tard : envoi optionnel vers l'historique Win+V, choix des raccourcis
+21. [x] Presse-papier : chaque valeur collée au curseur par Ctrl+Alt+V est aussi copiée, comme une copie faite à la main : Ctrl+V la recolle et l'historique Win+V la garde (une valeur sensible, comme un IBAN, reste hors de l'historique et de la synchronisation)
+22. [ ] Plus tard : choix des raccourcis
 
 Les informations à coller viennent de **sources** interchangeables (interface commune posée à l'étape 4). Sources prévues :
 
@@ -94,11 +95,10 @@ Raccourcis :
 | Raccourci | Action |
 |---|---|
 | Ctrl+Alt+V | Remplit le formulaire de la fenêtre active |
-| Ctrl+Alt+V hors formulaire | Colle au curseur, ou ouvre la liste : 1 à 5 ou flèches + Entrée, lettres pour chercher, Tab pour la phrase, la ligne toute la liste à puces ou numérotée ou toute la page, Ctrl+Maj+flèches pour ajuster, Échap pour annuler |
+| Ctrl+Alt+V hors formulaire | Colle au curseur, ou ouvre la liste : 1 à 5 ou flèches + Entrée, lettres pour chercher, Tab pour la phrase, la ligne toute la liste à puces ou numérotée ou toute la page, Ctrl+Maj+flèches pour ajuster, Échap pour annuler. La valeur collée reste aussi dans le presse-papier (Ctrl+V, Win+V) |
 | Ctrl+Alt+V (2e appui en moins de 8 s) | Remplace aussi les champs déjà remplis, quand la valeur trouvée est sûre |
 | Ctrl+Alt+Z | Annule le dernier remplissage : vide les champs remplis par l'outil et remet les valeurs remplacées, sauf les champs modifiés depuis |
 | Ctrl+Maj+1, 2, 3 | Dans un champ encadré en orange, choisit une des valeurs proposées (actif seulement quand la bulle est affichée) |
-| Ctrl+Alt+F | Met des lettres (F, J, D, K… ou deux lettres) sur les valeurs visibles à l'écran : taper les lettres colle la valeur au curseur, Retour arrière efface une lettre, Échap annule |
 | Ctrl+Alt+P | Ouvre le menu de PasteFlow au clavier : F Ma fiche, A annuler le dernier ajout à la fiche, B Bitwarden, P Paramètres, H effacer l'historique, U mise à jour, J journal des erreurs, Q Quitter |
 
 Clic sur l'icône près de l'horloge (ou Ctrl+Alt+P) : le même menu, une lettre par action. « Ma fiche… » (voir, corriger, exporter ou importer ses infos), « Déverrouiller Bitwarden… », « Paramètres… » (prudence, apprentissage, démarrage avec Windows), « Effacer l'historique… » (avec confirmation), « Quitter ».

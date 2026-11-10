@@ -45,6 +45,7 @@ public sealed class PasteAtCaretTests : IDisposable
         Assert.Null(_caret.ShownRequest);
         Assert.Empty(_fields.WrittenValues);
         Assert.Equal("Collé : 06 12 48 30 77 (Claude)", Assert.Single(_notifier.Messages));
+        Assert.Equal(("06 12 48 30 77", false), Assert.Single(_caret.CopiedTexts));
     }
 
     [Fact]
@@ -90,6 +91,7 @@ public sealed class PasteAtCaretTests : IDisposable
 
         Assert.Equal(new[] { "06 12 48 30 77" }, _caret.InsertedTexts);
         Assert.Empty(_notifier.Messages);
+        Assert.Equal(("06 12 48 30 77", false), Assert.Single(_caret.CopiedTexts));
     }
 
     [Fact]
@@ -101,6 +103,7 @@ public sealed class PasteAtCaretTests : IDisposable
         Press();
 
         Assert.Equal(new[] { "agenda d'Hugo" }, _caret.InsertedTexts);
+        Assert.Equal(("agenda d'Hugo", false), Assert.Single(_caret.CopiedTexts));
     }
 
     [Fact]
@@ -112,6 +115,7 @@ public sealed class PasteAtCaretTests : IDisposable
 
         Assert.Empty(_caret.InsertedTexts);
         Assert.Empty(_notifier.Messages);
+        Assert.Empty(_caret.CopiedTexts);
     }
 
     [Fact]
@@ -124,6 +128,7 @@ public sealed class PasteAtCaretTests : IDisposable
         Press();
 
         Assert.Equal("Impossible d'écrire à cet endroit.", Assert.Single(_notifier.Messages));
+        Assert.Empty(_caret.CopiedTexts);
     }
 
     [Fact]
@@ -176,6 +181,7 @@ public sealed class PasteAtCaretTests : IDisposable
             CaretReader = _caret,
             Picker = _caret,
             Inserter = _caret,
+            Clipboard = _caret,
         };
         service.Start(Hotkey.Default);
 

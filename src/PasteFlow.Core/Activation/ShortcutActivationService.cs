@@ -159,6 +159,12 @@ public sealed class ShortcutActivationService : IDisposable
     public ITextInserter? Inserter { get; set; }
 
     /// <summary>
+    /// Gets or sets the clipboard that keeps each value pasted at the cursor, so that Ctrl+V pastes it again and the
+    /// history of Windows (Win+V) shows it; without it, the clipboard is left untouched.
+    /// </summary>
+    public IClipboardWriter? Clipboard { get; set; }
+
+    /// <summary>
     /// Starts listening to the given shortcut.
     /// </summary>
     /// <param name="hotkey">The shortcut to listen to.</param>
@@ -571,6 +577,11 @@ public sealed class ShortcutActivationService : IDisposable
         {
             var value = ValueFormatter.Adapt(sure.Value, sure.Kind, field);
             var isPasted = await Inserter.InsertAsync(value, cancellationToken);
+            if (isPasted)
+            {
+                await CopyToClipboardAsync(value, isSensitive: false, cancellationToken);
+            }
+
             _notifier.Notify(isPasted ? $"Collé : {FillReport.Shorten(value, MaxNotifiedLength)} ({sure.SourceName})" : CannotPasteMessage);
             return true;
         }
@@ -607,9 +618,35 @@ public sealed class ShortcutActivationService : IDisposable
             Links = screenCandidates.Where(candidate => candidate.IsLinkAddress).ToList(),
         };
         var chosen = await Picker.PickAsync(request, cancellationToken);
-        if (chosen is not null && !await Inserter.InsertAsync(chosen, cancellationToken))
+        if (chosen is null)
+        {
+            return;
+        }
+
+        if (!await Inserter.InsertAsync(chosen, cancellationToken))
         {
             _notifier.Notify(CannotPasteMessage);
+            return;
+        }
+
+        var isSensitive = profileCandidates.Concat(screenCandidates)
+            .Any(candidate => candidate.IsSensitive && string.Equals(candidate.Value, chosen, StringComparison.Ordinal));
+        await CopyToClipboardAsync(chosen, isSensitive, cancellationToken);
+    }
+
+    /// <summary>
+    /// Puts the value just pasted in the clipboard, as if the user had copied it: a clipboard held by another program
+    /// is not worth an error, the value is already pasted.
+    /// </summary>
+    /// <param name="value">The value pasted at the cursor.</param>
+    /// <param name="isSensitive">Whether the value must stay out of the history of the clipboard.</param>
+    /// <param name="cancellationToken">A token to cancel the writing.</param>
+    /// <returns>A task completed once the clipboard is written, or left as it was.</returns>
+    private async Task CopyToClipboardAsync(string value, bool isSensitive, CancellationToken cancellationToken)
+    {
+        if (Clipboard is { } clipboard)
+        {
+            _ = await clipboard.CopyAsync(value, isSensitive, cancellationToken);
         }
     }
 

@@ -19,10 +19,9 @@ public sealed class HotkeyTests
     }
 
     [Fact]
-    public void DefaultMenuAndLabels_AreControlAltPAndF()
+    public void DefaultMenu_IsControlAltP()
     {
         Assert.Equal("Ctrl+Alt+P", Hotkey.DefaultMenu.ToString());
-        Assert.Equal("Ctrl+Alt+F", Hotkey.DefaultLabels.ToString());
     }
 
     [Fact]

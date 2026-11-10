@@ -55,16 +55,6 @@ public sealed record Hotkey
     public static Hotkey DefaultMenu { get; } = new(KeyModifiers.Control | KeyModifiers.Alt, 'P');
 
     /// <summary>
-    /// Gets the default shortcut that puts letters on the values seen on screen, to paste one by typing its letters:
-    /// Ctrl+Alt+F.
-    /// </summary>
-    /// <remarks>
-    /// On a French keyboard, Ctrl+Alt is AltGr: the letters of these shortcuts give no character with AltGr, unlike
-    /// E (€).
-    /// </remarks>
-    public static Hotkey DefaultLabels { get; } = new(KeyModifiers.Control | KeyModifiers.Alt, 'F');
-
-    /// <summary>
     /// Gets the modifier keys that must be held down.
     /// </summary>
     public KeyModifiers Modifiers { get; }

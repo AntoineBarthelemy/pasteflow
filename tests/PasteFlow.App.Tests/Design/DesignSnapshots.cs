@@ -5,7 +5,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using PasteFlow.App.Design;
 using PasteFlow.App.Highlights;
-using PasteFlow.App.Hints;
 using PasteFlow.App.Logins;
 using PasteFlow.App.Notifications;
 using PasteFlow.App.Picking;
@@ -16,7 +15,6 @@ using PasteFlow.App.Tests.TestWindows;
 using PasteFlow.App.Tray;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Forms;
-using PasteFlow.Core.Hints;
 using PasteFlow.Core.Logins;
 using PasteFlow.Core.Picking;
 using PasteFlow.Core.Profile;
@@ -52,7 +50,6 @@ public sealed class DesignSnapshots
         ["erreur"] = "4",
         ["liste"] = "5",
         ["recapitulatif"] = "5",
-        ["lettres"] = "5",
     };
 
     [SkippableFact]
@@ -126,19 +123,6 @@ public sealed class DesignSnapshots
             picker.CancelsWhenDeactivated = false;
             return picker;
         });
-        Snap(theme, "lettres", () => new HintOverlayWindow(
-            new[]
-            {
-                Target("lea.martin@atelier-nova.fr", "F", 40, 40),
-                Target("06 12 48 30 77", "J", 40, 90),
-                Target("Atelier Nova", "D", 40, 140),
-            },
-            new Rect(0, 0, 420, 200)));
-    }
-
-    private static HintTarget Target(string value, string code, double left, double top)
-    {
-        return new HintTarget { Value = value, Code = code, Place = new ScreenText { Text = value, Left = left, Top = top, Width = 200, Height = 20 } };
     }
 
     private static ProfileBook Book()
