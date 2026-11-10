@@ -66,6 +66,46 @@ public sealed class RealScreenScenarioTests : IDisposable
     }
 
     [Fact]
+    public void Fill_ConsignmentNote_GivesEachRoleItsOwnNameAndAddress()
+    {
+        // Lettre de voiture (arrêté du 9 novembre 1999, article 4): three companies and three addresses in one mail.
+        // The name of whoever signs the mail is never the shipper, and an address field gets the whole address
+        const string Screen = """
+            Bonjour,
+
+            Je vous confirme l'enlèvement de jeudi.
+
+            Transporteur : Transports Vallée de la Vesle, 14 route de Châlons, 51420 Witry-lès-Reims, SIREN 482 159 365
+            Expéditeur : Verrerie Champenoise
+            Lieu de chargement : 3 rue Clément Ader, 51370 Saint-Brice-Courcelles
+            Destinataire : Épicerie Fine Morel
+            Lieu de déchargement : 22 rue de la République, 69002 Lyon
+            Prise en charge : 12/11/2026 à 8h30
+            Marchandise : 3 palettes de verrerie, 905 kg
+
+            Cordialement,
+            Camille Roux
+            """;
+        var form = new[]
+        {
+            TestFields.Text("exp", "Nom de l'expéditeur"),
+            TestFields.Text("charg", "Adresse complète du lieu de chargement"),
+            TestFields.Text("dest", "Nom du destinataire"),
+            TestFields.Text("dech", "Adresse complète du lieu de déchargement"),
+            TestFields.Text("adrtr", "Adresse du transporteur"),
+        };
+
+        Fill(form, Screen);
+
+        Assert.Equal("Verrerie Champenoise", _fields.WrittenValues.GetValueOrDefault("exp"));
+        Assert.Equal("3 rue Clément Ader, 51370 Saint-Brice-Courcelles", _fields.WrittenValues.GetValueOrDefault("charg"));
+        Assert.Equal("Épicerie Fine Morel", _fields.WrittenValues.GetValueOrDefault("dest"));
+        Assert.Equal("22 rue de la République, 69002 Lyon", _fields.WrittenValues.GetValueOrDefault("dech"));
+        Assert.Equal("14 route de Châlons, 51420 Witry-lès-Reims", _fields.WrittenValues.GetValueOrDefault("adrtr"));
+        Assert.DoesNotContain("Camille Roux", _fields.WrittenValues.Values);
+    }
+
+    [Fact]
     public void Fill_WithASingleNameField_PutsTheWholeName()
     {
         Fill(new[] { TestFields.Text("name", "Nom"), TestFields.Text("email", "Email") }, Signature);

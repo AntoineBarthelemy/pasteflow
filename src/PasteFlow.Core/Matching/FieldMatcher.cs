@@ -238,9 +238,12 @@ public static class FieldMatcher
             ? context.ChooseAmong(eligible)
             : new HashSet<string>(StringComparer.Ordinal);
 
+        // « Expéditeur : Verrerie Champenoise » on screen: the name of whoever signs the mail is not the only choice
+        var isRoleNamed = eligible.Exists(candidate => IsNameOfTheRole(candidate, clues));
+
         // A value found several times keeps its best score: it is one choice, not several
         return eligible
-            .Select(candidate => (Candidate: candidate, Score: Score(candidate, clues, distinctValuesByKind, pointedValues)))
+            .Select(candidate => (Candidate: candidate, Score: Score(candidate, clues, distinctValuesByKind, pointedValues, isRoleNamed)))
             .Where(scored => scored.Score > 0 && (!takenValues.Contains(scored.Candidate.Value) || HasOwnLabel(scored.Candidate, clues, takenValues)))
             .GroupBy(scored => scored.Candidate.Value, StringComparer.Ordinal)
             .Select(group => group.MaxBy(scored => scored.Score))
@@ -309,12 +312,22 @@ public static class FieldMatcher
             && clues.Similarity(LabelConcepts.From(candidate.Label)) >= OwnLabelSimilarity;
     }
 
+    // « Expéditeur : Verrerie Champenoise » names who has the role; a value with digits is an address or a number
+    private static bool IsNameOfTheRole(Candidate candidate, FieldClues clues)
+    {
+        return !candidate.Value.Any(char.IsDigit) && clues.NamesItsRole(candidate.Label);
+    }
+
     private static double Score(
         Candidate candidate,
         FieldClues clues,
         Dictionary<CandidateKind, int> distinctValuesByKind,
-        IReadOnlySet<string> pointedValues)
+        IReadOnlySet<string> pointedValues,
+        bool isRoleNamed)
     {
+        var labelConcepts = LabelConcepts.From(candidate.Label);
+        var isNameOfTheRole = IsNameOfTheRole(candidate, clues);
+        var isOtherThanRole = isRoleNamed && !isNameOfTheRole;
         double score;
         if (clues.ExpectedKinds.Count == 0 || candidate.Kind == CandidateKind.Text)
         {
@@ -330,18 +343,18 @@ public static class FieldMatcher
             {
                 score -= LinkPenalty;
             }
-            else if (distinctValuesByKind.GetValueOrDefault(candidate.Kind) == 1)
+            else if (!isOtherThanRole && distinctValuesByKind.GetValueOrDefault(candidate.Kind) == 1)
             {
+                // When the screen says who has the role and it is not this value, it is neither unique nor pointed to
                 score += UniqueKindBonus;
             }
-            else if (pointedValues.Contains(candidate.Value))
+            else if (!isOtherThanRole && pointedValues.Contains(candidate.Value))
             {
                 score += ContextBonus;
             }
         }
 
-        var labelConcepts = LabelConcepts.From(candidate.Label);
-        score += LabelWeight * clues.Similarity(labelConcepts);
+        score += LabelWeight * (isNameOfTheRole ? 1 : clues.SimilarityOfLabel(candidate.Label));
         score -= RankPenalty * candidate.SourceRank;
 
         // A value said to be no longer true ("Ancienne adresse : …") is never sure, unless the field asks for it

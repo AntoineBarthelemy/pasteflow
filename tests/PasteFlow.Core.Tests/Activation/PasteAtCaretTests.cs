@@ -107,6 +107,20 @@ public sealed class PasteAtCaretTests : IDisposable
     }
 
     [Fact]
+    public void Press_WhenTheUserChoosesAnIbanReadOnScreen_KeepsItOutOfTheClipboardHistory()
+    {
+        // Directive of 10/11/2026: a sensitive value, such as an IBAN, stays out of the history Win+V, wherever it is read
+        _windows = new[] { new WindowText { Title = "RIB du fournisseur", Rank = 1, Text = "Titulaire : Menuiserie Lefort SARL\nIBAN : FR76 3000 6000 0112 3456 7890 189" } };
+        _caret.Caret = Caret("Le RIB de Lefort : ");
+        _caret.Choose = request => request.Suggestions.First(candidate => candidate.Kind == CandidateKind.Iban).Value;
+
+        Press();
+
+        Assert.Equal(new[] { "FR76 3000 6000 0112 3456 7890 189" }, _caret.InsertedTexts);
+        Assert.Equal(("FR76 3000 6000 0112 3456 7890 189", true), Assert.Single(_caret.CopiedTexts));
+    }
+
+    [Fact]
     public void Press_WhenTheUserCancels_PastesNothing()
     {
         _caret.Caret = Caret("Tiens : ");

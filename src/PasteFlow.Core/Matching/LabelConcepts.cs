@@ -203,7 +203,7 @@ public static class LabelConcepts
         "de", "du", "des", "la", "le", "les", "l", "d", "un", "une", "a", "au", "aux", "en", "et", "ou", "par", "pour", "sur",
         "votre", "vos", "ton", "tes", "mon", "mes", "son", "ses", "n", "no", "num", "numero", "number", "nr",
         "the", "of", "your", "my", "an", "and", "or", "for", "please", "veuillez", "saisir", "saisissez",
-        "entrez", "enter", "indiquez", "obligatoire", "required", "optionnel", "optional",
+        "entrez", "enter", "indiquez", "obligatoire", "required", "optionnel", "optional", "complete",
     };
 
     private static readonly Dictionary<string, CandidateKind[]> ExpectedKindsByConcept = new(StringComparer.Ordinal)
@@ -260,6 +260,11 @@ public static class LabelConcepts
 
     private static readonly HashSet<string> AddressWords = new(StringComparer.Ordinal) { "adresse", "address" };
 
+    // Words of a place in general, and words that name the commune itself
+    private static readonly HashSet<string> PlaceWords = new(StringComparer.Ordinal) { "lieu", "lieux", "place", "endroit" };
+
+    private static readonly HashSet<string> CommuneWords = new(StringComparer.Ordinal) { "ville", "city", "town", "commune", "localite" };
+
     private static readonly HashSet<CandidateKind> ShapeKinds = new()
     {
         CandidateKind.Date, CandidateKind.Amount, CandidateKind.Email, CandidateKind.Phone, CandidateKind.Iban, CandidateKind.Url,
@@ -294,6 +299,7 @@ public static class LabelConcepts
         "patiente", "salarie", "salariee", "proprietaire", "titulaire", "assure", "assuree", "beneficiaire", "conjoint",
         "conjointe", "eleve", "acheteur", "acheteuse", "vendeur", "vendeuse", "mandataire", "gerant", "gerante",
         "signataire", "representant", "representante", "tuteur", "tutrice", "expediteur", "expeditrice",
+        "remettant", "remettante", "transporteur", "transporteurs", "destinataire", "destinataires",
     };
 
     private static readonly HashSet<string> PersonNameConcepts = new(StringComparer.Ordinal)
@@ -346,6 +352,12 @@ public static class LabelConcepts
             if (!words.Contains("code"))
             {
                 _ = concepts.Remove(PostalCode);
+            }
+
+            // « Adresse complète du lieu de chargement » asks for the whole address of a place, not its commune
+            if (words.Exists(PlaceWords.Contains) && !words.Exists(CommuneWords.Contains))
+            {
+                _ = concepts.Remove(City);
             }
         }
 
@@ -458,6 +470,47 @@ public static class LabelConcepts
         }
 
         return kinds;
+    }
+
+    /// <summary>
+    /// Tells whether a label names, alone, the role a field of names asks about: « Expéditeur » for « Nom de
+    /// l'expéditeur », « Salariée » for « Nom du salarié ».
+    /// </summary>
+    /// <param name="fieldConcepts">The concepts of the label of the field.</param>
+    /// <param name="label">The label of a value.</param>
+    /// <returns><see langword="true"/> if the value is labeled with the role of the field and nothing else.</returns>
+    public static bool NamesSameRole(IReadOnlySet<string> fieldConcepts, string label)
+    {
+        ArgumentNullException.ThrowIfNull(fieldConcepts);
+        ArgumentNullException.ThrowIfNull(label);
+
+        var roles = fieldConcepts.Where(RoleWords.Contains).Select(Fold).ToHashSet(StringComparer.Ordinal);
+        if (roles.Count == 0 || !fieldConcepts.All(concept => RoleWords.Contains(concept) || PersonNameConcepts.Contains(concept)))
+        {
+            return false;
+        }
+
+        // Word by word: « Destinataire » alone, read as the recipients of a message by From, names a role here
+        var labelConcepts = Words(label)
+            .Select(word => Synonyms.TryGetValue(word, out var known) ? known : word)
+            .Where(concept => !StopWords.Contains(concept))
+            .ToList();
+        return labelConcepts.Count > 0
+            && labelConcepts.TrueForAll(concept => RoleWords.Contains(concept) || PersonNameConcepts.Contains(concept))
+            && roles.All(role => labelConcepts.Exists(concept => Fold(concept) == role));
+    }
+
+    /// <summary>
+    /// Tells whether a label names a place in general, not its commune nor its address: « Lieu de chargement ».
+    /// </summary>
+    /// <param name="label">The label of a value.</param>
+    /// <returns><see langword="true"/> if the label talks about a place.</returns>
+    public static bool NamesAPlace(string label)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+
+        var words = Words(label);
+        return words.Exists(PlaceWords.Contains) && !words.Exists(CommuneWords.Contains) && !words.Exists(AddressWords.Contains);
     }
 
     /// <summary>

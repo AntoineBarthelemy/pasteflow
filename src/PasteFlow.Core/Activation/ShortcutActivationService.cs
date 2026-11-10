@@ -6,6 +6,7 @@ using PasteFlow.Core.Logins;
 using PasteFlow.Core.Matching;
 using PasteFlow.Core.Notifications;
 using PasteFlow.Core.Picking;
+using PasteFlow.Core.Profile;
 using PasteFlow.Core.Reference;
 using PasteFlow.Core.Screen;
 using PasteFlow.Core.Security;
@@ -579,7 +580,7 @@ public sealed class ShortcutActivationService : IDisposable
             var isPasted = await Inserter.InsertAsync(value, cancellationToken);
             if (isPasted)
             {
-                await CopyToClipboardAsync(value, isSensitive: false, cancellationToken);
+                await CopyToClipboardAsync(value, SensitiveFormats.IsSensitiveValue(value), cancellationToken);
             }
 
             _notifier.Notify(isPasted ? $"Collé : {FillReport.Shorten(value, MaxNotifiedLength)} ({sure.SourceName})" : CannotPasteMessage);
@@ -629,7 +630,8 @@ public sealed class ShortcutActivationService : IDisposable
             return;
         }
 
-        var isSensitive = profileCandidates.Concat(screenCandidates)
+        // An IBAN read on screen is as sensitive as the one of the profile: its format tells, wherever it comes from
+        var isSensitive = SensitiveFormats.IsSensitiveValue(chosen) || profileCandidates.Concat(screenCandidates)
             .Any(candidate => candidate.IsSensitive && string.Equals(candidate.Value, chosen, StringComparison.Ordinal));
         await CopyToClipboardAsync(chosen, isSensitive, cancellationToken);
     }

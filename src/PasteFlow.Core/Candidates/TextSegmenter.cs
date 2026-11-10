@@ -163,7 +163,16 @@ public static partial class TextSegmenter
                 pieces.AddRange(SegmentLine(role.Values, role.Label, data).Select(piece => piece with { Label = WithRole(role.Label, piece.Label) }));
 
                 // The person or the company named first, before its address: « M. Julien Masson, 22 avenue de Laon… »
-                pieces.AddRange(RecognizeFitting(role.Values.Split(',')[0], role.Label, data));
+                var first = role.Values.Split(',')[0].Trim();
+                var named = RecognizeFitting(first, role.Label, data).ToList();
+                pieces.AddRange(named);
+
+                // A name that no list knows, before its address: « Transporteur : Transports Vallée de la Vesle, 14 route… »
+                if (named.Count == 0 && first.Length > 0 && first.Length < role.Values.Trim().Length
+                    && !first.Any(char.IsDigit) && !StreetRegex().IsMatch(first))
+                {
+                    pieces.Add(Piece(first, CandidateKind.Text, role.Label));
+                }
 
                 // Its postal address, from the street to the postal code and the commune: « 22 avenue de Laon, 51100 Reims »
                 if (AddressIn(role.Values) is { } address)

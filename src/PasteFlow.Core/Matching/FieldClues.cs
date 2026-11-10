@@ -19,9 +19,11 @@ public sealed partial class FieldClues
 
     private readonly IReadOnlySet<string>[] _conceptSets;
     private readonly string? _headConcept;
+    private readonly IReadOnlySet<string> _labelConcepts;
 
-    private FieldClues(IReadOnlySet<string>[] conceptSets, IReadOnlySet<CandidateKind> expectedKinds, bool isConfirmation, bool asksForNumber, string? headConcept)
+    private FieldClues(IReadOnlySet<string>[] conceptSets, IReadOnlySet<CandidateKind> expectedKinds, bool isConfirmation, bool asksForNumber, string? headConcept, IReadOnlySet<string> labelConcepts)
     {
+        _labelConcepts = labelConcepts;
         _headConcept = headConcept;
         _conceptSets = conceptSets;
         ExpectedKinds = expectedKinds;
@@ -97,7 +99,7 @@ public sealed partial class FieldClues
 
         var asksForNumber = LabelConcepts.AsksForNumber(field.Label) || LabelConcepts.AsksForNumber(technicalName);
 
-        return new FieldClues(conceptSets, expectedKinds, isConfirmation, asksForNumber, LabelConcepts.HeadConcept(field.Label));
+        return new FieldClues(conceptSets, expectedKinds, isConfirmation, asksForNumber, LabelConcepts.HeadConcept(field.Label), labelConcepts);
     }
 
     /// <summary>
@@ -110,6 +112,36 @@ public sealed partial class FieldClues
         ArgumentNullException.ThrowIfNull(concept);
 
         return _conceptSets.Any(concepts => concepts.Contains(concept));
+    }
+
+    /// <summary>
+    /// Tells whether a value is labeled with the role the field asks the name of, and nothing else: « Expéditeur :
+    /// Verrerie Champenoise » for « Nom de l'expéditeur ».
+    /// </summary>
+    /// <param name="label">The label of the value.</param>
+    /// <returns><see langword="true"/> if the label names the role of the field.</returns>
+    public bool NamesItsRole(string label)
+    {
+        return LabelConcepts.NamesSameRole(_labelConcepts, label);
+    }
+
+    /// <summary>
+    /// Measures how much the label of a value talks about the same thing as the field, a place standing for its
+    /// address when the field asks for one: « Lieu de chargement » for « Adresse complète du lieu de chargement ».
+    /// </summary>
+    /// <param name="label">The label of the value.</param>
+    /// <returns>A value from 0 (nothing in common) to 1 (same concepts).</returns>
+    public double SimilarityOfLabel(string label)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+
+        var concepts = LabelConcepts.From(label);
+        if (Mentions(LabelConcepts.Address) && !Mentions(LabelConcepts.City) && LabelConcepts.NamesAPlace(label))
+        {
+            concepts = concepts.Where(concept => concept != LabelConcepts.City).Append(LabelConcepts.Address).ToHashSet(StringComparer.Ordinal);
+        }
+
+        return Similarity(concepts);
     }
 
     /// <summary>
