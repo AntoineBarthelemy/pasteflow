@@ -21,6 +21,9 @@ public static class FreePaste
 
     private const string CaretFieldId = "caret";
 
+    // « voici son numéro » is a sentence; « Jean Martin » or an address typed by hand is a value
+    private const int MinSentenceWords = 3;
+
     /// <summary>
     /// Determines whether the cursor is in a text written alone rather than in a form.
     /// </summary>
@@ -42,7 +45,29 @@ public static class FreePaste
             .Where(field => (field.Kind == FieldKind.Text && !FillRules.IsSearchBox(field)) || field.Kind == FieldKind.Password)
             .ToList();
         var isInForm = caret.FocusedFieldId is { } id && textFields.Exists(field => string.Equals(field.Id, id, StringComparison.Ordinal));
-        return !isInForm || textFields.Count < 2;
+        if (!isInForm || textFields.Count < 2)
+        {
+            return true;
+        }
+
+        // A sentence being written in a box among others, as « Bonjour, voici son numéro de suivi : » in a message
+        // next to an internal note: the words before the cursor ask for a value (decision of 10/11/2026). A sign-in
+        // page and a box left empty or holding a short value stay a form, filled as a whole
+        return !textFields.Exists(field => field.Kind == FieldKind.Password) && IsWritingASentence(caret.TextBefore);
+    }
+
+    /// <summary>
+    /// Determines whether the text before the cursor is a sentence being written, not a value typed in a field.
+    /// </summary>
+    /// <param name="textBefore">The text of the field before the cursor.</param>
+    /// <returns><see langword="true"/> from three words on; otherwise <see langword="false"/>.</returns>
+    public static bool IsWritingASentence(string textBefore)
+    {
+        ArgumentNullException.ThrowIfNull(textBefore);
+
+        return textBefore
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+            .Count(word => word.Any(char.IsLetter)) >= MinSentenceWords;
     }
 
     /// <summary>

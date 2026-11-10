@@ -29,6 +29,37 @@ public sealed class FreePasteTests
     }
 
     [Fact]
+    public void IsFreeText_WhenASentenceIsBeingWrittenInABoxAmongOthers_ReturnsTrue()
+    {
+        var fields = new[] { TestFields.Text("message", "Message au client"), TestFields.Text("note", "Note interne") };
+        var caret = new CaretContext { IsEditable = true, FocusedFieldId = "message", TextBefore = "Bonjour, voici son numéro de suivi : " };
+
+        Assert.True(FreePaste.IsFreeText(fields, caret));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("Mar")]
+    [InlineData("Marie Lefèvre")]
+    [InlineData("14 avenue Jean")]
+    public void IsFreeText_WhenTheBoxHoldsAShortValue_StillFillsTheForm(string textBefore)
+    {
+        var fields = new[] { TestFields.Text("name", "Nom"), TestFields.Text("address", "Adresse") };
+        var caret = new CaretContext { IsEditable = true, FocusedFieldId = "name", TextBefore = textBefore };
+
+        Assert.False(FreePaste.IsFreeText(fields, caret));
+    }
+
+    [Fact]
+    public void IsFreeText_OnASignInPage_NeverPastesAtTheCursor()
+    {
+        var fields = new[] { TestFields.Text("username", "Identifiant"), TestFields.Password("password", "Mot de passe") };
+        var caret = new CaretContext { IsEditable = true, FocusedFieldId = "username", TextBefore = "mon nom de compte habituel" };
+
+        Assert.False(FreePaste.IsFreeText(fields, caret));
+    }
+
+    [Fact]
     public void IsFreeText_InTheIdentifierOfASignInPage_ReturnsFalse()
     {
         var fields = new[] { TestFields.Text("username", "Username"), TestFields.Password("password", "Password") };
