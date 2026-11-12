@@ -374,10 +374,26 @@ public sealed class ShortcutActivationService : IDisposable
 
         // A sign-in form first: the account saved for the site gives its identifier and its password
         var loginWatch = Stopwatch.StartNew();
-        var login = PasswordManager is { } manager && SensitiveGate is { } loginGate
-            ? await new LoginFiller(manager, loginGate, LoginPicker, _fieldWriter).FillAsync(fields, page, cancellationToken)
+        var loginFiller = PasswordManager is { IsInstalled: true } manager && SensitiveGate is { } loginGate
+            ? new LoginFiller(manager, loginGate, LoginPicker, _fieldWriter)
             : null;
+        var login = loginFiller is null ? null : await loginFiller.FillAsync(fields, page, cancellationToken);
         loginWatch.Stop();
+
+        // A sign-in page the password manager could not fill: its identifier and its password are never taken from the
+        // profile or the screen (directive of 12/11/2026), the user is told what to do in the password manager
+        var leftToManager = new HashSet<string>(StringComparer.Ordinal);
+        if (login is null && loginFiller is { IsLeftToManager: true } && LoginFiller.SignInFields(fields) is { } signIn)
+        {
+            _ = leftToManager.Add(signIn.Password.Id);
+            if (signIn.Identifier is { } leftIdentifier)
+            {
+                _ = leftToManager.Add(leftIdentifier.Id);
+            }
+
+            notes.Add(loginFiller.UnfilledNote);
+        }
+
         if (login is not null)
         {
             if (login.IdentifierField is { } identifierField)
@@ -410,6 +426,7 @@ public sealed class ShortcutActivationService : IDisposable
         var fillableFields = fields
             .Where(field => FillRules.CanFill(field) || (isReplacing && FillRules.CanReplace(field)))
             .Where(field => login?.IdentifierField is not { } written || written.Id != field.Id)
+            .Where(field => !leftToManager.Contains(field.Id))
             .ToList();
         var textFields = fields.Where(field => field.Kind == FieldKind.Text).ToList();
         var matches = FormMatcher.MatchAll(fillableFields, candidates, ReferenceData.Shared, Options, textFields, page);
@@ -561,7 +578,8 @@ public sealed class ShortcutActivationService : IDisposable
         }
 
         var caret = await CaretReader.ReadCaretAsync(cancellationToken);
-        if (caret is null || !FreePaste.IsFreeText(fields, caret))
+        var isFreeText = caret is not null && FreePaste.IsFreeText(fields, caret);
+        if (!isFreeText && fields.Count > 0)
         {
             return false;
         }
@@ -569,7 +587,15 @@ public sealed class ShortcutActivationService : IDisposable
         // The frames of a previous fill have nothing to do with this text
         _highlighter.Highlight(Array.Empty<FieldToCheck>());
 
-        var field = FreePaste.TargetField(caret);
+        // A window without any field, such as a terminal, where the cursor is not seen as a text box: the user
+        // chooses what to paste at the cursor rather than being told there is nothing to fill (directive of 12/11/2026)
+        if (!isFreeText)
+        {
+            await PickAtCaretAsync(FreePaste.NoFieldTarget(caret), candidates, cancellationToken);
+            return true;
+        }
+
+        var field = FreePaste.TargetField(caret!);
         candidates = candidates.Where(candidate => !FreePaste.IsTypedText(candidate, field)).ToList();
         var match = FormMatcher.MatchAll(new[] { field }, candidates, ReferenceData.Shared, Options, new[] { field }, CurrentPage())[0];
 

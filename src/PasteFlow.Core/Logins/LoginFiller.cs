@@ -37,6 +37,7 @@ public sealed class LoginFiller
     private readonly SensitiveGate _gate;
     private readonly ILoginPicker? _picker;
     private readonly IFieldWriter _writer;
+    private bool _hasAccounts;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LoginFiller"/> class.
@@ -55,6 +56,43 @@ public sealed class LoginFiller
         _gate = gate;
         _picker = picker;
         _writer = writer;
+    }
+
+    /// <summary>
+    /// Gets the sentence that tells the vault is locked.
+    /// </summary>
+    public static string LockedNote { get; } = "Page de connexion : Bitwarden est verrouillé dans PasteFlow. Déverrouille-le (Ctrl+Alt+P puis B), puis refais le raccourci.";
+
+    /// <summary>
+    /// Gets a value indicating whether the last form was a sign-in form left to the password manager that it could not
+    /// fill: its identifier and its password are then never taken from the profile or the screen (directive of
+    /// 12/11/2026), the user is told why instead.
+    /// </summary>
+    public bool IsLeftToManager { get; private set; }
+
+    /// <summary>
+    /// Gets why the last sign-in form was not filled, in a sentence for the user, or an empty string when the user
+    /// cancelled the choice of the account.
+    /// </summary>
+    public string UnfilledNote { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Gets the sentence that tells no account of the vault fits the page.
+    /// </summary>
+    /// <param name="page">The page being filled.</param>
+    /// <returns>The sentence, in French.</returns>
+    public static string NoAccountNoteFor(PageContext page)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+
+        if (page.Host.Length > 0)
+        {
+            return $"Page de connexion : aucun compte Bitwarden n'est enregistré pour {page.Host}. Ajoute cette adresse à ton entrée dans Bitwarden, puis refais le raccourci.";
+        }
+
+        return BrowserPrograms.Contains(page.Program)
+            ? "Page de connexion : PasteFlow n'a pas pu lire l'adresse de la page, il ne sait pas quel compte Bitwarden proposer."
+            : "Page de connexion : aucun compte Bitwarden ne porte le nom de ce programme.";
     }
 
     /// <summary>
@@ -104,9 +142,19 @@ public sealed class LoginFiller
         ArgumentNullException.ThrowIfNull(fields);
         ArgumentNullException.ThrowIfNull(page);
 
+        IsLeftToManager = false;
+        UnfilledNote = string.Empty;
         var signIn = SignInFields(fields);
-        if (!_manager.IsUnlocked || signIn is null || signIn.Value.Identifier is { HasValue: true })
+        if (signIn is null || signIn.Value.Identifier is { HasValue: true })
         {
+            return null;
+        }
+
+        // A sign-in page asks for the account of the site: the profile or the screen would only give a wrong one
+        IsLeftToManager = true;
+        if (!_manager.IsUnlocked)
+        {
+            UnfilledNote = LockedNote;
             return null;
         }
 
@@ -115,8 +163,11 @@ public sealed class LoginFiller
         var login = await ChooseLoginAsync(page, cancellationToken);
         if (login is null)
         {
+            UnfilledNote = _hasAccounts ? string.Empty : NoAccountNoteFor(page);
             return null;
         }
+
+        IsLeftToManager = false;
 
         // The identifier is not secret: it is written even if the password stays closed
         var identifier = identifierField is not null && login.UserName.Length > 0
@@ -170,12 +221,14 @@ public sealed class LoginFiller
     /// <returns>The account, or <see langword="null"/> if none fits or the user cancelled.</returns>
     private async Task<VaultLogin?> ChooseLoginAsync(PageContext page, CancellationToken cancellationToken)
     {
+        _hasAccounts = false;
         if (page.Host.Length > 0)
         {
             // Safety net: whatever the manager answers, only the accounts of this very site are kept
             var logins = (await _manager.FindLoginsForSiteAsync(page.Host, cancellationToken))
                 .Where(login => LoginSites.IsFor(login, page.Host))
                 .ToList();
+            _hasAccounts = logins.Count > 0;
             return logins.Count switch
             {
                 0 => null,
@@ -191,6 +244,7 @@ public sealed class LoginFiller
         }
 
         var named = await _manager.SearchLoginsAsync(page.Program, cancellationToken);
+        _hasAccounts = named.Count > 0;
         return named.Count == 0 ? null : await _picker.ChooseAsync(named, cancellationToken);
     }
 }

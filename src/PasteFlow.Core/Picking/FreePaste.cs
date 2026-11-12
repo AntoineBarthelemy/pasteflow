@@ -111,6 +111,19 @@ public static class FreePaste
         };
     }
 
+    /// <summary>
+    /// Describes the cursor of a window without any field, such as a terminal: the words of the element, if it can be
+    /// read, tell what the list should rank first.
+    /// </summary>
+    /// <param name="caret">Where the cursor is, or <see langword="null"/> when it cannot be read.</param>
+    /// <returns>A field standing for the cursor.</returns>
+    public static FormField NoFieldTarget(CaretContext? caret)
+    {
+        return caret is null
+            ? new FormField { Id = CaretFieldId, Label = string.Empty, Kind = FieldKind.Text, HasValue = false }
+            : TargetField(caret) with { Id = CaretFieldId };
+    }
+
     private static string WithoutColon(string label)
     {
         return label.Trim().TrimEnd(':', '：').TrimEnd();

@@ -160,6 +160,34 @@ public sealed class PasteAtCaretTests : IDisposable
     }
 
     [Fact]
+    public void Press_InATerminal_OpensTheListAndPastesTheChoice()
+    {
+        // Seen by Antoine on 12/11/2026: in Windows Terminal, the cursor is not a text box and the window has no field
+        _formReader.Fields = Array.Empty<PasteFlow.Core.Forms.FormField>();
+        _caret.Caret = new CaretContext { IsEditable = false, FieldLabel = "PowerShell" };
+        _caret.Choose = request => request.Suggestions.First(candidate => candidate.Value.Contains('@', StringComparison.Ordinal)).Value;
+
+        Press();
+
+        Assert.NotNull(_caret.ShownRequest);
+        Assert.Equal(new[] { "lea.martin@atelier-nova.fr" }, _caret.InsertedTexts);
+        Assert.Equal(("lea.martin@atelier-nova.fr", false), Assert.Single(_caret.CopiedTexts));
+        Assert.DoesNotContain(_notifier.Messages, message => message.Contains("Aucun champ", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Press_InAWindowWithoutFieldWhoseCursorCannotBeRead_StillOpensTheList()
+    {
+        _formReader.Fields = Array.Empty<PasteFlow.Core.Forms.FormField>();
+        _caret.Caret = null;
+
+        Press();
+
+        Assert.NotNull(_caret.ShownRequest);
+        Assert.Empty(_caret.InsertedTexts);
+    }
+
+    [Fact]
     public void Press_ClearsTheFramesOfAPreviousFill()
     {
         _caret.Caret = Caret("Tiens : ");

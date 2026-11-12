@@ -101,6 +101,46 @@ public sealed class LoginActivationTests : IDisposable
     }
 
     [Fact]
+    public void LockedVault_LeavesTheSignInToBitwardenAndSaysHowToUnlockIt()
+    {
+        // Seen by Antoine on 12/11/2026 on a sign-in page: the values of the profile were offered instead of the account
+        _manager.IsUnlocked = false;
+        _caret.Caret = new PasteFlow.Core.Picking.CaretContext { IsEditable = true, FocusedFieldId = "login", FieldLabel = "Adresse e-mail" };
+
+        _listener.SimulatePress();
+
+        Assert.Empty(_fields.WrittenValues);
+        Assert.Null(_caret.ShownRequest);
+        var report = Assert.Single(_notifier.Reports);
+        Assert.Equal(LoginFiller.LockedNote, Assert.Single(report.Notes));
+        Assert.Empty(report.FieldsToCheck);
+    }
+
+    [Fact]
+    public void NoAccountForTheSite_NamesTheSiteAndTakesNothingFromTheProfile()
+    {
+        _manager.Logins.Clear();
+        _caret.Caret = new PasteFlow.Core.Picking.CaretContext { IsEditable = true, FocusedFieldId = "login", FieldLabel = "Adresse e-mail" };
+
+        _listener.SimulatePress();
+
+        Assert.Empty(_fields.WrittenValues);
+        Assert.Null(_caret.ShownRequest);
+        Assert.Contains("github.com", Assert.Single(Assert.Single(_notifier.Reports).Notes), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BitwardenNotInstalled_TheIdentifierComesFromTheProfile()
+    {
+        _manager.IsInstalled = false;
+
+        _listener.SimulatePress();
+
+        Assert.Equal("antoine.b@orange.fr", _fields.WrittenValues["login"]);
+        Assert.Equal(0, _manager.PasswordReads);
+    }
+
+    [Fact]
     public void WithoutWindowsHello_ThePasswordIsLeftToTheUser()
     {
         _presence.Answer = PresenceResult.Refused;

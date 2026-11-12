@@ -10,6 +10,8 @@ internal sealed class FakePasswordManager : IPasswordManager
 {
     public bool IsUnlocked { get; set; } = true;
 
+    public bool IsInstalled { get; set; } = true;
+
     public List<VaultLogin> Logins { get; } = new();
 
     public Dictionary<string, string> Passwords { get; } = new(StringComparer.Ordinal);

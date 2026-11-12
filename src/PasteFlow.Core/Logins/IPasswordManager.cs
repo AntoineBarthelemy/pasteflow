@@ -15,6 +15,12 @@ public interface IPasswordManager
     bool IsUnlocked { get; }
 
     /// <summary>
+    /// Gets a value indicating whether the manager is set up on this computer: a sign-in page is then left to it, even
+    /// locked, rather than filled from the profile.
+    /// </summary>
+    bool IsInstalled => true;
+
+    /// <summary>
     /// Finds the accounts saved for a site.
     /// </summary>
     /// <param name="host">The host of the page, such as "github.com".</param>
