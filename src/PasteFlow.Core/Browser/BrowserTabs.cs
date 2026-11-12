@@ -125,8 +125,19 @@ public static class BrowserTabs
         {
             // A browser window is titled after its visible tab, such as "Gmail - Google Chrome"
             var title = tab.Title.Trim();
-            var isOnScreen = title.Length > 0 && windows.Any(window => window.Title.StartsWith(title, StringComparison.Ordinal));
-            if (isOnScreen || tab.Text.Trim().Length == 0)
+            var onScreen = title.Length > 0 ? merged.FindIndex(window => window.Title.StartsWith(title, StringComparison.Ordinal)) : -1;
+            if (onScreen >= 0)
+            {
+                // The window on screen keeps its own reading; the extension only gives the address its bar did not
+                if (merged[onScreen].Address.Length == 0 && PageAddress.HostOf(tab.Url).Length > 0)
+                {
+                    merged[onScreen] = merged[onScreen] with { Address = tab.Url };
+                }
+
+                continue;
+            }
+
+            if (tab.Text.Trim().Length == 0)
             {
                 continue;
             }

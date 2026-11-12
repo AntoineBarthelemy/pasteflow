@@ -20,10 +20,23 @@ internal sealed class KeyboardTextInserter : ITextInserter
     private const uint KeyEventUnicode = 0x4;
     private const ushort VirtualKeyShift = 0x10;
     private const ushort VirtualKeyReturn = 0x0D;
+    private const ushort VirtualKeyInsert = 0x2D;
+    private const uint KeyEventExtended = 0x1;
 
     private static readonly int[] ModifierKeys = { 0x10, 0x11, 0x12, 0x5B, 0x5C };
     private static readonly TimeSpan ReleaseTimeout = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan ReleasePollDelay = TimeSpan.FromMilliseconds(20);
+
+    private readonly IClipboardWriter? _clipboard;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="KeyboardTextInserter"/> class.
+    /// </summary>
+    /// <param name="clipboard">The clipboard a terminal is pasted from, or <see langword="null"/> to always type.</param>
+    public KeyboardTextInserter(IClipboardWriter? clipboard = null)
+    {
+        _clipboard = clipboard;
+    }
 
     /// <inheritdoc/>
     public async Task<bool> InsertAsync(string text, CancellationToken cancellationToken)
@@ -40,9 +53,38 @@ internal sealed class KeyboardTextInserter : ITextInserter
             return false;
         }
 
+        // A terminal is pasted into, as the user would with Shift+Insert: typed keys may be lost by it, and a line
+        // break typed would run a command (seen on 12/11/2026 in Windows Terminal)
+        if (_clipboard is not null && TerminalWindows.IsTerminal(ForegroundProgram()))
+        {
+            // Kept out of the history here: the caller copies it again as it should be kept
+            if (!await _clipboard.CopyAsync(text, isSensitive: true, cancellationToken).ConfigureAwait(false))
+            {
+                return false;
+            }
+
+            var paste = PasteKeystrokes();
+            return NativeMethods.SendInput((uint)paste.Length, paste, Marshal.SizeOf<Input>()) == paste.Length;
+        }
+
         var inputs = Keystrokes(text);
         var sent = NativeMethods.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Input>());
         return sent == inputs.Length;
+    }
+
+    /// <summary>
+    /// Builds the keystrokes of Shift+Insert, the paste every terminal knows.
+    /// </summary>
+    /// <returns>The keystrokes.</returns>
+    internal static Input[] PasteKeystrokes()
+    {
+        return new[]
+        {
+            Key(VirtualKeyShift, isUp: false),
+            Key(VirtualKeyInsert, isUp: false, KeyEventExtended),
+            Key(VirtualKeyInsert, isUp: true, KeyEventExtended),
+            Key(VirtualKeyShift, isUp: true),
+        };
     }
 
     /// <summary>
@@ -98,12 +140,18 @@ internal sealed class KeyboardTextInserter : ITextInserter
         return inputs.ToArray();
     }
 
-    private static Input Key(ushort virtualKey, bool isUp)
+    private static string ForegroundProgram()
+    {
+        _ = NativeMethods.GetWindowThreadProcessId(NativeMethods.GetForegroundWindow(), out var processId);
+        return processId == 0 ? string.Empty : PasteFlow.App.Screen.WindowProgram.NameOf((int)processId);
+    }
+
+    private static Input Key(ushort virtualKey, bool isUp, uint extraFlags = 0)
     {
         return new Input
         {
             Type = InputKeyboard,
-            Union = new InputUnion { Keyboard = new KeyboardInput { VirtualKey = virtualKey, Flags = isUp ? KeyEventKeyUp : 0 } },
+            Union = new InputUnion { Keyboard = new KeyboardInput { VirtualKey = virtualKey, Flags = (isUp ? KeyEventKeyUp : 0) | extraFlags } },
         };
     }
 

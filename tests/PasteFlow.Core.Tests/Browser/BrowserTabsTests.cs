@@ -61,4 +61,35 @@ public sealed class BrowserTabsTests
         Assert.Equal("https://mail.google.com/", merged[2].Address);
         Assert.Equal("Mon tuto PasteFlow", Assert.Single(merged[3].Fields).Value);
     }
+
+    [Fact]
+    public void Merge_GivesTheWindowOnScreenTheAddressOfItsTabWhenItsBarWasNotRead()
+    {
+        // Seen on 12/11/2026: the address bar of a sign-in page was not read, the extension knew the address
+        var windows = new[] { new WindowText { Title = "CAS Login - Google Chrome", Text = "Username", Rank = 0 } };
+        var tabs = new[] { new BrowserTab { Title = "CAS Login", Url = "https://cas.univ-ville.fr/cas/login?service=https%3a%2f%2fmail", Text = "Username" } };
+
+        var merged = BrowserTabs.Merge(windows, tabs);
+
+        var window = Assert.Single(merged);
+        Assert.Equal("cas.univ-ville.fr", PageAddress.HostOf(window.Address));
+    }
+
+    [Fact]
+    public void Merge_KeepsTheAddressReadInTheBar()
+    {
+        var windows = new[] { new WindowText { Title = "CAS Login - Google Chrome", Text = "Username", Rank = 0, Address = "cas.univ-ville.fr/cas/login" } };
+        var tabs = new[] { new BrowserTab { Title = "CAS Login", Url = "https://autre-site.fr/", Text = "Username" } };
+
+        Assert.Equal("cas.univ-ville.fr/cas/login", Assert.Single(BrowserTabs.Merge(windows, tabs)).Address);
+    }
+
+    [Fact]
+    public void Merge_GivesNoAddressThatIsNotAWebPage()
+    {
+        var windows = new[] { new WindowText { Title = "Extensions - Google Chrome", Text = "Extensions", Rank = 0 } };
+        var tabs = new[] { new BrowserTab { Title = "Extensions", Url = "chrome://extensions/", Text = "Extensions" } };
+
+        Assert.Equal(string.Empty, Assert.Single(BrowserTabs.Merge(windows, tabs)).Address);
+    }
 }

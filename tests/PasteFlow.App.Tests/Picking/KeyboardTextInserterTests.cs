@@ -29,6 +29,30 @@ public sealed class KeyboardTextInserterTests
     }
 
     [Fact]
+    public void PasteKeystrokes_PressShiftInsertThenReleaseBoth()
+    {
+        // Seen on 12/11/2026: a value typed key by key was not written in Windows Terminal; a terminal is pasted into
+        var inputs = KeyboardTextInserter.PasteKeystrokes();
+
+        Assert.Equal(new ushort[] { 0x10, 0x2D, 0x2D, 0x10 }, inputs.Select(input => input.Union.Keyboard.VirtualKey));
+        Assert.Equal(new[] { false, false, true, true }, inputs.Select(input => (input.Union.Keyboard.Flags & KeyUp) != 0));
+        Assert.All(inputs, input => Assert.Equal(0u, input.Union.Keyboard.Flags & Unicode));
+    }
+
+    [Theory]
+    [InlineData("WindowsTerminal", true)]
+    [InlineData("powershell", true)]
+    [InlineData("cmd", true)]
+    [InlineData("mintty", true)]
+    [InlineData("chrome", false)]
+    [InlineData("notepad", false)]
+    [InlineData("", false)]
+    public void TerminalWindows_KnowsTheTerminals(string program, bool isTerminal)
+    {
+        Assert.Equal(isTerminal, TerminalWindows.IsTerminal(program));
+    }
+
+    [Fact]
     public void Keystrokes_TypesTabsAsSpaces()
     {
         var inputs = KeyboardTextInserter.Keystrokes("\t");

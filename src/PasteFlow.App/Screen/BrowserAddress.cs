@@ -25,6 +25,11 @@ internal static class BrowserAddress
     private static readonly Condition EditCondition =
         new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit);
 
+    // Chrome, Edge, Brave, Opera and Vivaldi draw their address bar with the same view
+    private static readonly Condition OmniboxCondition = new AndCondition(
+        EditCondition,
+        new PropertyCondition(AutomationElement.ClassNameProperty, "OmniboxViewViews"));
+
     /// <summary>
     /// Reads the address shown by a browser window.
     /// </summary>
@@ -41,15 +46,14 @@ internal static class BrowserAddress
 
             foreach (var toolBar in ToolBarsOutsidePages(window))
             {
-                foreach (AutomationElement edit in toolBar.FindAll(TreeScope.Descendants, EditCondition))
+                if (AddressIn(toolBar) is { Length: > 0 } address)
                 {
-                    if (edit.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern) && pattern is ValuePattern value
-                        && PageAddress.HostOf(value.Current.Value).Length > 0)
-                    {
-                        return value.Current.Value.Trim();
-                    }
+                    return address;
                 }
             }
+
+            // Seen on 12/11/2026 on a sign-in page: the address bar was on screen but not found among the toolbars
+            return window.FindFirst(TreeScope.Descendants, OmniboxCondition) is { } omnibox ? AddressOf(omnibox) : string.Empty;
         }
         catch (Exception exception) when (exception is ElementNotAvailableException or COMException or InvalidOperationException)
         {
@@ -57,6 +61,34 @@ internal static class BrowserAddress
         }
 
         return string.Empty;
+    }
+
+    private static string AddressIn(AutomationElement toolBar)
+    {
+        try
+        {
+            foreach (AutomationElement edit in toolBar.FindAll(TreeScope.Descendants, EditCondition))
+            {
+                if (AddressOf(edit) is { Length: > 0 } address)
+                {
+                    return address;
+                }
+            }
+        }
+        catch (Exception exception) when (exception is ElementNotAvailableException or COMException or InvalidOperationException)
+        {
+            // A toolbar changed while being read, such as a menu of an extension opening: the others are still read
+        }
+
+        return string.Empty;
+    }
+
+    private static string AddressOf(AutomationElement edit)
+    {
+        return edit.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern) && pattern is ValuePattern value
+            && PageAddress.HostOf(value.Current.Value).Length > 0
+            ? value.Current.Value.Trim()
+            : string.Empty;
     }
 
     private static bool IsBrowser(int processId)
@@ -81,18 +113,25 @@ internal static class BrowserAddress
             var next = new List<AutomationElement>();
             foreach (var parent in level)
             {
-                for (var child = walker.GetFirstChild(parent); child is not null && visited < MaxVisited; child = walker.GetNextSibling(child))
+                try
                 {
-                    visited++;
-                    var type = child.Current.ControlType;
-                    if (type == ControlType.ToolBar)
+                    for (var child = walker.GetFirstChild(parent); child is not null && visited < MaxVisited; child = walker.GetNextSibling(child))
                     {
-                        toolBars.Add(child);
+                        visited++;
+                        var type = child.Current.ControlType;
+                        if (type == ControlType.ToolBar)
+                        {
+                            toolBars.Add(child);
+                        }
+                        else if (type != ControlType.Document)
+                        {
+                            next.Add(child);
+                        }
                     }
-                    else if (type != ControlType.Document)
-                    {
-                        next.Add(child);
-                    }
+                }
+                catch (Exception exception) when (exception is ElementNotAvailableException or COMException or InvalidOperationException)
+                {
+                    // An element vanished while being read, such as a popup closing: its neighbours are still read
                 }
             }
 

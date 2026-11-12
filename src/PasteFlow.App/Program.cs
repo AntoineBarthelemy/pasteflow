@@ -155,10 +155,13 @@ internal static class Program
         activation.LoginPicker = new WindowLoginPicker(application.Dispatcher);
         activation.CaretReader = formAccess;
         activation.Picker = new PastePicker();
-        activation.Inserter = new KeyboardTextInserter();
 
         // Each value pasted at the cursor is also copied, as the user would: Ctrl+V and Win+V find it again
-        activation.Clipboard = new WindowsClipboard(application.Dispatcher);
+        var clipboard = new WindowsClipboard(application.Dispatcher);
+        activation.Clipboard = clipboard;
+
+        // A terminal is pasted into through the clipboard
+        activation.Inserter = new KeyboardTextInserter(clipboard);
 
         void Apply(AppSettings chosen)
         {
