@@ -234,6 +234,22 @@ public sealed class FormMatcherTests
     }
 
     [Fact]
+    public void MatchAll_DoesNotWriteThePostalCodeAloneWhenTheCommuneHesitatesBetweenTwoAddresses()
+    {
+        // A new address (Reims) and an old one (Taissy) on screen, as in a change of address: the postal code of one
+        // of them must not be written while the commune is left to the user (seen on 14/11/2026, old one written)
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("postal", "Code postal"), TestFields.Text("city", "Commune") },
+            new[] { Candidate("51500", CandidateKind.Number, "Code postal"), Candidate("Reims", CandidateKind.City, string.Empty), Candidate("Taissy", CandidateKind.City, string.Empty) },
+            TestReferenceData.Create());
+
+        Assert.False(matches[1].IsConfident);
+        Assert.False(matches[0].IsConfident);
+        Assert.Contains(matches[0].Suggestions, candidate => candidate.Value == "51500");
+        Assert.Equal("51500 ne correspond pas à Reims selon La Poste.", matches[0].Reason);
+    }
+
+    [Fact]
     public void MatchAll_DoesNotJudgeACommuneTheListsDoNotKnow()
     {
         var matches = FormMatcher.MatchAll(

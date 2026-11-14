@@ -321,6 +321,8 @@ public static partial class FormMatcher
             }
         }
 
+        LeavePostalCodeOfAnUnsureCommune(matches, clues, data, postalCodeIndex);
+
         if (postalCodeIndex < 0 || communeIndex < 0
             || matches[postalCodeIndex].Candidate is not { } postalCode
             || matches[communeIndex].Candidate is not { } commune)
@@ -333,6 +335,44 @@ public static partial class FormMatcher
             var reason = MatchReasons.PostalCodeAndCommune(postalCode.Value, commune.Value);
             matches[postalCodeIndex] = matches[postalCodeIndex] with { IsConfident = false, Reason = reason };
             matches[communeIndex] = matches[communeIndex] with { IsConfident = false, Reason = reason };
+        }
+    }
+
+    /// <summary>
+    /// Safety net: with two addresses on screen (a new one and an old one), the commune left to the user hesitates
+    /// between the two; the postal code must not be written alone from one of them, since it may be the old one.
+    /// </summary>
+    /// <param name="matches">The matches of the form, changed in place.</param>
+    /// <param name="clues">The clues of each field.</param>
+    /// <param name="data">The official lists.</param>
+    /// <param name="postalCodeIndex">The index of the sure postal code, or -1.</param>
+    private static void LeavePostalCodeOfAnUnsureCommune(FieldMatch[] matches, FieldClues[] clues, ReferenceData data, int postalCodeIndex)
+    {
+        if (postalCodeIndex < 0 || matches[postalCodeIndex].Candidate is not { } postalCode || !data.IsPostalCode(postalCode.Value))
+        {
+            return;
+        }
+
+        for (var index = 0; index < matches.Length; index++)
+        {
+            if (matches[index].IsConfident || !clues[index].Mentions(LabelConcepts.City) || clues[index].Mentions(LabelConcepts.PostalCode))
+            {
+                continue;
+            }
+
+            var otherCommune = matches[index].Suggestions
+                .Select(candidate => candidate.Value)
+                .FirstOrDefault(value => data.IsCommune(value) && !data.IsCommuneOf(postalCode.Value, value));
+            if (otherCommune is not null)
+            {
+                matches[postalCodeIndex] = matches[postalCodeIndex] with
+                {
+                    IsConfident = false,
+                    Suggestions = matches[postalCodeIndex].Suggestions.Count > 0 ? matches[postalCodeIndex].Suggestions : new[] { postalCode },
+                    Reason = MatchReasons.PostalCodeAndCommune(postalCode.Value, otherCommune),
+                };
+                return;
+            }
         }
     }
 }

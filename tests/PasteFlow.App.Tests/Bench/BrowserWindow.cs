@@ -113,8 +113,24 @@ internal sealed class BrowserWindow : IDisposable
             new OrCondition(
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit),
                 new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox)));
-        return Window.FindFirst(TreeScope.Descendants, condition)
-            ?? throw new InvalidOperationException($"Pas de champ « {label} » dans la page.");
+
+        // Just after a fill, the browser rebuilds its tree for a moment: a field there is sometimes missed once (seen on
+        // 14/11/2026 under load), so it is looked for again before saying it is absent
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(3);
+        while (true)
+        {
+            if (Window.FindFirst(TreeScope.Descendants, condition) is { } field)
+            {
+                return field;
+            }
+
+            if (DateTime.UtcNow >= deadline)
+            {
+                throw new InvalidOperationException($"Pas de champ « {label} » dans la page.");
+            }
+
+            Thread.Sleep(200);
+        }
     }
 
     /// <summary>
