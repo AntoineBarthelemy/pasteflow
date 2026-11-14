@@ -8,6 +8,18 @@ namespace PasteFlow.App.Interop;
 internal static partial class NativeMethods
 {
     /// <summary>
+    /// A function called by Windows for an event of the desktop.
+    /// </summary>
+    /// <param name="hWinEventHook">The watch.</param>
+    /// <param name="eventType">The event.</param>
+    /// <param name="hwnd">The window of the event.</param>
+    /// <param name="idObject">The object of the event in the window.</param>
+    /// <param name="idChild">The child of the object.</param>
+    /// <param name="dwEventThread">The thread of the event.</param>
+    /// <param name="dwmsEventTime">When it happened.</param>
+    internal delegate void WinEventProc(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+
+    /// <summary>
     /// Defines a system-wide shortcut.
     /// </summary>
     /// <param name="hWnd">The window that receives the WM_HOTKEY messages.</param>
@@ -318,4 +330,29 @@ internal static partial class NativeMethods
     [LibraryImport("dwmapi.dll")]
     [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
     internal static partial int DwmSetWindowAttribute(IntPtr hwnd, int dwAttribute, ref int pvAttribute, int cbAttribute);
+
+    /// <summary>
+    /// Asks Windows to call a function when something happens on the desktop, such as another window coming to the front.
+    /// </summary>
+    /// <param name="eventMin">The first event watched.</param>
+    /// <param name="eventMax">The last event watched.</param>
+    /// <param name="hmodWinEventProc">Zero: the function is in this process.</param>
+    /// <param name="lpfnWinEventProc">The function called, kept alive by the caller.</param>
+    /// <param name="idProcess">Zero for every process.</param>
+    /// <param name="idThread">Zero for every thread.</param>
+    /// <param name="dwFlags">0 (WINEVENT_OUTOFCONTEXT): called on the thread that asked, through its messages.</param>
+    /// <returns>The handle of the watch, or <see cref="IntPtr.Zero"/> on failure.</returns>
+    [LibraryImport("user32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    internal static partial IntPtr SetWinEventHook(uint eventMin, uint eventMax, IntPtr hmodWinEventProc, WinEventProc lpfnWinEventProc, uint idProcess, uint idThread, uint dwFlags);
+
+    /// <summary>
+    /// Stops a watch started by <see cref="SetWinEventHook"/>.
+    /// </summary>
+    /// <param name="hWinEventHook">The handle of the watch.</param>
+    /// <returns><see langword="true"/> on success; otherwise <see langword="false"/>.</returns>
+    [LibraryImport("user32.dll")]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool UnhookWinEvent(IntPtr hWinEventHook);
 }

@@ -30,6 +30,7 @@ internal sealed class SettingsWindow : ThemedWindow
     private readonly TextBlock _prudenceDescription;
     private readonly CheckBox _learn;
     private readonly CheckBox _readImages;
+    private readonly CheckBox _rememberScreen;
     private readonly CheckBox _startWithWindows;
 
     /// <summary>
@@ -56,6 +57,7 @@ internal sealed class SettingsWindow : ThemedWindow
 
         _learn = Switch("Apprendre de mes remplissages", current.LearnFromFills);
         _readImages = Switch("Lire l'image des fenêtres qui ne donnent pas leur texte", current.ReadImages);
+        _rememberScreen = Switch("Garder les textes vus récemment", current.RememberScreen);
         _startWithWindows = Switch("Lancer PasteFlow au démarrage de Windows", current.StartWithWindows);
 
         var save = Ui.ActionButton("Enregistrer", isDefault: true);
@@ -89,6 +91,8 @@ internal sealed class SettingsWindow : ThemedWindow
         reading.Children.Add(Row("Apprendre de mes remplissages", "Historique chiffré, gardé sur ce PC.", _learn, stacked: false));
         reading.Children.Add(Ui.Divider(new Thickness(0, 12, 0, 12)));
         reading.Children.Add(Row("Lire l'image des fenêtres", "Pour celles qui ne donnent pas leur texte. Les valeurs lues sont seulement proposées.", _readImages, stacked: false));
+        reading.Children.Add(Ui.Divider(new Thickness(0, 12, 0, 12)));
+        reading.Children.Add(Row("Garder les textes vus récemment", "30 minutes, en mémoire seulement, jamais sur le disque, pour les retrouver dans Ctrl+Alt+V. Jamais Bitwarden ni la navigation privée.", _rememberScreen, stacked: false));
         reading.Children.Add(Ui.Divider(new Thickness(0, 12, 0, 12)));
         reading.Children.Add(Row("Lancer au démarrage de Windows", "PasteFlow attend dans la barre des tâches.", _startWithWindows, stacked: false));
         page.Children.Add(Ui.Card(reading, new Thickness(16, 14, 16, 14)));
@@ -124,6 +128,7 @@ internal sealed class SettingsWindow : ThemedWindow
         Prudence = PrudenceChosen(),
         LearnFromFills = _learn.IsChecked == true,
         ReadImages = _readImages.IsChecked == true,
+        RememberScreen = _rememberScreen.IsChecked == true,
         StartWithWindows = _startWithWindows.IsChecked == true,
     };
 

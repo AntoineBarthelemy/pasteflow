@@ -29,6 +29,12 @@ public sealed record AppSettings
     public bool ReadImages { get; init; } = true;
 
     /// <summary>
+    /// Gets a value indicating whether the texts seen on screen are kept 30 minutes in memory, never on the disk, to be
+    /// found again in the list of Ctrl+Alt+V; on by default (decision of 14/11/2026).
+    /// </summary>
+    public bool RememberScreen { get; init; } = true;
+
+    /// <summary>
     /// Gets a value indicating whether the application starts with Windows; off by default.
     /// </summary>
     public bool StartWithWindows { get; init; }

@@ -139,6 +139,12 @@ public sealed class ShortcutActivationService : IDisposable
     public IPasswordManager? PasswordManager { get; set; }
 
     /// <summary>
+    /// Gets or sets the memory of the screen: the windows read at each press are kept in it, and the list at the cursor
+    /// also searches the texts seen a moment ago, no longer on screen. Without it, only the screen is searched.
+    /// </summary>
+    public ScreenMemory? Memory { get; set; }
+
+    /// <summary>
     /// Gets or sets what lets the user choose among several accounts; without it, nothing is chosen for them.
     /// </summary>
     public ILoginPicker? LoginPicker { get; set; }
@@ -634,6 +640,13 @@ public sealed class ShortcutActivationService : IDisposable
         var screenCandidates = candidates.Where(candidate => !candidate.IsFromHistory && !candidate.IsFromProfile).ToList();
         var profileCandidates = await ProfileValuesForTheListAsync(field, candidates, cancellationToken);
         var windows = _candidateSources.OfType<IScreenTextSource>().SelectMany(source => source.LastWindows).ToList();
+
+        // The texts seen a moment ago and no longer on screen are searched after the windows, never proposed unasked
+        if (Memory is { } memory)
+        {
+            windows.AddRange(memory.AsWindows(windows));
+        }
+
         var request = new PickRequest
         {
             Suggestions = FieldMatcher.Rank(
@@ -820,6 +833,16 @@ public sealed class ShortcutActivationService : IDisposable
     private async Task<List<Candidate>> GetAllCandidatesAsync(CancellationToken cancellationToken)
     {
         var results = await Task.WhenAll(_candidateSources.Select(source => source.GetCandidatesAsync(cancellationToken)));
+
+        // What is on screen now may be gone at the next press: it is kept a moment
+        if (Memory is { } memory)
+        {
+            foreach (var window in _candidateSources.OfType<IScreenTextSource>().SelectMany(source => source.LastWindows).Where(window => !window.IsReadFromImage))
+            {
+                memory.Remember(window);
+            }
+        }
+
         return results.SelectMany(candidates => candidates).ToList();
     }
 

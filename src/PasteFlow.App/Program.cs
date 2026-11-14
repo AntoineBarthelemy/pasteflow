@@ -25,6 +25,7 @@ using PasteFlow.Core.Hotkeys;
 using PasteFlow.Core.Matching;
 using PasteFlow.Core.Profile;
 using PasteFlow.Core.Reference;
+using PasteFlow.Core.Screen;
 using PasteFlow.Core.Security;
 using PasteFlow.Core.Settings;
 using PasteFlow.Core.Undo;
@@ -156,6 +157,11 @@ internal static class Program
         activation.CaretReader = formAccess;
         activation.Picker = new PastePicker();
 
+        // The texts seen a moment ago, kept in memory only, to be found again in the list (decision of 14/11/2026)
+        var screenMemory = new ScreenMemory();
+        activation.Memory = screenMemory;
+        using var screenMemoryWatcher = new ScreenMemoryWatcher(screenMemory);
+
         // Each value pasted at the cursor is also copied, as the user would: Ctrl+V and Win+V find it again
         var clipboard = new WindowsClipboard(application.Dispatcher);
         activation.Clipboard = clipboard;
@@ -169,6 +175,7 @@ internal static class Program
             history.IsEnabled = chosen.LearnFromFills;
             learner.IsEnabled = chosen.LearnFromFills;
             windowReader.ReadImages = chosen.ReadImages;
+            screenMemory.IsEnabled = chosen.RememberScreen;
         }
 
         SettingsWindow? settingsWindow = null;
@@ -277,6 +284,12 @@ internal static class Program
         using var updates = new AppUpdates(notifier);
 
         MenuWindow? menuWindow = null;
+        void ClearScreenMemory()
+        {
+            screenMemory.Clear();
+            notifier.Notify("Mémoire de l'écran effacée : les textes vus récemment sont oubliés.");
+        }
+
         void OpenMenu(bool isNearTray)
         {
             if (menuWindow is { IsVisible: true })
@@ -292,6 +305,7 @@ internal static class Program
                 new('B', bitwarden.IsUnlocked ? "Verrouiller Bitwarden" : "Déverrouiller Bitwarden…", OpenBitwardenUnlock, Icon: bitwarden.IsUnlocked ? Icons.Lock : Icons.Unlock),
                 new('P', "Paramètres…", OpenSettings, Icon: Icons.Settings),
                 new('H', "Effacer l'historique…", ClearHistoryAfterAsking, Icon: Icons.History),
+                new('M', "Effacer la mémoire de l'écran", ClearScreenMemory, Icon: Icons.Delete),
                 UpdateEntry(updates),
                 ErrorLogEntry(notifier),
                 new('Q', "Quitter PasteFlow", application.Shutdown, Icon: Icons.Power),
