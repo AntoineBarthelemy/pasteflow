@@ -329,6 +329,35 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
     }
 
     /// <summary>
+    /// Determines whether the cursor is in the grid of a spreadsheet filling its window, as in Excel: a cell is no text
+    /// box for Windows, and the boxes of the ribbon (name box, formula bar, font) are no form.
+    /// </summary>
+    /// <param name="element">The element holding the cursor: the grid or one of its cells.</param>
+    /// <returns><see langword="true"/> in such a grid; otherwise <see langword="false"/>.</returns>
+    internal static bool IsInSpreadsheetGrid(AutomationElement element)
+    {
+        try
+        {
+            var walker = TreeWalker.ControlViewWalker;
+            var grid = element;
+            for (var depth = 0; grid is not null && depth < 3; depth++, grid = walker.GetParent(grid))
+            {
+                if (grid.Current.ControlType == ControlType.DataGrid && grid.TryGetCurrentPattern(GridPattern.Pattern, out _))
+                {
+                    return FillsItsWindow(grid);
+                }
+            }
+
+            return false;
+        }
+        catch (Exception exception) when (exception is ElementNotAvailableException or COMException or InvalidOperationException)
+        {
+            // The element vanished: it is not said to be a grid
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Describes the place of an element holding the cursor, tying it to a field of the last reading of the form.
     /// </summary>
     /// <param name="element">The element holding the cursor.</param>
@@ -344,7 +373,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             FocusedFieldId = FindLastReadingId(field),
             FieldLabel = ReadLabel(field.Current),
             TextBefore = isEditable ? ReadTextBeforeCaret(element) : string.Empty,
-            IsDocument = isEditable && FillsItsWindow(element),
+            IsDocument = (isEditable && FillsItsWindow(element)) || IsInSpreadsheetGrid(element),
         };
     }
 

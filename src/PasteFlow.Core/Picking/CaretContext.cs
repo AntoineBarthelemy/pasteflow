@@ -28,7 +28,8 @@ public sealed record CaretContext
 
     /// <summary>
     /// Gets a value indicating whether the cursor is in a writing area filling most of its window, such as the page of
-    /// Notepad or WordPad: the small boxes around it (font, size, status bar) do not make it a form.
+    /// Notepad or WordPad, or in the grid of a spreadsheet such as Excel: the small boxes around it (font, size, name
+    /// box, formula bar, status bar) do not make it a form.
     /// </summary>
     public bool IsDocument { get; init; }
 }

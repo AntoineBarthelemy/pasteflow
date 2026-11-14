@@ -39,6 +39,25 @@ public sealed class FreePasteTests
     }
 
     [Fact]
+    public void IsFreeText_InTheGridOfASpreadsheet_PastesAtTheCursorDespiteTheRibbonBoxes()
+    {
+        // Seen on 14/11/2026 in Excel: the cell is no text box, and the name box, formula bar and font boxes of the
+        // ribbon made the window look like a form where nothing was pasted
+        var fields = new[] { TestFields.Text("font", "Police"), TestFields.Text("name", "Zone Nom"), TestFields.Text("formula", "Barre de formule") };
+        var caret = new CaretContext { IsEditable = false, IsDocument = true };
+
+        Assert.True(FreePaste.IsFreeText(fields, caret));
+    }
+
+    [Fact]
+    public void IsFreeText_OutsideAnyTextBoxOrDocument_FillsTheForm()
+    {
+        var fields = new[] { TestFields.Text("first", "Prénom"), TestFields.Text("last", "Nom") };
+
+        Assert.False(FreePaste.IsFreeText(fields, new CaretContext { IsEditable = false }));
+    }
+
+    [Fact]
     public void IsFreeText_InALargeBoxOfASignInPage_StillFillsTheForm()
     {
         var fields = new[] { TestFields.Text("login", "Identifiant"), TestFields.Password("password", "Mot de passe") };

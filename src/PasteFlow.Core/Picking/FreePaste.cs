@@ -35,13 +35,15 @@ public static class FreePaste
         ArgumentNullException.ThrowIfNull(fields);
         ArgumentNullException.ThrowIfNull(caret);
 
-        if (!caret.IsEditable)
+        // The cell of a spreadsheet is no text box for Windows, but the user writes there (seen on 14/11/2026 in Excel)
+        if (!caret.IsEditable && !caret.IsDocument)
         {
             return false;
         }
 
-        // The page of a text editor or a word processor, seen on 14/11/2026 in Notepad and WordPad: their toolbars and
-        // status bar hold boxes, but the user writes a text; a sign-in page stays a form
+        // The page of a text editor or a word processor, seen on 14/11/2026 in Notepad and WordPad, or the grid of a
+        // spreadsheet, seen in Excel: their toolbars and status bar hold boxes, but the user writes a text; a sign-in
+        // page stays a form
         if (caret.IsDocument && !fields.Any(field => field.Kind == FieldKind.Password))
         {
             return true;
