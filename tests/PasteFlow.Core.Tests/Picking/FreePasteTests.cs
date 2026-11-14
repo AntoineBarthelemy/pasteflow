@@ -29,6 +29,24 @@ public sealed class FreePasteTests
     }
 
     [Fact]
+    public void IsFreeText_InThePageOfAWordProcessorWithItsToolbarBoxes_ReturnsTrue()
+    {
+        // Seen on 14/11/2026 in WordPad: the font and size boxes made the page look like a field of a form
+        var fields = new[] { TestFields.Text("page", string.Empty, hasValue: true), TestFields.Text("font", "Famille de polices", hasValue: true), TestFields.Text("size", "Taille de police", hasValue: true) };
+        var caret = new CaretContext { IsEditable = true, FocusedFieldId = "page", TextBefore = "Commande : ", IsDocument = true };
+
+        Assert.True(FreePaste.IsFreeText(fields, caret));
+    }
+
+    [Fact]
+    public void IsFreeText_InALargeBoxOfASignInPage_StillFillsTheForm()
+    {
+        var fields = new[] { TestFields.Text("login", "Identifiant"), TestFields.Password("password", "Mot de passe") };
+
+        Assert.False(FreePaste.IsFreeText(fields, new CaretContext { IsEditable = true, FocusedFieldId = "login", IsDocument = true }));
+    }
+
+    [Fact]
     public void IsFreeText_WhenASentenceIsBeingWrittenInABoxAmongOthers_ReturnsTrue()
     {
         var fields = new[] { TestFields.Text("message", "Message au client"), TestFields.Text("note", "Note interne") };

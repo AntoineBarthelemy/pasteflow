@@ -25,4 +25,10 @@ public sealed record CaretContext
     /// Gets the text written just before the cursor, such as "Tiens, mon mail : ", or an empty string when unknown.
     /// </summary>
     public string TextBefore { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Gets a value indicating whether the cursor is in a writing area filling most of its window, such as the page of
+    /// Notepad or WordPad: the small boxes around it (font, size, status bar) do not make it a form.
+    /// </summary>
+    public bool IsDocument { get; init; }
 }

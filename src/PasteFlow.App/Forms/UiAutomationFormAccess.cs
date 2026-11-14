@@ -245,6 +245,19 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
     }
 
     /// <summary>
+    /// Determines whether a text box only shows a value, such as the status bar of Notepad (« Ln 1, Col 1 », « UTF-8 »):
+    /// it is no field of a form, nothing can be written there.
+    /// </summary>
+    /// <param name="element">The element.</param>
+    /// <returns><see langword="true"/> for a text box that cannot be written; otherwise <see langword="false"/>.</returns>
+    internal static bool IsReadOnlyBox(AutomationElement element)
+    {
+        return element.Current.ControlType == ControlType.Edit
+            && element.TryGetCurrentPattern(ValuePattern.Pattern, out var pattern)
+            && pattern is ValuePattern { Current.IsReadOnly: true };
+    }
+
+    /// <summary>
     /// Determines whether a text box belongs to a combo box, which stands for it.
     /// </summary>
     /// <param name="element">The text box.</param>
@@ -286,6 +299,36 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
     }
 
     /// <summary>
+    /// Determines whether an element takes most of its window, as the page of a text editor does: a box of a form
+    /// takes a small part of it.
+    /// </summary>
+    /// <param name="element">The element holding the cursor.</param>
+    /// <returns><see langword="true"/> from 40 % of the window on; otherwise <see langword="false"/>.</returns>
+    internal static bool FillsItsWindow(AutomationElement element)
+    {
+        const double MinShare = 0.4;
+        try
+        {
+            var window = element;
+            var walker = TreeWalker.ControlViewWalker;
+            for (var parent = walker.GetParent(window); parent is not null && !Automation.Compare(parent, AutomationElement.RootElement); parent = walker.GetParent(window))
+            {
+                window = parent;
+            }
+
+            var bounds = element.Current.BoundingRectangle;
+            var windowBounds = window.Current.BoundingRectangle;
+            return !bounds.IsEmpty && !windowBounds.IsEmpty && windowBounds.Width * windowBounds.Height > 0
+                && bounds.Width * bounds.Height / (windowBounds.Width * windowBounds.Height) >= MinShare;
+        }
+        catch (Exception exception) when (exception is ElementNotAvailableException or COMException or InvalidOperationException)
+        {
+            // The element or its window vanished: it is not said to be a page
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Describes the place of an element holding the cursor, tying it to a field of the last reading of the form.
     /// </summary>
     /// <param name="element">The element holding the cursor.</param>
@@ -301,6 +344,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             FocusedFieldId = FindLastReadingId(field),
             FieldLabel = ReadLabel(field.Current),
             TextBefore = isEditable ? ReadTextBeforeCaret(element) : string.Empty,
+            IsDocument = isEditable && FillsItsWindow(element),
         };
     }
 
@@ -870,7 +914,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
 
                     // The text box inside a combo box where the user can type is the combo box itself, read once;
                     // a field hidden on purpose is never filled
-                    if (IsInsideComboBox(element) || !IsInPage(element, windowBounds))
+                    if (IsInsideComboBox(element) || !IsInPage(element, windowBounds) || IsReadOnlyBox(element))
                     {
                         continue;
                     }

@@ -40,6 +40,13 @@ public static class FreePaste
             return false;
         }
 
+        // The page of a text editor or a word processor, seen on 14/11/2026 in Notepad and WordPad: their toolbars and
+        // status bar hold boxes, but the user writes a text; a sign-in page stays a form
+        if (caret.IsDocument && !fields.Any(field => field.Kind == FieldKind.Password))
+        {
+            return true;
+        }
+
         // A password field counts: an identifier alone next to it is a sign-in form, filled as a whole
         var textFields = fields
             .Where(field => (field.Kind == FieldKind.Text && !FillRules.IsSearchBox(field)) || field.Kind == FieldKind.Password)
