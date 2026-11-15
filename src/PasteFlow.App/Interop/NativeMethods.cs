@@ -205,6 +205,26 @@ internal static partial class NativeMethods
     internal static partial bool PrintWindow(IntPtr hwnd, IntPtr hdcBlt, uint nFlags);
 
     /// <summary>
+    /// Asks Windows to tell a window each time the clipboard changes (WM_CLIPBOARDUPDATE).
+    /// </summary>
+    /// <param name="hwnd">The window told.</param>
+    /// <returns><see langword="true"/> on success; otherwise <see langword="false"/>.</returns>
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool AddClipboardFormatListener(IntPtr hwnd);
+
+    /// <summary>
+    /// Stops telling a window when the clipboard changes.
+    /// </summary>
+    /// <param name="hwnd">The window.</param>
+    /// <returns><see langword="true"/> on success; otherwise <see langword="false"/>.</returns>
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool RemoveClipboardFormatListener(IntPtr hwnd);
+
+    /// <summary>
     /// Brings a window to the front and gives it the keyboard.
     /// </summary>
     /// <param name="hWnd">The window.</param>

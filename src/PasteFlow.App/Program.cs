@@ -138,7 +138,9 @@ internal static class Program
             _ = BrowserHostRegistration.TryRegister(processPath);
         }
 
-        var screenReader = new WindowsAndTabsReader(windowReader, browserBridge);
+        // What the user copied a moment ago in any program is one more source, exact (decision of 15/11/2026)
+        using var clipboardWatcher = new ClipboardWatcher();
+        var screenReader = new WindowsAndClipboardReader(new WindowsAndTabsReader(windowReader, browserBridge), clipboardWatcher.Recent);
         var candidateSources = new ICandidateSource[] { new ScreenCandidateSource(screenReader), new ProfileCandidateSource(profile), history };
         using var activation = new ShortcutActivationService(
             hotkeyListener,

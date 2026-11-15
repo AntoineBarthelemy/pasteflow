@@ -2,6 +2,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
+using PasteFlow.App.Screen;
 using PasteFlow.Core.Picking;
 
 namespace PasteFlow.App.Picking;
@@ -66,6 +67,9 @@ internal sealed class WindowsClipboard : IClipboardWriter
     {
         var data = new DataObject();
         data.SetText(text, TextDataFormat.UnicodeText);
+
+        // A value PasteFlow pasted must not come back as a copy of the user
+        data.SetData(ClipboardWatcher.OwnCopyFormat, new MemoryStream(new byte[] { 1 }));
         if (isSensitive)
         {
             data.SetData("ExcludeClipboardContentFromMonitorProcessing", new MemoryStream(new byte[] { 0 }));
