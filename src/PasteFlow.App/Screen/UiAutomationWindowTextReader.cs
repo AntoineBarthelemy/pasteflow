@@ -36,7 +36,10 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
     private const string UntitledWindow = "Fenêtre sans texte";
 
     private static readonly TimeSpan WindowTimeout = TimeSpan.FromMilliseconds(600);
-    private static readonly TimeSpan ImageReadingTimeout = TimeSpan.FromMilliseconds(1500);
+
+    // The picture is read larger, and once more without the red of a spell checker: a full window of a
+    // spreadsheet takes about 1.5 s (LibreOffice Calc, 15/11/2026)
+    private static readonly TimeSpan ImageReadingTimeout = TimeSpan.FromMilliseconds(3000);
 
     private static readonly Condition DocumentCondition =
         new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Document);

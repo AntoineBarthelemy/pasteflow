@@ -18,6 +18,7 @@ public sealed class RealApplicationsTests
 {
     private const string Text = "Commande : CMD-4471\r\nE-mail : helene.moreau@moreau-conseil.fr";
     private const string WordPadPath = @"C:\Program Files\Windows NT\Accessories\wordpad.exe";
+    private const string LibreOfficePath = @"C:\Program Files\LibreOffice\program\soffice.exe";
     private const string OfficePath = @"C:\Program Files\Microsoft Office\root\Office16";
     private static readonly TimeSpan OpenTimeout = TimeSpan.FromSeconds(20);
 
@@ -152,6 +153,47 @@ public sealed class RealApplicationsTests
         Assert.Contains("helene.moreau@moreau-conseil.fr", text, StringComparison.Ordinal);
     }
 
+    [SkippableTheory]
+    [InlineData("writer")]
+    [InlineData("calc")]
+    public async Task LibreOffice_GivesNoTextButItsPictureIsReadRight(string module)
+    {
+        // LibreOffice gives Windows its menus only, not the text of its pages and cells: its picture is read, which
+        // misread the words under the red line of the spell checker until 15/11/2026 (« SMp-4471 »)
+        Skip.IfNot(File.Exists(LibreOfficePath), "LibreOffice n'est pas installé sur cette machine.");
+
+        // LibreOffice ends a few seconds after the window of the previous check
+        var closing = DateTime.UtcNow + OpenTimeout;
+        while (Process.GetProcessesByName("soffice.bin").Length > 0 && DateTime.UtcNow < closing)
+        {
+            Thread.Sleep(500);
+        }
+
+        Skip.If(Process.GetProcessesByName("soffice.bin").Length > 0, "LibreOffice est déjà ouvert : il n'est pas touché.");
+        var ocr = OcrTextRecognizer.TryCreate();
+        Skip.If(ocr is null, "Pas de reconnaissance de caractères pour les langues de cette machine.");
+
+        using var app = module == "writer"
+            ? RealApp.OpenWindow(LibreOfficePath, "fiche", "--nologo", "--norestore", "--writer", FakeRtf("writer"))
+            : RealApp.OpenWindow(LibreOfficePath, "commandes", "--nologo", "--norestore", "--infilter=CSV:59,34,76,1", "--calc", FakeCsv("calc"));
+        Skip.If(app.Window is null, "LibreOffice ne s'est pas ouvert.");
+
+        // Its page is drawn a moment after its window, later when the computer is busy
+        var reader = new UiAutomationWindowTextReader(ocr);
+        var reading = await reader.ReadWithFallbackAsync(app.Handle, 1, CancellationToken.None);
+        var deadline = DateTime.UtcNow + OpenTimeout;
+        while (reading?.Text.Contains("helene.moreau@moreau-conseil.fr", StringComparison.Ordinal) != true && DateTime.UtcNow < deadline)
+        {
+            Thread.Sleep(1000);
+            reading = await reader.ReadWithFallbackAsync(app.Handle, 1, CancellationToken.None);
+        }
+
+        Assert.NotNull(reading);
+        Assert.True(reading!.IsReadFromImage);
+        Assert.Contains("CMD-4471", reading.Text, StringComparison.Ordinal);
+        Assert.Contains("helene.moreau@moreau-conseil.fr", reading.Text, StringComparison.Ordinal);
+    }
+
     private static string FakeFile(string name)
     {
         var path = Path.Combine(Path.GetTempPath(), $"pasteflow-reel-{name}-{Guid.NewGuid():N}.txt");
@@ -248,6 +290,7 @@ public sealed class RealApplicationsTests
             {
                 Thread.Sleep(500);
                 window = TopWindows().FirstOrDefault(candidate => !before.Contains(candidate.Current.NativeWindowHandle)
+                    && candidate.Current.ClassName != "MsoSplash"
                     && (candidate.Current.Name.Contains(titleOrClass, StringComparison.OrdinalIgnoreCase) || candidate.Current.ClassName == titleOrClass));
             }
 
@@ -309,6 +352,14 @@ public sealed class RealApplicationsTests
                 {
                     Thread.Sleep(500);
                 }
+
+                // The program ends a moment after its window: the next check must not find it still open
+                using var owner = Process.GetProcessById(processId);
+                _ = owner.WaitForExit((int)OpenTimeout.TotalMilliseconds);
+            }
+            catch (ArgumentException)
+            {
+                // The program already ended
             }
             catch (ElementNotAvailableException)
             {

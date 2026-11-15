@@ -20,6 +20,25 @@ public sealed class ImageReadingTests : IDisposable
     }
 
     [Fact]
+    public void WipeRed_TurnsTheRedOfASpellCheckerWhiteAndKeepsTheText()
+    {
+        // Blue, green, red, alpha: a red pixel of a wavy line, a black and a grey pixel of text
+        var pixels = new byte[] { 30, 30, 230, 255, 0, 0, 0, 255, 120, 120, 120, 255 };
+
+        Assert.True(OcrTextRecognizer.WipeRed(pixels));
+        Assert.Equal(new byte[] { 255, 255, 255, 255, 0, 0, 0, 255, 120, 120, 120, 255 }, pixels);
+    }
+
+    [Fact]
+    public void WipeRed_WithoutRed_ChangesNothing()
+    {
+        var pixels = new byte[] { 200, 120, 40, 255, 0, 0, 0, 255 };
+
+        Assert.False(OcrTextRecognizer.WipeRed(pixels));
+        Assert.Equal(new byte[] { 200, 120, 40, 255, 0, 0, 0, 255 }, pixels);
+    }
+
+    [Fact]
     public void TryCapturePng_WithoutWindow_ReturnsNull()
     {
         Assert.Null(WindowCapture.TryCapturePng(IntPtr.Zero));
