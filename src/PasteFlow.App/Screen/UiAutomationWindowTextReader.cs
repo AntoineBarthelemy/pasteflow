@@ -32,6 +32,7 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
     private const int MaxWindows = 4;
     private const int MaxFilledFields = 100;
     private const int MaxDocumentLength = 100_000;
+    private const int MaxGridCells = 2000;
     private const char ObjectReplacementCharacter = '\uFFFC';
     private const string UntitledWindow = "Fenêtre sans texte";
 
@@ -48,11 +49,24 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
         new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text);
 
     // A terminal, such as Windows Terminal, shows its text through a text pattern, without a name; fields and
-    // documents are read elsewhere
+    // documents are read elsewhere, and so are the cells of a grid: their text pattern gives what the screen shows, cut
+    // short when the cell is too narrow (« helene.more » in Excel, 16/11/2026)
     private static readonly Condition TextPatternCondition = new AndCondition(
         new PropertyCondition(AutomationElement.IsTextPatternAvailableProperty, true),
         new NotCondition(DocumentCondition),
+        new NotCondition(new PropertyCondition(AutomationElement.IsGridItemPatternAvailableProperty, true)),
         new NotCondition(new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit)));
+
+    // A grid of cells, such as a spreadsheet; a list of a web page is read with its document
+    private static readonly Condition GridCondition = new AndCondition(
+        new PropertyCondition(AutomationElement.IsGridPatternAvailableProperty, true),
+        new OrCondition(
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.DataGrid),
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Table)));
+
+    private static readonly Condition CellCondition = new AndCondition(
+        new PropertyCondition(AutomationElement.IsGridItemPatternAvailableProperty, true),
+        new PropertyCondition(AutomationElement.IsValuePatternAvailableProperty, true));
 
     private readonly OcrTextRecognizer? _ocr;
 
@@ -130,14 +144,31 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
     /// <returns>The text of the window, or <see langword="null"/> if the window cannot be read.</returns>
     internal async Task<WindowText?> ReadWithFallbackAsync(IntPtr handle, int rank, CancellationToken cancellationToken)
     {
-        var accessible = await ReadWithTimeoutAsync(handle, rank, cancellationToken).ConfigureAwait(false);
+        var reading = StartReading(handle, rank, cancellationToken);
+        var accessible = await WithinAsync(reading, WindowTimeout, cancellationToken).ConfigureAwait(false);
+        var isLate = !reading.IsCompleted;
         var letterCount = accessible?.Text.Count(char.IsLetterOrDigit) ?? 0;
         if (rank == 0 || _ocr is null || !ReadImages || letterCount >= MinAccessibleTextLength)
         {
             return accessible;
         }
 
-        var fromImage = await ReadImageWithTimeoutAsync(_ocr, handle, cancellationToken).ConfigureAwait(false);
+        // A window slow to answer, such as a spreadsheet full of cells, may still give its whole text while its image
+        // is read: the screen shows a cell too narrow for its text cut short (« helene.more », Excel, 16/11/2026)
+        var imageReading = ReadImageWithTimeoutAsync(_ocr, handle, cancellationToken);
+        if (isLate)
+        {
+            var late = await WithinAsync(reading, ImageReadingTimeout, cancellationToken).ConfigureAwait(false);
+            if ((late?.Text.Count(char.IsLetterOrDigit) ?? 0) >= MinAccessibleTextLength)
+            {
+                return late;
+            }
+
+            accessible = late;
+            letterCount = late?.Text.Count(char.IsLetterOrDigit) ?? 0;
+        }
+
+        var fromImage = await imageReading.ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(fromImage) || fromImage.Count(char.IsLetterOrDigit) <= letterCount)
         {
             return accessible;
@@ -157,23 +188,45 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
         };
     }
 
-    private static async Task<WindowText?> ReadWithTimeoutAsync(IntPtr window, int rank, CancellationToken cancellationToken)
+    /// <summary>
+    /// Gives the result of a reading if it ends in time.
+    /// </summary>
+    /// <param name="reading">The reading.</param>
+    /// <param name="timeout">The time it is given.</param>
+    /// <param name="cancellationToken">A token to cancel the wait.</param>
+    /// <returns>The text read, or <see langword="null"/> if the reading is late; it goes on in the background.</returns>
+    private static async Task<WindowText?> WithinAsync(Task<WindowText?> reading, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        var finished = await Task.WhenAny(reading, Task.Delay(timeout, cancellationToken)).ConfigureAwait(false);
+        return finished == reading ? await reading.ConfigureAwait(false) : null;
+    }
+
+    private static Task<WindowText?> StartReading(IntPtr window, int rank, CancellationToken cancellationToken)
     {
         // The links of a window behind are read aside, in the same time: a page full of links never delays its text
         var reading = Task.Run(() => ReadWindow(window, rank), cancellationToken);
         var linksReading = rank == 0
             ? Task.FromResult<(string Address, IReadOnlyList<LinkText> Links)>((string.Empty, Array.Empty<LinkText>()))
             : Task.Run(() => WindowLinks.Read(window), cancellationToken);
-        var deadline = Task.Delay(WindowTimeout, cancellationToken);
-        var finished = await Task.WhenAny(reading, deadline).ConfigureAwait(false);
+        return AddLinksAsync(reading, linksReading, Task.Delay(WindowTimeout, cancellationToken), rank);
+    }
 
-        // A late window is ignored: UI Automation calls cannot be interrupted, the reading ends in the background
-        if (finished != reading || await reading.ConfigureAwait(false) is not { } text)
+    private static async Task<WindowText?> AddLinksAsync(
+        Task<WindowText?> reading,
+        Task<(string Address, IReadOnlyList<LinkText> Links)> linksReading,
+        Task deadline,
+        int rank)
+    {
+        // UI Automation calls cannot be interrupted: a late window ends its reading in the background
+        var text = await reading.ConfigureAwait(false);
+        if (text is null || rank == 0)
         {
-            return null;
+            return text;
         }
 
-        if (rank == 0 || await Task.WhenAny(linksReading, deadline).ConfigureAwait(false) != linksReading)
+        // The links never make the text later than the time given to a window
+        var finished = await Task.WhenAny(linksReading, deadline).ConfigureAwait(false);
+        if (finished != linksReading)
         {
             return text;
         }
@@ -236,7 +289,58 @@ internal sealed class UiAutomationWindowTextReader : IWindowTextReader
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .ToList();
         lines.AddRange(ReadTextPatterns(window));
+        lines.AddRange(ReadGrids(window));
         return string.Join('\n', lines);
+    }
+
+    /// <summary>
+    /// Reads the grids of cells, such as a spreadsheet, one row per line with a tab between cells: the whole value of
+    /// each cell, even when the cell is too narrow to show it (seen in Excel on 14/11/2026, read « helene.more » from
+    /// its image). Only the cells of the grid that Windows exposes are read, usually those on screen.
+    /// </summary>
+    /// <param name="window">The window to read.</param>
+    /// <returns>The rows that hold at least one value.</returns>
+    private static List<string> ReadGrids(AutomationElement window)
+    {
+        var rows = new List<string>();
+        foreach (AutomationElement grid in window.FindAll(TreeScope.Descendants, GridCondition))
+        {
+            try
+            {
+                var cache = new CacheRequest { AutomationElementMode = AutomationElementMode.None };
+                cache.Add(ValuePattern.ValueProperty);
+                cache.Add(GridItemPattern.RowProperty);
+                cache.Add(GridItemPattern.ColumnProperty);
+                AutomationElementCollection cells;
+                using (cache.Activate())
+                {
+                    cells = grid.FindAll(TreeScope.Descendants, CellCondition);
+                }
+
+                var values = new List<(int Row, int Column, string Value)>();
+                foreach (AutomationElement cell in cells.Cast<AutomationElement>().Take(MaxGridCells))
+                {
+                    if (cell.GetCachedPropertyValue(ValuePattern.ValueProperty, ignoreDefaultValue: true) is string value
+                        && !string.IsNullOrWhiteSpace(value)
+                        && cell.GetCachedPropertyValue(GridItemPattern.RowProperty, ignoreDefaultValue: false) is int row
+                        && cell.GetCachedPropertyValue(GridItemPattern.ColumnProperty, ignoreDefaultValue: false) is int column)
+                    {
+                        values.Add((row, column, value.Trim()));
+                    }
+                }
+
+                rows.AddRange(values
+                    .GroupBy(cell => cell.Row)
+                    .OrderBy(row => row.Key)
+                    .Select(row => string.Join('	', row.OrderBy(cell => cell.Column).Select(cell => cell.Value))));
+            }
+            catch (Exception exception) when (exception is ElementNotAvailableException or InvalidOperationException or COMException or ArgumentException)
+            {
+                // A grid that answers badly does not stop the reading
+            }
+        }
+
+        return rows;
     }
 
     /// <summary>

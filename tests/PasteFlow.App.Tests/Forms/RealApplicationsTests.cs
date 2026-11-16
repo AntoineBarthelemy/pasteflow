@@ -66,9 +66,11 @@ public sealed class RealApplicationsTests
         var fields = await new UiAutomationFormAccess().ReadFormAsync(app.Handle, CancellationToken.None);
 
         Assert.Empty(fields);
+
+        // The console writes its lines one after the other: the last one is awaited (16/11/2026, read between two lines)
         var deadline = DateTime.UtcNow + OpenTimeout;
         var text = string.Empty;
-        while (!text.Contains("CMD-4471", StringComparison.Ordinal) && DateTime.UtcNow < deadline)
+        while (!text.Contains("helene.moreau@moreau-conseil.fr", StringComparison.Ordinal) && DateTime.UtcNow < deadline)
         {
             Thread.Sleep(300);
             text = UiAutomationWindowTextReader.ReadWindow(app.Handle, 1)?.Text ?? string.Empty;
@@ -102,7 +104,7 @@ public sealed class RealApplicationsTests
         Skip.IfNot(File.Exists(excel), "Excel n'est pas installé sur cette machine.");
         Skip.If(Process.GetProcessesByName("EXCEL").Length > 0, "Excel est déjà ouvert : il n'est pas touché.");
 
-        using var app = RealApp.OpenWindow(excel, "commandes", "/x", FakeCsv("excel"));
+        using var app = RealApp.OpenWindow(excel, "commandes", "/x", FakeCsv("excel", "Reims"));
         Skip.If(app.Window is null, "Excel ne s'est pas ouvert.");
 
         // The grid shows a moment after the window, later at the first start of Excel
@@ -125,6 +127,25 @@ public sealed class RealApplicationsTests
         var access = new UiAutomationFormAccess();
         var fields = await access.ReadFormAsync(app.Handle, CancellationToken.None);
         Assert.True(FreePaste.IsFreeText(fields, access.DescribeCaret(grid!)), $"Champs lus : {string.Join(" ; ", fields.Select(field => $"« {field.Label} »"))}");
+
+        // Each cell is read whole, row by row, though the city next to it cuts the e-mail on screen: before the fix of
+        // 16/11/2026, the text shown by each cell was read, « helene.more », and the grid was not
+        var ocr = OcrTextRecognizer.TryCreate();
+
+        // A busy computer may answer late: the reading is tried again, as a user would press the shortcut again
+        var reader = new UiAutomationWindowTextReader(ocr);
+        var reading = await reader.ReadWithFallbackAsync(app.Handle, 1, CancellationToken.None);
+        var readingDeadline = DateTime.UtcNow + OpenTimeout;
+        while (reading?.Text.Contains("CMD-4471", StringComparison.Ordinal) != true && DateTime.UtcNow < readingDeadline)
+        {
+            Thread.Sleep(1000);
+            reading = await reader.ReadWithFallbackAsync(app.Handle, 1, CancellationToken.None);
+        }
+
+        Assert.NotNull(reading);
+        Assert.False(reading!.IsReadFromImage);
+        Assert.Contains("CMD-4471\thelene.moreau@moreau-conseil.fr\tReims", reading.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain(reading.Text.Split('\n'), line => line.Trim() == "helene.more");
     }
 
     [SkippableFact]
@@ -209,11 +230,13 @@ public sealed class RealApplicationsTests
         return path;
     }
 
-    private static string FakeCsv(string name)
+    private static string FakeCsv(string name, string? thirdColumn = null)
     {
         var path = Path.Combine(Path.GetTempPath(), $"pasteflow-reel-{name}-{Guid.NewGuid():N}", "commandes.csv");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, "Commande;E-mail\r\nCMD-4471;helene.moreau@moreau-conseil.fr\r\n", new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+        var header = thirdColumn is null ? "Commande;E-mail" : "Commande;E-mail;Ville";
+        var row = thirdColumn is null ? "CMD-4471;helene.moreau@moreau-conseil.fr" : $"CMD-4471;helene.moreau@moreau-conseil.fr;{thirdColumn}";
+        File.WriteAllText(path, $"{header}\r\n{row}\r\n", new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
         return path;
     }
 
@@ -289,9 +312,7 @@ public sealed class RealApplicationsTests
             while (window is null && DateTime.UtcNow < deadline)
             {
                 Thread.Sleep(500);
-                window = TopWindows().FirstOrDefault(candidate => !before.Contains(candidate.Current.NativeWindowHandle)
-                    && candidate.Current.ClassName != "MsoSplash"
-                    && (candidate.Current.Name.Contains(titleOrClass, StringComparison.OrdinalIgnoreCase) || candidate.Current.ClassName == titleOrClass));
+                window = TopWindows().FirstOrDefault(candidate => IsNewWindow(candidate, before, titleOrClass));
             }
 
             Thread.Sleep(3000);
@@ -323,6 +344,23 @@ public sealed class RealApplicationsTests
             }
 
             _process.Dispose();
+        }
+
+        private static bool IsNewWindow(AutomationElement candidate, HashSet<int> before, string titleOrClass)
+        {
+            try
+            {
+                var current = candidate.Current;
+                return !before.Contains(current.NativeWindowHandle)
+                    && current.ClassName != "MsoSplash"
+                    && (current.Name.Contains(titleOrClass, StringComparison.OrdinalIgnoreCase) || current.ClassName == titleOrClass);
+            }
+            catch (ElementNotAvailableException)
+            {
+                // A window closing while the windows are read, such as a splash screen: the program would stay open
+                // after the test (seen with Excel on 16/11/2026)
+                return false;
+            }
         }
 
         private static List<AutomationElement> TopWindows()
