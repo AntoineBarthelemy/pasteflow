@@ -52,11 +52,30 @@ public sealed partial class ScreenContext
     /// <returns>The context of the window being filled.</returns>
     public static ScreenContext From(IEnumerable<Candidate> candidates)
     {
-        ArgumentNullException.ThrowIfNull(candidates);
+        return From(candidates, Array.Empty<string>());
+    }
 
+    /// <summary>
+    /// Gathers what the window being filled says, from the values read in it (source rank 0), leaving out the labels of
+    /// its own fields: « Montant principal », the label of another field, does not point to the date written on the line
+    /// « montant principal (facture … du 12/08/2026) » for « Date d'envoi de la lettre » (seen on 16/11/2026).
+    /// </summary>
+    /// <param name="candidates">The values found on screen.</param>
+    /// <param name="fieldLabels">The labels of the fields of the form being filled.</param>
+    /// <returns>The context of the window being filled.</returns>
+    public static ScreenContext From(IEnumerable<Candidate> candidates, IEnumerable<string> fieldLabels)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+        ArgumentNullException.ThrowIfNull(fieldLabels);
+
+        var labels = fieldLabels
+            .Select(label => ReferenceText.Normalize(label))
+            .Where(label => label.Length > 0)
+            .ToHashSet(StringComparer.Ordinal);
         var rawTexts = candidates
             .Where(candidate => candidate.SourceRank == 0 && !candidate.IsFromHistory && !candidate.IsFromProfile)
             .Select(candidate => $"{candidate.Label} {candidate.Value}")
+            .Where(text => !labels.Contains(ReferenceText.Normalize(text)))
             .ToList();
         var texts = rawTexts
             .Select(ReferenceText.Normalize)
@@ -142,9 +161,11 @@ public sealed partial class ScreenContext
             .ToList();
     }
 
+    // A value is tied to its person or company, never to the words of its label: « en demeure de régler la somme de »
+    // made the title « Réponse à une mise en demeure » point to the total (16/11/2026)
     private static IEnumerable<string> TiedWords(Candidate candidate)
     {
-        return Words($"{candidate.Value} {candidate.Label} {candidate.Context}");
+        return Words($"{candidate.Value} {candidate.Context}");
     }
 
     /// <summary>

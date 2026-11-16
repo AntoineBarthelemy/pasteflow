@@ -116,6 +116,30 @@ public sealed class ScreenContextTests
         Assert.Empty(context.ChooseAmong(Emails));
     }
 
+    [Fact]
+    public void ChooseAmong_TheWordsOfALabelBesideAValueNeverPointToIt()
+    {
+        // Seen on 16/11/2026: « Montant principal », another field of the form, pointed to the date of the invoice
+        // written on the line « montant principal (facture … du 12/08/2026) », for « Date d'envoi de la lettre »
+        var dates = new[]
+        {
+            new Candidate { Value = "03/11/2026", Kind = CandidateKind.Date, Label = "Reims, le", SourceName = "Lettre", SourceRank = 1 },
+            new Candidate { Value = "12/08/2026", Kind = CandidateKind.Date, Label = "montant principal (facture", SourceName = "Lettre", SourceRank = 1 },
+        };
+
+        Assert.Empty(Context("Réponse à une mise en demeure", "Date d'envoi de la lettre", "Montant principal").ChooseAmong(dates));
+    }
+
+    [Fact]
+    public void From_LeavesOutTheLabelsOfTheFieldsOfTheForm()
+    {
+        var context = ScreenContext.From(
+            new[] { new Candidate { Value = "Objet : rendez-vous avec Hugo", SourceName = "Gmail", SourceRank = 0 } },
+            new[] { "Objet : rendez-vous avec Hugo" });
+
+        Assert.Empty(context.ChooseAmong(Emails));
+    }
+
     private static Candidate Email(string value, string context)
     {
         return new Candidate { Value = value, Kind = CandidateKind.Email, SourceName = "Claude", SourceRank = 1, Context = context };

@@ -122,7 +122,7 @@ public static partial class FormMatcher
         var profileCandidates = candidates.Where(candidate => candidate.IsFromProfile).ToList();
         var historyCandidates = candidates.Where(candidate => candidate.IsFromHistory).ToList();
         var noTakenValue = new HashSet<string>(StringComparer.Ordinal);
-        var context = ScreenContext.From(screenCandidates);
+        var context = ScreenContext.From(screenCandidates, formFields.Concat(fields).Select(field => field.Label));
         var firstMatches = fields
             .Select((field, index) => FieldMatcher.Match(field, clues[index], screenCandidates, noTakenValue, options, context))
             .ToArray();
