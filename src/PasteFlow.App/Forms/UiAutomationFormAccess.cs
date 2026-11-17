@@ -30,6 +30,7 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
     private const int MaxTextBeforeCaret = 200;
     private const int MaxGroupDepth = 3;
     private const int DateBoxCount = 3;
+    private const int DateTypingAttempts = 2;
 
     private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(100);
 
@@ -618,16 +619,53 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
             return false;
         }
 
+        // A busy computer may lose or double a digit (« 22026 »): the date is typed again once, and a date still wrong
+        // is erased, so that a wrong date is never left in the field while the fill says it failed
+        for (var attempt = 0; attempt < DateTypingAttempts; attempt++)
+        {
+            if (TypeDateOnce(boxes, parts.Select(part => part!.Value.Text).ToList())
+                && WaitFor(() => boxes.Select((box, index) => ShowsNumber(box, parts[index]!.Value.Number)).All(isShown => isShown)))
+            {
+                return true;
+            }
+        }
+
+        EraseDate(boxes);
+        return false;
+    }
+
+    // A box that gets the focus takes the digits typed as a new value: a digit of a previous try is not kept
+    private static bool TypeDateOnce(List<AutomationElement> boxes, List<string> texts)
+    {
         for (var index = 0; index < boxes.Count; index++)
         {
             boxes[index].SetFocus();
-            if (!WaitFor(() => HasFocus(boxes[index])) || !KeyboardTextInserter.TypeNow(parts[index]!.Value.Text))
+            if (!WaitFor(() => HasFocus(boxes[index])) || !KeyboardTextInserter.TypeNow(texts[index]))
             {
                 return false;
             }
         }
 
-        return WaitFor(() => boxes.Select((box, index) => ShowsNumber(box, parts[index]!.Value.Number)).All(isShown => isShown));
+        return true;
+    }
+
+    private static void EraseDate(List<AutomationElement> boxes)
+    {
+        foreach (var box in boxes)
+        {
+            try
+            {
+                box.SetFocus();
+                if (WaitFor(() => HasFocus(box)))
+                {
+                    KeyboardTextInserter.EraseNow(1);
+                }
+            }
+            catch (ElementNotAvailableException)
+            {
+                // The box disappeared: nothing is left in it
+            }
+        }
     }
 
     // « Jour Date de prise d'effet », « Mois … », « Année … » (or Day, Month, Year): the part of the date each box takes

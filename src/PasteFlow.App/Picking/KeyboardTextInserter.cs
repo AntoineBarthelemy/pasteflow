@@ -21,6 +21,7 @@ internal sealed class KeyboardTextInserter : ITextInserter
     private const ushort VirtualKeyShift = 0x10;
     private const ushort VirtualKeyReturn = 0x0D;
     private const ushort VirtualKeyInsert = 0x2D;
+    private const ushort VirtualKeyBack = 0x08;
     private const uint KeyEventExtended = 0x1;
 
     private static readonly int[] ModifierKeys = { 0x10, 0x11, 0x12, 0x5B, 0x5C };
@@ -106,6 +107,19 @@ internal sealed class KeyboardTextInserter : ITextInserter
         }
 
         var inputs = Keystrokes(text);
+        return NativeMethods.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Input>()) == inputs.Length;
+    }
+
+    /// <summary>
+    /// Presses the Backspace key a few times where the keyboard focus is, to empty a small box before typing in it.
+    /// </summary>
+    /// <param name="count">How many times the key is pressed.</param>
+    /// <returns><see langword="true"/> if every keystroke was sent; otherwise <see langword="false"/>.</returns>
+    internal static bool EraseNow(int count)
+    {
+        var inputs = Enumerable.Range(0, count)
+            .SelectMany(_ => new[] { Key(VirtualKeyBack, isUp: false), Key(VirtualKeyBack, isUp: true) })
+            .ToArray();
         return NativeMethods.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Input>()) == inputs.Length;
     }
 
