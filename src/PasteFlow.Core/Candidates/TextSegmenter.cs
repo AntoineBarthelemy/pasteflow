@@ -49,6 +49,7 @@ public static partial class TextSegmenter
         (EmailRegex, CandidateKind.Email),
         (UrlRegex, CandidateKind.Url),
         (IbanRegex, CandidateKind.Iban),
+        (SpacedVatRegex, CandidateKind.Reference),
         (SocialSecurityRegex, CandidateKind.Number),
         (CarPlateRegex, CandidateKind.Reference),
         (CompanyNumberRegex, CandidateKind.Number),
@@ -212,6 +213,7 @@ public static partial class TextSegmenter
                     {
                         CandidateKind.Number => value.Replace(" ", string.Empty, StringComparison.Ordinal),
                         CandidateKind.Reference when CarPlateRegex().IsMatch(value) => CarPlate(value),
+                        CandidateKind.Reference when SpacedVatRegex().IsMatch(value) => value.Replace(" ", string.Empty, StringComparison.Ordinal),
                         _ => value,
                     };
                     pieces.Add(Piece(pieceValue, kind, label.Length > 0 || previousEnd > 0 ? label : contextLabel));
@@ -288,6 +290,13 @@ public static partial class TextSegmenter
                 // Safety net: a value with the right shape but an impossible content (wrong IBAN key, 31/02...)
                 // is not taken for that kind, its text stays available to the next recognizers
                 if (!ValueValidator.IsValid(kind, value))
+                {
+                    continue;
+                }
+
+                // « FR94 844 710 236 » is one VAT number only when its key is right; otherwise its SIREN stays a number
+                if (kind == CandidateKind.Reference && value.Contains(' ', StringComparison.Ordinal)
+                    && SpacedVatRegex().IsMatch(value) && !ValueValidator.IsFrenchVatNumber(value))
                 {
                     continue;
                 }
@@ -420,6 +429,10 @@ public static partial class TextSegmenter
 
     [GeneratedRegex(@"\b(?:https?://|www\.)[^\s<>""]+", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
     private static partial Regex UrlRegex();
+
+    // A French VAT number written by groups, as on many letterheads: « FR94 844 710 236 », « FR 94 844710236 »
+    [GeneratedRegex(@"\bFR ?\d{2} ?\d{3} ?\d{3} ?\d{3}(?![\d,.])", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex SpacedVatRegex();
 
     [GeneratedRegex(@"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex IbanRegex();

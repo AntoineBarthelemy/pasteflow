@@ -13,6 +13,7 @@ public static class ValueValidator
     private const int MaxIbanLength = 34;
     private const int PostalCodeLength = 5;
     private const int SirenLength = 9;
+    private const int FrenchVatLength = 13;
     private const int SiretLength = 14;
 
     private static readonly string[] DateFormats =
@@ -40,6 +41,28 @@ public static class ValueValidator
             CandidateKind.Email => IsValidEmail(value),
             _ => true,
         };
+    }
+
+    /// <summary>
+    /// Determines whether a value is a French intra-community VAT number, spaces aside: FR, a key of 2 digits and the
+    /// SIREN of the company (entreprendre.service-public.gouv.fr F23570), the key being (12 + 3 × (SIREN mod 97)) mod 97.
+    /// </summary>
+    /// <param name="value">The value to check.</param>
+    /// <returns><see langword="true"/> for a valid French VAT number; otherwise <see langword="false"/>.</returns>
+    public static bool IsFrenchVatNumber(string value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        var compact = value.Replace(" ", string.Empty, StringComparison.Ordinal).ToUpperInvariant();
+        if (compact.Length != FrenchVatLength || !compact.StartsWith("FR", StringComparison.Ordinal)
+            || !compact[2..].All(char.IsAsciiDigit))
+        {
+            return false;
+        }
+
+        var siren = compact[4..];
+        var key = int.Parse(compact[2..4], System.Globalization.CultureInfo.InvariantCulture);
+        return IsSirenOrSiret(siren) && key == (12 + (3 * (long.Parse(siren, System.Globalization.CultureInfo.InvariantCulture) % 97))) % 97;
     }
 
     /// <summary>

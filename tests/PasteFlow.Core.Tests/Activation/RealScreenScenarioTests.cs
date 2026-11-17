@@ -140,6 +140,34 @@ public sealed class RealScreenScenarioTests : IDisposable
     }
 
     [Fact]
+    public void Fill_PurchaseOrderWithTwoVatNumbers_WritesTheWholeVatNumberOfTheCustomer()
+    {
+        // Numéro de TVA intracommunautaire (entreprendre.service-public.gouv.fr F23570): FR, a key of 2 digits, the
+        // SIREN. Written by groups on the letterhead, it was cut and only « FR94 » was written (seen on 17/11/2026)
+        const string Screen = """
+            Fromagerie des Coteaux SAS
+            8 rue de la Paix, 51200 Épernay
+            SIREN 844 710 236
+            TVA intracommunautaire : FR94 844 710 236
+
+            BON DE COMMANDE N° CMD-2026-1187
+
+            Fournisseur : Emballages Rémois SARL
+            N° TVA du fournisseur : FR75512345679
+            """;
+        var form = new[]
+        {
+            TestFields.Text("tva", "N° TVA intracommunautaire du client"),
+            TestFields.Text("siren", "SIREN du client"),
+        };
+
+        Fill(form, Screen);
+
+        Assert.Equal("FR94844710236", _fields.WrittenValues.GetValueOrDefault("tva"));
+        Assert.Equal("844710236", _fields.WrittenValues.GetValueOrDefault("siren"));
+    }
+
+    [Fact]
     public void Fill_WithASingleNameField_PutsTheWholeName()
     {
         Fill(new[] { TestFields.Text("name", "Nom"), TestFields.Text("email", "Email") }, Signature);
