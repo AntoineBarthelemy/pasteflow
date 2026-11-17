@@ -501,6 +501,20 @@ public static class LabelConcepts
     }
 
     /// <summary>
+    /// Tells whether a field asks for the name of a party other than the one a letter is sent to: « Créancier »,
+    /// « Bailleur », « Expéditeur », but not « Destinataire ».
+    /// </summary>
+    /// <param name="fieldConcepts">The concepts of the label of the field.</param>
+    /// <returns><see langword="true"/> if the field asks for such a party.</returns>
+    public static bool AsksForAPartyOtherThanAddressee(IReadOnlySet<string> fieldConcepts)
+    {
+        ArgumentNullException.ThrowIfNull(fieldConcepts);
+
+        return fieldConcepts.Any(RoleWords.Contains)
+            && !fieldConcepts.Any(concept => Fold(concept) is "destinataire" or "destinataires");
+    }
+
+    /// <summary>
     /// Tells whether a label names a place in general, not its commune nor its address: « Lieu de chargement ».
     /// </summary>
     /// <param name="label">The label of a value.</param>

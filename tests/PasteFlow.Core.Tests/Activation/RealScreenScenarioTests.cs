@@ -106,6 +106,40 @@ public sealed class RealScreenScenarioTests : IDisposable
     }
 
     [Fact]
+    public void Fill_LetterSentToTheOnlyPerson_DoesNotMakeHerTheCreditor()
+    {
+        // Mise en demeure d'une société de recouvrement (service-public.gouv.fr F35106): the only person named is the
+        // debtor the letter is sent to; the creditor is a company. She must never be written as the creditor
+        const string Screen = """
+            Recouvrement Est Services
+            12 rue Libergier, 51100 Reims
+
+            Reims, le 03/11/2026
+            Réf. : RES-2026-04817
+
+            Madame Claire Fontaine
+            4 rue des Capucins, 51100 Reims
+
+            LETTRE DE MISE EN DEMEURE
+
+            Madame,
+            Pour le compte de notre client, la société Électricité Marne Distribution, 40 avenue de Laon, 51100 Reims, nous vous mettons en demeure de régler la somme de 412,60 €.
+
+            Le service contentieux
+            """;
+        var form = new[]
+        {
+            TestFields.Text("creancier", "Créancier"),
+            TestFields.Text("debiteur", "Débiteur"),
+            TestFields.Text("dest", "Destinataire"),
+        };
+
+        Fill(form, Screen);
+
+        Assert.NotEqual("Claire Fontaine", _fields.WrittenValues.GetValueOrDefault("creancier"));
+    }
+
+    [Fact]
     public void Fill_WithASingleNameField_PutsTheWholeName()
     {
         Fill(new[] { TestFields.Text("name", "Nom"), TestFields.Text("email", "Email") }, Signature);

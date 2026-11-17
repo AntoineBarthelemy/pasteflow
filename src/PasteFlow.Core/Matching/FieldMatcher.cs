@@ -241,9 +241,14 @@ public static class FieldMatcher
         // « Expéditeur : Verrerie Champenoise » on screen: the name of whoever signs the mail is not the only choice
         var isRoleNamed = eligible.Exists(candidate => IsNameOfTheRole(candidate, clues));
 
+        // The person a letter is sent to is not, for that only reason, the creditor or the sender of that letter
+        var addressees = !isRoleNamed && clues.AsksForAPartyOtherThanAddressee()
+            ? LetterAddressees(candidates)
+            : new HashSet<string>(StringComparer.Ordinal);
+
         // A value found several times keeps its best score: it is one choice, not several
         return eligible
-            .Select(candidate => (Candidate: candidate, Score: Score(candidate, clues, distinctValuesByKind, pointedValues, isRoleNamed)))
+            .Select(candidate => (Candidate: candidate, Score: Score(candidate, clues, distinctValuesByKind, pointedValues, isRoleNamed || addressees.Contains(candidate.Value))))
             .Where(scored => scored.Score > 0 && (!takenValues.Contains(scored.Candidate.Value) || HasOwnLabel(scored.Candidate, clues, takenValues)))
             .GroupBy(scored => scored.Candidate.Value, StringComparer.Ordinal)
             .Select(group => group.MaxBy(scored => scored.Score))
@@ -310,6 +315,41 @@ public static class FieldMatcher
             && takenValues.Any(taken => taken.StartsWith(prefix, StringComparison.Ordinal))
             && !takenValues.Contains(TakenUnder(candidate))
             && clues.Similarity(LabelConcepts.From(candidate.Label)) >= OwnLabelSimilarity;
+    }
+
+    // A letter opened by a bare « Madame, » or « Monsieur, » is sent to the person named with that title above it:
+    // « Madame Claire Fontaine » on the mise en demeure is the debtor, never the creditor (seen on 16/11/2026)
+    private static HashSet<string> LetterAddressees(IReadOnlyList<Candidate> candidates)
+    {
+        var addressees = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var window in candidates.GroupBy(candidate => (candidate.SourceRank, candidate.SourceName)))
+        {
+            if (!window.Any(candidate => candidate.Kind == CandidateKind.Text && IsBareSalutation(candidate.Value)))
+            {
+                continue;
+            }
+
+            addressees.UnionWith(window
+                .Where(candidate => candidate.Kind is CandidateKind.FullName or CandidateKind.FirstName or CandidateKind.LastName
+                    && StartsWithTitle(candidate.Context))
+                .Select(candidate => candidate.Value));
+        }
+
+        return addressees;
+    }
+
+    private static bool IsBareSalutation(string text)
+    {
+        var words = Reference.ReferenceText.Normalize(text).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.Length is > 0 and <= 4
+            && text.TrimEnd().EndsWith(',')
+            && words.All(word => word is "MADAME" or "MONSIEUR" or "MADEMOISELLE" or "MAITRE" or "DOCTEUR" or "CHER" or "CHERE");
+    }
+
+    private static bool StartsWithTitle(string context)
+    {
+        var first = Reference.ReferenceText.Normalize(context).Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return first is "MADAME" or "MONSIEUR" or "MADEMOISELLE" or "MME" or "MLLE" or "M" or "MAITRE" or "ME";
     }
 
     // « Expéditeur : Verrerie Champenoise » names who has the role; a value with digits is an address or a number

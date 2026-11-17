@@ -126,6 +126,15 @@ public sealed partial class FieldClues
     }
 
     /// <summary>
+    /// Tells whether the field asks for the name of a party other than the person a letter is sent to: « Créancier ».
+    /// </summary>
+    /// <returns><see langword="true"/> if the field asks for such a party.</returns>
+    public bool AsksForAPartyOtherThanAddressee()
+    {
+        return LabelConcepts.AsksForAPartyOtherThanAddressee(_labelConcepts);
+    }
+
+    /// <summary>
     /// Measures how much the label of a value talks about the same thing as the field, a place standing for its
     /// address when the field asks for one: « Lieu de chargement » for « Adresse complète du lieu de chargement ».
     /// </summary>
