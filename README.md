@@ -181,3 +181,8 @@ GitHub Actions (`.github/workflows/ci.yml`), à chaque push sur `main` et à cha
 - vérification des messages de commit des pull requests
 
 Dependabot propose chaque semaine la mise à jour des paquets NuGet et des actions GitHub.
+
+## Licence
+
+Copyright (c) 2026 Antoine Barthélémy. Tous droits réservés. All rights reserved.
+Aucune licence libre : le code est visible, mais il est interdit de le reprendre, de le copier ou de le redistribuer sans autorisation écrite.
