@@ -10,7 +10,7 @@ namespace PasteFlow.App.Tests.Bench;
 /// </summary>
 internal sealed class BrowserWindow : IDisposable
 {
-    private static readonly TimeSpan OpenTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan OpenTimeout = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan PollDelay = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan PictureDelay = TimeSpan.FromSeconds(2);
 

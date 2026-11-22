@@ -209,6 +209,13 @@ public static partial class TextSegmenter
                         label = previous.Label;
                     }
 
+                    // « Montant versé le 05/11/2026 : 500,00 € », « montant principal (facture F-1 du 12/08/2026) : 389,00 € »:
+                    // the value after the colon is labelled by the words before it, without the values they hold
+                    if (previousEnd > 0 && label.Length == 0 && before.Contains(':', StringComparison.Ordinal))
+                    {
+                        label = WordsBeforeColon(line[..(previousEnd + before.IndexOf(':', StringComparison.Ordinal))]);
+                    }
+
                     var pieceValue = kind switch
                     {
                         CandidateKind.Number => value.Replace(" ", string.Empty, StringComparison.Ordinal),
@@ -355,6 +362,23 @@ public static partial class TextSegmenter
     private static string WithRole(string role, string label)
     {
         return label.Length == 0 || label.Contains(role, StringComparison.Ordinal) ? (label.Length == 0 ? role : label) : $"{role} : {label}";
+    }
+
+    // The words that name a value, in the text before its colon: the values written inside it (a date, a
+    // reference, a parenthesis) and the small words left at its end are not part of the name
+    private static string WordsBeforeColon(string text)
+    {
+        var parenthesis = text.IndexOf('(', StringComparison.Ordinal);
+        var words = (parenthesis >= 0 ? text[..parenthesis] : text)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .TakeWhile(word => !word.Any(char.IsAsciiDigit))
+            .ToList();
+        while (words.Count > 0 && LinkingWords.Contains(words[^1].ToLowerInvariant()))
+        {
+            words.RemoveAt(words.Count - 1);
+        }
+
+        return CleanLabel(string.Join(' ', words));
     }
 
     /// <summary>
