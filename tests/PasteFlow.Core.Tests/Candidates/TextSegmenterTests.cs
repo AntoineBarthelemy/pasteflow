@@ -27,6 +27,10 @@ public sealed class TextSegmenterTests
     [InlineData("Numéro client 4521873", "4521873", CandidateKind.Number, "Numéro client")]
     [InlineData("Montant versé le 05/11/2026 : 500,00 € (paiement partiel)", "500,00 €", CandidateKind.Amount, "Montant versé")]
     [InlineData("- montant principal (facture F-2026-7781 du 12/08/2026) : 389,00 €", "389,00 €", CandidateKind.Amount, "montant principal")]
+    [InlineData("Arrêt du 18/11/2026 au 29/11/2026 inclus.", "18/11/2026", CandidateKind.Date, "Début Arrêt")]
+    [InlineData("Arrêt du 18/11/2026 au 29/11/2026 inclus.", "29/11/2026", CandidateKind.Date, "Fin Arrêt")]
+    [InlineData("Location du 01/12/2026 jusqu'au 15/12/2026", "15/12/2026", CandidateKind.Date, "Fin Location")]
+    [InlineData("Du 02/01/2027 au 09/01/2027", "02/01/2027", CandidateKind.Date, "Début")]
     public void Segment_RecognizesValueWithItsLabel(string line, string value, CandidateKind kind, string label)
     {
         var pieces = TextSegmenter.Segment(line);

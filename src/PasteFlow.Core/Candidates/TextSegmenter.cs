@@ -201,6 +201,15 @@ public static partial class TextSegmenter
 
                     var label = CleanLabel(before);
 
+                    // « Arrêt du 18/11/2026 au 29/11/2026 » : the first date is the start of the period, the second its end
+                    if (kind == CandidateKind.Date && previousEnd > 0 && IsPeriodEnd(label)
+                        && pieces.FindLastIndex(piece => piece.Kind != CandidateKind.Text) is var startIndex and >= 0
+                        && pieces[startIndex].Kind == CandidateKind.Date && PeriodSubject(pieces[startIndex].Label) is { } subject)
+                    {
+                        pieces[startIndex] = pieces[startIndex] with { Label = $"Début {subject}".TrimEnd() };
+                        label = $"Fin {subject}".TrimEnd();
+                    }
+
                     // « Prise de poste : 23/11/2026 à 08:30 » : a time or a date after another value of the line, with
                     // only a small word between them, belongs to the same label
                     if (previousEnd > 0 && label.Length > 0 && (kind == CandidateKind.Time || kind == CandidateKind.Date)
@@ -362,6 +371,21 @@ public static partial class TextSegmenter
     private static string WithRole(string role, string label)
     {
         return label.Length == 0 || label.Contains(role, StringComparison.Ordinal) ? (label.Length == 0 ? role : label) : $"{role} : {label}";
+    }
+
+    // « au », « jusqu'au » : the word before the last date of a period
+    private static bool IsPeriodEnd(string label)
+    {
+        return label.ToLowerInvariant().Replace('’', '\'') is "au" or "jusqu'au" or "jusqu au";
+    }
+
+    // « Arrêt du » before the first date of a period gives « Arrêt », what the period is about; « du » alone gives nothing
+    private static string? PeriodSubject(string label)
+    {
+        var words = label.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.Length > 0 && string.Equals(words[^1], "du", StringComparison.OrdinalIgnoreCase)
+            ? string.Join(' ', words[..^1])
+            : null;
     }
 
     // The words that name a value, in the text before its colon: the values written inside it (a date, a

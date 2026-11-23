@@ -132,6 +132,8 @@ public sealed class BrowserFieldWritingTests : IDisposable
     private BrowserWindow Open()
     {
         File.WriteAllText(_file, Page);
-        return BrowserWindow.Open(new Uri(_file), "Ville");
+
+        // The last control of the page: the browser builds its tree in order, so every field is there once it is
+        return BrowserWindow.Open(new Uri(_file), "Logement meublé");
     }
 }

@@ -405,6 +405,22 @@ public sealed class FormMatcherTests
     }
 
     [Fact]
+    public void MatchAll_PeriodFromTo_GivesTheFirstDateToTheStartAndTheSecondToTheEnd()
+    {
+        var candidates = TextSegmenter.Segment("Arrêt du 18/11/2026 au 29/11/2026 inclus.")
+            .Where(piece => piece.Kind == CandidateKind.Date)
+            .Select(piece => Candidate(piece.Value, piece.Kind, piece.Label))
+            .ToArray();
+
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("debut", "Début de l'arrêt"), TestFields.Text("fin", "Fin de l'arrêt") },
+            candidates);
+
+        AssertFills(matches[0], "18/11/2026");
+        AssertFills(matches[1], "29/11/2026");
+    }
+
+    [Fact]
     public void MatchAll_WithoutFields_ReturnsNothing()
     {
         var matches = FormMatcher.MatchAll(
