@@ -31,6 +31,7 @@ public sealed class TextSegmenterTests
     [InlineData("Arrêt du 18/11/2026 au 29/11/2026 inclus.", "29/11/2026", CandidateKind.Date, "Fin Arrêt")]
     [InlineData("Location du 01/12/2026 jusqu'au 15/12/2026", "15/12/2026", CandidateKind.Date, "Fin Location")]
     [InlineData("Du 02/01/2027 au 09/01/2027", "02/01/2027", CandidateKind.Date, "Début")]
+    [InlineData("Pendant l'arrêt je séjourne chez ma sœur : 23 avenue Foch, 08000 Charleville-Mézières.", "23 avenue Foch, 08000 Charleville-Mézières", CandidateKind.Text, "Pendant l'arrêt je séjourne chez ma sœur adresse")]
     public void Segment_RecognizesValueWithItsLabel(string line, string value, CandidateKind kind, string label)
     {
         var pieces = TextSegmenter.Segment(line);

@@ -365,7 +365,10 @@ public static partial class TextSegmenter
         }
 
         var end = Array.FindIndex(parts, street, part => PostalCodeAndCommuneRegex().IsMatch(part));
-        return string.Join(", ", parts[street..(end < 0 ? street + 1 : end + 1)]);
+        var address = string.Join(", ", parts[street..(end < 0 ? street + 1 : end + 1)]);
+
+        // « … 23 avenue Foch, 08000 Charleville-Mézières. » : the full stop ends the sentence, not the commune
+        return end >= 0 && address.EndsWith('.') ? address[..^1] : address;
     }
 
     private static string WithRole(string role, string label)

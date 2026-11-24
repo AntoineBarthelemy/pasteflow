@@ -421,6 +421,47 @@ public sealed class FormMatcherTests
     }
 
     [Fact]
+    public void MatchAll_AddressNamedByASentence_GoesToTheFieldTheSentenceNames()
+    {
+        var candidates = Segmented(
+            "Mon adresse habituelle : 8 rue de Vesle, 51100 Reims.\n"
+            + "Pendant l'arrêt je séjourne chez ma sœur : 23 avenue Foch, 08000 Charleville-Mézières.");
+
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("sejour", "Adresse pendant l'arrêt (si différente)") },
+            candidates);
+
+        AssertFills(matches[0], "23 avenue Foch, 08000 Charleville-Mézières");
+    }
+
+    [Fact]
+    public void MatchAll_TwoAddressesForABareAddressField_FillsNothing()
+    {
+        var candidates = Segmented(
+            "Mon adresse habituelle : 8 rue de Vesle, 51100 Reims.\n"
+            + "Pendant l'arrêt je séjourne chez ma sœur : 23 avenue Foch, 08000 Charleville-Mézières.");
+
+        var matches = FormMatcher.MatchAll(new[] { TestFields.Text("adresse", "Adresse") }, candidates);
+
+        Assert.False(matches[0].IsConfident);
+    }
+
+    [Fact]
+    public void MatchAll_PaymentDate_TakesTheDateOfThePaymentAndLeavesTheMeansOfPaymentEmpty()
+    {
+        var candidates = Segmented(
+            "Montant versé le 05/11/2026 : 500,00 € (paiement partiel)\n"
+            + "Reste dû : 225,00 €, que je réglerai le 20/11/2026.");
+
+        var matches = FormMatcher.MatchAll(
+            new[] { TestFields.Text("date", "Date du paiement"), TestFields.Text("mode", "Mode de paiement") },
+            candidates);
+
+        AssertFills(matches[0], "05/11/2026");
+        Assert.False(matches[1].IsConfident);
+    }
+
+    [Fact]
     public void MatchAll_WithoutFields_ReturnsNothing()
     {
         var matches = FormMatcher.MatchAll(
@@ -448,6 +489,11 @@ public sealed class FormMatcherTests
     private static Candidate Candidate(string value, CandidateKind kind, string label)
     {
         return new Candidate { Value = value, Kind = kind, Label = label, SourceName = "Gmail", SourceRank = 1 };
+    }
+
+    private static Candidate[] Segmented(string text)
+    {
+        return TextSegmenter.Segment(text).Select(piece => Candidate(piece.Value, piece.Kind, piece.Label)).ToArray();
     }
 
     private static void AssertFills(FieldMatch match, string expectedValue)

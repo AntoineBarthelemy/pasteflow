@@ -181,7 +181,7 @@ public static class LabelConcepts
         [Measure] = new[] { "surface", "superficie", "poids", "distance", "kilometrage", "longueur", "largeur", "hauteur", "profondeur" },
         [Time] = new[] { "heure", "horaire", "time", "hour" },
         [Hiring] = new[] { "embauche", "hiring" },
-        [Paid] = new[] { "paye", "payee", "verse", "versee", "paid" },
+        [Paid] = new[] { "paye", "payee", "verse", "versee", "paiement", "paid" },
         [Sex] = new[] { "sexe", "genre", "civilite", "sex", "gender" },
         [Former] = new[] { "ancien", "ancienne", "anciens", "anciennes", "precedent", "precedente", "old", "former", "previous" },
     });

@@ -20,6 +20,7 @@ public sealed partial class FieldClues
     private readonly IReadOnlySet<string>[] _conceptSets;
     private readonly string? _headConcept;
     private readonly IReadOnlySet<string> _labelConcepts;
+    private IReadOnlySet<string> _mainConcepts = new HashSet<string>(StringComparer.Ordinal);
 
     private FieldClues(IReadOnlySet<string>[] conceptSets, IReadOnlySet<CandidateKind> expectedKinds, bool isConfirmation, bool asksForNumber, string? headConcept, IReadOnlySet<string> labelConcepts)
     {
@@ -99,7 +100,13 @@ public sealed partial class FieldClues
 
         var asksForNumber = LabelConcepts.AsksForNumber(field.Label) || LabelConcepts.AsksForNumber(technicalName);
 
-        return new FieldClues(conceptSets, expectedKinds, isConfirmation, asksForNumber, LabelConcepts.HeadConcept(field.Label), labelConcepts);
+        // « Adresse pendant l'arrêt (si différente) » : the words in brackets only tell when to fill the field
+        var mainConcepts = LabelConcepts.From(BracketsRegex().Replace(field.Label, " "));
+
+        return new FieldClues(conceptSets, expectedKinds, isConfirmation, asksForNumber, LabelConcepts.HeadConcept(field.Label), labelConcepts)
+        {
+            _mainConcepts = mainConcepts,
+        };
     }
 
     /// <summary>
@@ -112,6 +119,21 @@ public sealed partial class FieldClues
         ArgumentNullException.ThrowIfNull(concept);
 
         return _conceptSets.Any(concepts => concepts.Contains(concept));
+    }
+
+    /// <summary>
+    /// Tells whether the label of a value holds every word of the label of the field, as a sentence that names it:
+    /// « Pendant l'arrêt je séjourne chez ma sœur » for « Adresse pendant l'arrêt (si différente) ». A label of a
+    /// single word, such as « Adresse », is never named in full by a longer one: it may be anyone's.
+    /// </summary>
+    /// <param name="labelConcepts">The concepts of the label of the value.</param>
+    /// <returns><see langword="true"/> if the label holds at least two words of the field and all of them.</returns>
+    public bool IsNamedInFull(IReadOnlySet<string> labelConcepts)
+    {
+        ArgumentNullException.ThrowIfNull(labelConcepts);
+
+        var specific = _mainConcepts.Where(concept => !LabelConcepts.ShapeConcepts.Contains(concept)).ToList();
+        return specific.Count >= 2 && specific.Count == _mainConcepts.Count && specific.TrueForAll(labelConcepts.Contains);
     }
 
     /// <summary>
@@ -263,4 +285,7 @@ public sealed partial class FieldClues
 
     [GeneratedRegex(@"\bhh?\s?[:h]\s?mm\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
     private static partial Regex TimePatternRegex();
+
+    [GeneratedRegex(@"\([^()]*\)", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
+    private static partial Regex BracketsRegex();
 }

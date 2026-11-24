@@ -52,6 +52,7 @@ public static class FieldMatcher
     private const double LinkPenalty = 0.05;
     private const double FormerPenalty = 0.3;
     private const double OwnLabelSimilarity = 0.8;
+    private const double NamedInFullSimilarity = 0.9;
     private const char TakenSeparator = '\u0001';
 
     /// <summary>
@@ -394,7 +395,14 @@ public static class FieldMatcher
             }
         }
 
-        score += LabelWeight * (isNameOfTheRole ? 1 : clues.SimilarityOfLabel(candidate.Label));
+        // A plain text whose label is a sentence holding every word of the field names it, however long the sentence
+        var similarity = isNameOfTheRole ? 1 : clues.SimilarityOfLabel(candidate.Label);
+        if (candidate.Kind == CandidateKind.Text && clues.ExpectedKinds.All(kind => kind == CandidateKind.Text) && clues.IsNamedInFull(labelConcepts))
+        {
+            similarity = Math.Max(similarity, NamedInFullSimilarity);
+        }
+
+        score += LabelWeight * similarity;
         score -= RankPenalty * candidate.SourceRank;
 
         // A value said to be no longer true ("Ancienne adresse : …") is never sure, unless the field asks for it
