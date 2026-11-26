@@ -36,7 +36,9 @@ internal sealed class UiAutomationFormAccess : IFormReader, IFieldWriter, IField
 
     // Words of the invite a list shows before a choice, accents and case aside
     private static readonly List<string> InviteWords = new() { "CHOISI", "SELECTION", "SELECT", "VEUILLEZ", "CHOOSE" };
-    private static readonly TimeSpan WriteCheckTimeout = TimeSpan.FromMilliseconds(1500);
+
+    // A browser busy with other work may show a written value after more than a second (seen on 26/11/2026)
+    private static readonly TimeSpan WriteCheckTimeout = TimeSpan.FromMilliseconds(2500);
     private static readonly TimeSpan WriteCheckDelay = TimeSpan.FromMilliseconds(50);
     private static readonly string[] DayFirstDateFormats = { "dd/MM/yyyy", "d/M/yyyy", "dd.MM.yyyy", "dd-MM-yyyy" };
 

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using PasteFlow.Core.Candidates;
 using PasteFlow.Core.Reference;
 
@@ -8,7 +9,7 @@ namespace PasteFlow.Core.Matching;
 /// Turns a label into the concepts it talks about, so that labels written differently can be compared:
 /// "E-mail", "Courriel" and "Adresse mail" all talk about an email; "Référence" and "Commande n°" about an order.
 /// </summary>
-public static class LabelConcepts
+public static partial class LabelConcepts
 {
     /// <summary>
     /// Concept of an email address.
@@ -155,6 +156,16 @@ public static class LabelConcepts
     /// </summary>
     public const string Sex = "sexe";
 
+    /// <summary>
+    /// A letter sent by post: « Date de la lettre », and the place heading a letter before its date, « Reims, le ».
+    /// </summary>
+    public const string Letter = "letter";
+
+    /// <summary>
+    /// A sum asked to be paid: « Total réclamé », « vous mettons en demeure de régler la somme de ».
+    /// </summary>
+    public const string Claimed = "claimed";
+
     private static readonly Dictionary<string, string> Synonyms = BuildSynonyms(new Dictionary<string, string[]>
     {
         [Email] = new[] { "email", "mail", "courriel", "emails", "electronique" },
@@ -183,6 +194,8 @@ public static class LabelConcepts
         [Hiring] = new[] { "embauche", "hiring" },
         [Paid] = new[] { "paye", "payee", "verse", "versee", "paiement", "paid" },
         [Sex] = new[] { "sexe", "genre", "civilite", "sex", "gender" },
+        [Letter] = new[] { "lettre", "courrier", "letter" },
+        [Claimed] = new[] { "reclame", "reclamee", "reclames", "reclamees", "reclamer", "regler", "demeure" },
         [Former] = new[] { "ancien", "ancienne", "anciens", "anciennes", "precedent", "precedente", "old", "former", "previous" },
     });
 
@@ -327,6 +340,12 @@ public static class LabelConcepts
     public static IReadOnlySet<string> From(string label)
     {
         ArgumentNullException.ThrowIfNull(label);
+
+        // « Reims, le » before a date heads a letter: that date is the date of the letter
+        if (IsLetterHeading(label))
+        {
+            return new HashSet<string>(StringComparer.Ordinal) { Letter };
+        }
 
         var words = Words(label);
         if (words.Count > 0 && words.TrueForAll(RecipientWords.Contains))
@@ -528,6 +547,18 @@ public static class LabelConcepts
     }
 
     /// <summary>
+    /// Tells whether a label is the place heading a letter, before its date: « Reims, le » or « Fait à Reims, le ».
+    /// </summary>
+    /// <param name="label">The text before a date.</param>
+    /// <returns><see langword="true"/> if the label is a place followed by « , le »; otherwise <see langword="false"/>.</returns>
+    public static bool IsLetterHeading(string label)
+    {
+        ArgumentNullException.ThrowIfNull(label);
+
+        return LetterHeading().IsMatch(label);
+    }
+
+    /// <summary>
     /// Measures how much two sets of concepts overlap.
     /// </summary>
     /// <param name="first">The first set of concepts.</param>
@@ -664,4 +695,7 @@ public static class LabelConcepts
 
         return words;
     }
+
+    [GeneratedRegex(@"^\s*(?:[Ff]ait\s+(?:à|a)\s+)?\p{Lu}[\p{L}'\- ]{1,40},\s*le\s*$", RegexOptions.CultureInvariant)]
+    private static partial Regex LetterHeading();
 }

@@ -462,6 +462,42 @@ public sealed class FormMatcherTests
     }
 
     [Fact]
+    public void MatchAll_LetterHeading_GivesTheDateOfTheLetterAndTheClaimedSum()
+    {
+        var candidates = Segmented(
+            "Reims, le 03/11/2026\n"
+            + "Nous vous mettons en demeure de régler la somme de 412,60 €, qui se décompose ainsi :\n"
+            + "- montant principal (facture F-2026-7781 du 12/08/2026) : 389,00 €\n"
+            + "- intérêts de retard : 8,60 €\n"
+            + "- sommes accessoires : 15,00 €");
+
+        var matches = FormMatcher.MatchAll(
+            new[]
+            {
+                TestFields.Text("lettre", "Date d'envoi de la lettre"),
+                TestFields.Text("facture", "Date de la facture"),
+                TestFields.Text("total", "Total réclamé"),
+                TestFields.Text("principal", "Montant principal"),
+            },
+            candidates);
+
+        AssertFills(matches[0], "03/11/2026");
+        AssertFills(matches[1], "12/08/2026");
+        AssertFills(matches[2], "412,60 €");
+        AssertFills(matches[3], "389,00 €");
+    }
+
+    [Theory]
+    [InlineData("Reims, le", true)]
+    [InlineData("Fait à Châlons-en-Champagne, le", true)]
+    [InlineData("montant principal (facture", false)]
+    [InlineData("Payé le", false)]
+    public void IsLetterHeading_KnowsThePlaceHeadingALetter(string label, bool expected)
+    {
+        Assert.Equal(expected, LabelConcepts.IsLetterHeading(label));
+    }
+
+    [Fact]
     public void MatchAll_WithoutFields_ReturnsNothing()
     {
         var matches = FormMatcher.MatchAll(
